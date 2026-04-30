@@ -185,6 +185,59 @@ function App() {
     }
   }
 
+  async function updateDecisionStatus(decisionId: string, status: string) {
+    setMessage('')
+
+    try {
+      const response = await fetch(`${apiUrl}/decisions/${decisionId}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Nao foi possivel atualizar a decisao.')
+      }
+
+      const updatedDecision = (await response.json()) as Decision
+      setDecisions((currentDecisions) =>
+        currentDecisions.map((item) =>
+          item.id === updatedDecision.id ? updatedDecision : item,
+        ),
+      )
+      setMessage('Status atualizado.')
+    } catch {
+      setMessage('Erro ao atualizar status.')
+    }
+  }
+
+  async function deleteDecision(decisionId: string) {
+    setMessage('')
+
+    try {
+      const response = await fetch(`${apiUrl}/decisions/${decisionId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Nao foi possivel excluir a decisao.')
+      }
+
+      setDecisions((currentDecisions) =>
+        currentDecisions.filter((item) => item.id !== decisionId),
+      )
+      setMessage('Decisao excluida.')
+    } catch {
+      setMessage('Erro ao excluir decisao.')
+    }
+  }
+
   function handleLogout() {
     localStorage.removeItem('decisionlog:token')
     localStorage.removeItem('decisionlog:user')
@@ -361,6 +414,29 @@ function App() {
                       <dd>{item.user?.name || 'Registro anterior ao login'}</dd>
                     </div>
                   </dl>
+                  <div className="card-actions">
+                    <button
+                      type="button"
+                      onClick={() => updateDecisionStatus(item.id, 'approved')}
+                      disabled={item.status === 'approved'}
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateDecisionStatus(item.id, 'archived')}
+                      disabled={item.status === 'archived'}
+                    >
+                      Arquivar
+                    </button>
+                    <button
+                      className="danger-button"
+                      type="button"
+                      onClick={() => deleteDecision(item.id)}
+                    >
+                      Excluir
+                    </button>
+                  </div>
                   <time dateTime={item.createdAt}>
                     {new Intl.DateTimeFormat('pt-BR', {
                       dateStyle: 'short',

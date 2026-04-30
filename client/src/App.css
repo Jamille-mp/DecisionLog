@@ -205,6 +205,27 @@ button:disabled {
   color: #334155;
 }
 
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.card-actions button {
+  border-radius: 5px;
+  font-size: 13px;
+  padding: 7px 10px;
+}
+
+.danger-button {
+  background: #be123c;
+}
+
+.danger-button:hover:not(:disabled) {
+  background: #9f1239;
+}
+
 dl {
   display: grid;
   gap: 12px;

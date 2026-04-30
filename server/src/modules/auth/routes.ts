@@ -1,15 +1,17 @@
 import bcrypt from "bcryptjs";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
-import { ZodError } from "zod";
+import { AppError } from "../../errors/AppError";
 import { logActivity } from "../../lib/mongodb";
 import { prisma } from "../../lib/prisma";
+import { asyncHandler } from "../../middlewares/asyncHandler";
 import { loginSchema, registerSchema } from "../../schemas/auth";
 
 export const authRoutes = Router();
 
-authRoutes.post("/register", async (request, response) => {
-  try {
+authRoutes.post(
+  "/register",
+  asyncHandler(async (request, response) => {
     const data = registerSchema.parse(request.body);
     const existingUser = await prisma.user.findUnique({
       where: {
@@ -18,8 +20,7 @@ authRoutes.post("/register", async (request, response) => {
     });
 
     if (existingUser) {
-      response.status(409).json({ error: "E-mail ja cadastrado." });
-      return;
+      throw new AppError("E-mail ja cadastrado.", 409);
     }
 
     const passwordHash = await bcrypt.hash(data.password, 10);
@@ -37,22 +38,19 @@ authRoutes.post("/register", async (request, response) => {
       },
     });
 
-    void logActivity("USER_REGISTERED", { userId: user.id, email: user.email }, user.id);
+    void logActivity(
+      "USER_REGISTERED",
+      { userId: user.id, email: user.email },
+      user.id,
+    );
 
     response.status(201).json(user);
-  } catch (error) {
-    if (error instanceof ZodError) {
-      response.status(400).json({ error: "Dados invalidos.", issues: error.issues });
-      return;
-    }
+  }),
+);
 
-    console.error("Error registering user:", error);
-    response.status(500).json({ error: "Erro ao cadastrar usuario." });
-  }
-});
-
-authRoutes.post("/login", async (request, response) => {
-  try {
+authRoutes.post(
+  "/login",
+  asyncHandler(async (request, response) => {
     const data = loginSchema.parse(request.body);
     const user = await prisma.user.findUnique({
       where: {
@@ -61,15 +59,13 @@ authRoutes.post("/login", async (request, response) => {
     });
 
     if (!user) {
-      response.status(401).json({ error: "Credenciais invalidas." });
-      return;
+      throw new AppError("Credenciais invalidas.", 401);
     }
 
     const passwordMatches = await bcrypt.compare(data.password, user.passwordHash);
 
     if (!passwordMatches) {
-      response.status(401).json({ error: "Credenciais invalidas." });
-      return;
+      throw new AppError("Credenciais invalidas.", 401);
     }
 
     const token = jwt.sign(
@@ -83,7 +79,11 @@ authRoutes.post("/login", async (request, response) => {
       },
     );
 
-    void logActivity("USER_LOGGED_IN", { userId: user.id, email: user.email }, user.id);
+    void logActivity(
+      "USER_LOGGED_IN",
+      { userId: user.id, email: user.email },
+      user.id,
+    );
 
     response.json({
       token,
@@ -93,13 +93,5 @@ authRoutes.post("/login", async (request, response) => {
         email: user.email,
       },
     });
-  } catch (error) {
-    if (error instanceof ZodError) {
-      response.status(400).json({ error: "Dados invalidos.", issues: error.issues });
-      return;
-    }
-
-    console.error("Error logging in:", error);
-    response.status(500).json({ error: "Erro ao fazer login." });
-  }
-});
+  }),
+);
