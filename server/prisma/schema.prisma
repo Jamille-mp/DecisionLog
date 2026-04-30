@@ -7,6 +7,18 @@ datasource db {
   provider = "mysql"
 }
 
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  decisions    Decision[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@map("users")
+}
+
 model Decision {
   id        String   @id @default(uuid())
   title     String
@@ -14,6 +26,8 @@ model Decision {
   decision  String   @db.Text
   reason    String   @db.Text
   status    String   @default("pending")
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

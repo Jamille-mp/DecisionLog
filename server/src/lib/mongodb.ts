@@ -14,7 +14,11 @@ function getClient() {
   return connection;
 }
 
-export async function logActivity(action: string, details: Record<string, unknown>) {
+export async function logActivity(
+  action: string,
+  details: Record<string, unknown>,
+  userId?: string,
+) {
   try {
     const connectedClient = await getClient();
     const database = connectedClient.db("decisionlog_logs");
@@ -22,6 +26,7 @@ export async function logActivity(action: string, details: Record<string, unknow
 
     await logs.insertOne({
       action,
+      userId,
       details,
       timestamp: new Date(),
     });
