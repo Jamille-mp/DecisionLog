@@ -6,6 +6,7 @@ import { asyncHandler } from "../../middlewares/asyncHandler";
 import { isAuthenticated } from "../../middlewares/isAuthenticated";
 import {
   createDecisionSchema,
+  listDecisionQuerySchema,
   updateDecisionSchema,
 } from "../../schemas/decision";
 
@@ -30,7 +31,21 @@ decisionRoutes.use(isAuthenticated);
 decisionRoutes.get(
   "/",
   asyncHandler(async (request, response) => {
+    const { status, search } = listDecisionQuerySchema.parse(request.query);
     const decisions = await prisma.decision.findMany({
+      where: {
+        ...(status ? { status } : {}),
+        ...(search
+          ? {
+              OR: [
+                { title: { contains: search } },
+                { context: { contains: search } },
+                { decision: { contains: search } },
+                { reason: { contains: search } },
+              ],
+            }
+          : {}),
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -41,6 +56,10 @@ decisionRoutes.get(
       "DECISIONS_VIEWED",
       {
         total: decisions.length,
+        filters: {
+          status,
+          search,
+        },
       },
       request.user?.id,
     );

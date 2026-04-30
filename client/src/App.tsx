@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Toaster, toast } from 'sonner'
 import './App.css'
 
 type User = {
@@ -46,6 +47,12 @@ const emptyAuth: AuthState = {
 }
 
 const apiUrl = 'http://localhost:3333'
+const statusOptions = [
+  { label: 'Todos', value: '' },
+  { label: 'Pendentes', value: 'pending' },
+  { label: 'Aprovadas', value: 'approved' },
+  { label: 'Arquivadas', value: 'archived' },
+]
 
 function App() {
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -60,14 +67,26 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [search, setSearch] = useState('')
 
-  async function loadDecisions(currentToken = token) {
+  async function loadDecisions(currentToken = token, filters = { statusFilter, search }) {
     if (!currentToken) {
       return
     }
 
     setIsLoading(true)
-    const response = await fetch(`${apiUrl}/decisions`, {
+    const params = new URLSearchParams()
+
+    if (filters.statusFilter) {
+      params.set('status', filters.statusFilter)
+    }
+
+    if (filters.search.trim()) {
+      params.set('search', filters.search.trim())
+    }
+
+    const response = await fetch(`${apiUrl}/decisions?${params.toString()}`, {
       headers: {
         Authorization: `Bearer ${currentToken}`,
       },
@@ -94,7 +113,7 @@ function App() {
         handleLogout()
       })
       .finally(() => setIsLoading(false))
-  }, [token])
+  }, [token, statusFilter, search])
 
   function updateField(field: keyof FormState, value: string) {
     setForm((currentForm) => ({
@@ -138,6 +157,7 @@ function App() {
         setAuthMode('login')
         setAuthForm((currentForm) => ({ ...currentForm, password: '' }))
         setMessage('Usuario cadastrado. Agora faca login.')
+        toast.success('Usuario cadastrado. Agora faca login.')
         return
       }
 
@@ -148,8 +168,10 @@ function App() {
       setUser(data.user)
       setAuthForm(emptyAuth)
       setMessage('')
+      toast.success('Login realizado.')
     } catch {
       setMessage('Nao foi possivel autenticar. Confira os dados e a API.')
+      toast.error('Nao foi possivel autenticar.')
     } finally {
       setIsSubmitting(false)
     }
@@ -175,11 +197,17 @@ function App() {
       }
 
       const createdDecision = (await response.json()) as Decision
-      setDecisions((currentDecisions) => [createdDecision, ...currentDecisions])
+      setDecisions((currentDecisions) =>
+        matchesCurrentFilters(createdDecision)
+          ? [createdDecision, ...currentDecisions]
+          : currentDecisions,
+      )
       setForm(emptyForm)
       setMessage('Decisao registrada com sucesso.')
+      toast.success('Decisao registrada.')
     } catch {
       setMessage('Erro ao salvar. Confira se o backend esta rodando.')
+      toast.error('Erro ao salvar decisao.')
     } finally {
       setIsSubmitting(false)
     }
@@ -204,13 +232,17 @@ function App() {
 
       const updatedDecision = (await response.json()) as Decision
       setDecisions((currentDecisions) =>
-        currentDecisions.map((item) =>
-          item.id === updatedDecision.id ? updatedDecision : item,
-        ),
+        matchesCurrentFilters(updatedDecision)
+          ? currentDecisions.map((item) =>
+              item.id === updatedDecision.id ? updatedDecision : item,
+            )
+          : currentDecisions.filter((item) => item.id !== updatedDecision.id),
       )
       setMessage('Status atualizado.')
+      toast.success('Status atualizado.')
     } catch {
       setMessage('Erro ao atualizar status.')
+      toast.error('Erro ao atualizar status.')
     }
   }
 
@@ -233,9 +265,26 @@ function App() {
         currentDecisions.filter((item) => item.id !== decisionId),
       )
       setMessage('Decisao excluida.')
+      toast.success('Decisao excluida.')
     } catch {
       setMessage('Erro ao excluir decisao.')
+      toast.error('Erro ao excluir decisao.')
     }
+  }
+
+  function matchesCurrentFilters(decisionItem: Decision) {
+    const query = search.trim().toLowerCase()
+    const matchesStatus = !statusFilter || decisionItem.status === statusFilter
+    const matchesSearch =
+      !query ||
+      [
+        decisionItem.title,
+        decisionItem.context,
+        decisionItem.decision,
+        decisionItem.reason,
+      ].some((value) => value.toLowerCase().includes(query))
+
+    return matchesStatus && matchesSearch
   }
 
   function handleLogout() {
@@ -249,6 +298,7 @@ function App() {
   if (!token || !user) {
     return (
       <main className="app-shell auth-shell">
+        <Toaster richColors position="top-right" />
         <section className="panel auth-panel">
           <div className="section-heading">
             <span className="eyebrow">DecisionLog</span>
@@ -320,6 +370,7 @@ function App() {
 
   return (
     <main className="app-shell">
+      <Toaster richColors position="top-right" />
       <section className="workspace">
         <aside className="panel form-panel">
           <div className="section-heading">
@@ -385,6 +436,31 @@ function App() {
           <div className="section-heading">
             <span className="eyebrow">Historico</span>
             <h2>Decisoes registradas</h2>
+          </div>
+
+          <div className="filters">
+            <label>
+              Buscar
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Titulo, contexto, decisao ou motivo"
+              />
+            </label>
+
+            <label>
+              Status
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                {statusOptions.map((option) => (
+                  <option key={option.value || 'all'} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
 
           {isLoading ? (

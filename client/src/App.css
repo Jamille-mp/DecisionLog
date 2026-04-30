@@ -99,6 +99,7 @@ label {
 }
 
 input,
+select,
 textarea {
   width: 100%;
   box-sizing: border-box;
@@ -122,6 +123,7 @@ textarea {
 }
 
 input:focus,
+select:focus,
 textarea:focus {
   border-color: #0f766e;
   background: #ffffff;
@@ -173,6 +175,13 @@ button:disabled {
 .decision-list {
   display: grid;
   gap: 14px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 220px);
+  gap: 12px;
+  margin-bottom: 18px;
 }
 
 .decision-card {
@@ -260,5 +269,9 @@ time {
 
   .form-panel {
     position: static;
+  }
+
+  .filters {
+    grid-template-columns: 1fr;
   }
 }
