@@ -1,0 +1,21 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model Decision {
+  id        String   @id @default(uuid())
+  title     String
+  context   String   @db.Text
+  decision  String   @db.Text
+  reason    String   @db.Text
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("decisions")
+}
