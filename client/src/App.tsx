@@ -54,6 +54,12 @@ const statusOptions = [
   { label: 'Arquivadas', value: 'archived' },
 ]
 
+const statusLabels: Record<string, string> = {
+  pending: 'Pendente',
+  approved: 'Aprovada',
+  archived: 'Arquivada',
+}
+
 function App() {
   const [form, setForm] = useState<FormState>(emptyForm)
   const [authForm, setAuthForm] = useState<AuthState>(emptyAuth)
@@ -295,6 +301,23 @@ function App() {
     setDecisions([])
   }
 
+  const dashboard = decisions.reduce(
+    (summary, item) => ({
+      total: summary.total + 1,
+      pending: summary.pending + (item.status === 'pending' ? 1 : 0),
+      approved: summary.approved + (item.status === 'approved' ? 1 : 0),
+      archived: summary.archived + (item.status === 'archived' ? 1 : 0),
+    }),
+    {
+      total: 0,
+      pending: 0,
+      approved: 0,
+      archived: 0,
+    },
+  )
+
+  const latestDecisions = decisions.slice(0, 3)
+
   if (!token || !user) {
     return (
       <main className="app-shell auth-shell">
@@ -437,6 +460,39 @@ function App() {
             <span className="eyebrow">Historico</span>
             <h2>Decisoes registradas</h2>
           </div>
+
+          <section className="dashboard" aria-label="Resumo das decisoes">
+            <article>
+              <span>Total</span>
+              <strong>{dashboard.total}</strong>
+            </article>
+            <article>
+              <span>Pendentes</span>
+              <strong>{dashboard.pending}</strong>
+            </article>
+            <article>
+              <span>Aprovadas</span>
+              <strong>{dashboard.approved}</strong>
+            </article>
+            <article>
+              <span>Arquivadas</span>
+              <strong>{dashboard.archived}</strong>
+            </article>
+          </section>
+
+          {latestDecisions.length > 0 && (
+            <section className="latest-decisions" aria-label="Ultimas decisoes">
+              <h3>Ultimas decisoes</h3>
+              <ul>
+                {latestDecisions.map((item) => (
+                  <li key={item.id}>
+                    <span>{item.title}</span>
+                    <strong>{statusLabels[item.status] || item.status}</strong>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           <div className="filters">
             <label>
