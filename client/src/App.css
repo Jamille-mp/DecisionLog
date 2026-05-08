@@ -1,10 +1,52 @@
 .app-shell {
   min-height: 100vh;
   background:
-    linear-gradient(180deg, rgba(247, 248, 250, 0.92), rgba(236, 240, 243, 0.92)),
+    radial-gradient(circle at top left, rgba(15, 118, 110, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(226, 232, 240, 0.96)),
     #f3f5f7;
   color: #1f2933;
   padding: 32px;
+}
+
+.app-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  max-width: 1180px;
+  margin: 0 auto 24px;
+}
+
+.app-header h1 {
+  font-size: 34px;
+}
+
+.app-header p {
+  margin: 8px 0 0;
+  color: #475569;
+}
+
+.session-card {
+  min-width: 220px;
+  border: 1px solid #d9e0e7;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.84);
+  padding: 14px 16px;
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.08);
+}
+
+.session-card span {
+  display: block;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.session-card strong {
+  display: block;
+  color: #0f766e;
+  margin-top: 4px;
 }
 
 .workspace {
@@ -30,7 +72,8 @@
 
 .auth-panel {
   width: min(100%, 420px);
-  padding: 24px;
+  padding: 28px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.16);
 }
 
 .form-panel {
@@ -213,6 +256,7 @@ button:disabled {
   border-radius: 8px;
   background: #f8fafc;
   padding: 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .dashboard span,
@@ -324,6 +368,21 @@ button:disabled {
   padding: 3px 9px;
 }
 
+.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-archived {
+  background: #e2e8f0;
+  color: #475569;
+}
+
 .decision-card p {
   margin: 0 0 14px;
   color: #334155;
@@ -376,6 +435,15 @@ time {
 @media (max-width: 860px) {
   .app-shell {
     padding: 16px;
+  }
+
+  .app-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .session-card {
+    width: 100%;
   }
 
   .workspace {

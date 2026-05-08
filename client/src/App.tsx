@@ -68,6 +68,15 @@ const statusLabels: Record<string, string> = {
   archived: 'Arquivada',
 }
 
+const actionLabels: Record<string, string> = {
+  USER_REGISTERED: 'Usuário cadastrado',
+  USER_LOGGED_IN: 'Login realizado',
+  DECISIONS_VIEWED: 'Decisões visualizadas',
+  DECISION_CREATED: 'Decisão criada',
+  DECISION_UPDATED: 'Decisão atualizada',
+  DECISION_DELETED: 'Decisão excluída',
+}
+
 function App() {
   const [form, setForm] = useState<FormState>(emptyForm)
   const [authForm, setAuthForm] = useState<AuthState>(emptyAuth)
@@ -110,7 +119,7 @@ function App() {
     })
 
     if (!response.ok) {
-      throw new Error('Nao foi possivel carregar as decisoes.')
+      throw new Error('Não foi possível carregar as decisões.')
     }
 
     const data = (await response.json()) as Decision[]
@@ -131,7 +140,7 @@ function App() {
     })
 
     if (!response.ok) {
-      throw new Error('Nao foi possivel carregar a auditoria.')
+      throw new Error('Não foi possível carregar a auditoria.')
     }
 
     const data = (await response.json()) as AuditLog[]
@@ -150,7 +159,7 @@ function App() {
 
     loader()
       .catch(() => {
-        setMessage('Sessao expirada ou API indisponivel. Faca login novamente.')
+        setMessage('Sessão expirada ou API indisponível. Faça login novamente.')
         handleLogout()
       })
       .finally(() => setIsLoading(false))
@@ -191,14 +200,14 @@ function App() {
       })
 
       if (!response.ok) {
-        throw new Error('Falha na autenticacao.')
+        throw new Error('Falha na autenticação.')
       }
 
       if (authMode === 'register') {
         setAuthMode('login')
         setAuthForm((currentForm) => ({ ...currentForm, password: '' }))
-        setMessage('Usuario cadastrado. Agora faca login.')
-        toast.success('Usuario cadastrado. Agora faca login.')
+        setMessage('Usuário cadastrado. Agora faça login.')
+        toast.success('Usuário cadastrado. Agora faça login.')
         return
       }
 
@@ -211,8 +220,8 @@ function App() {
       setMessage('')
       toast.success('Login realizado.')
     } catch {
-      setMessage('Nao foi possivel autenticar. Confira os dados e a API.')
-      toast.error('Nao foi possivel autenticar.')
+      setMessage('Não foi possível autenticar. Confira os dados e a API.')
+      toast.error('Não foi possível autenticar.')
     } finally {
       setIsSubmitting(false)
     }
@@ -238,7 +247,7 @@ function App() {
       )
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel salvar a decisao.')
+        throw new Error('Não foi possível salvar a decisão.')
       }
 
       const savedDecision = (await response.json()) as Decision
@@ -252,21 +261,21 @@ function App() {
             : currentDecisions.filter((item) => item.id !== savedDecision.id),
         )
         setEditingDecision(null)
-        toast.success('Decisao atualizada.')
+        toast.success('Decisão atualizada.')
       } else {
         setDecisions((currentDecisions) =>
           matchesCurrentFilters(savedDecision)
             ? [savedDecision, ...currentDecisions]
             : currentDecisions,
         )
-        toast.success('Decisao registrada.')
+        toast.success('Decisão registrada.')
       }
 
       setForm(emptyForm)
-      setMessage(isEditing ? 'Decisao atualizada.' : 'Decisao registrada com sucesso.')
+      setMessage(isEditing ? 'Decisão atualizada.' : 'Decisão registrada com sucesso.')
     } catch {
-      setMessage('Erro ao salvar. Confira se o backend esta rodando.')
-      toast.error('Erro ao salvar decisao.')
+      setMessage('Erro ao salvar. Confira se o backend está rodando.')
+      toast.error('Erro ao salvar decisão.')
     } finally {
       setIsSubmitting(false)
     }
@@ -286,7 +295,7 @@ function App() {
       })
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel atualizar a decisao.')
+        throw new Error('Não foi possível atualizar a decisão.')
       }
 
       const updatedDecision = (await response.json()) as Decision
@@ -317,17 +326,17 @@ function App() {
       })
 
       if (!response.ok) {
-        throw new Error('Nao foi possivel excluir a decisao.')
+        throw new Error('Não foi possível excluir a decisão.')
       }
 
       setDecisions((currentDecisions) =>
         currentDecisions.filter((item) => item.id !== decisionId),
       )
-      setMessage('Decisao excluida.')
-      toast.success('Decisao excluida.')
+      setMessage('Decisão excluída.')
+      toast.success('Decisão excluída.')
     } catch {
-      setMessage('Erro ao excluir decisao.')
-      toast.error('Erro ao excluir decisao.')
+      setMessage('Erro ao excluir decisão.')
+      toast.error('Erro ao excluir decisão.')
     }
   }
 
@@ -417,7 +426,7 @@ function App() {
                 type="email"
                 value={authForm.email}
                 onChange={(event) => updateAuthField('email', event.target.value)}
-                placeholder="voce@email.com"
+                placeholder="seu.email@exemplo.com"
                 required
               />
             </label>
@@ -428,7 +437,7 @@ function App() {
                 type="password"
                 value={authForm.password}
                 onChange={(event) => updateAuthField('password', event.target.value)}
-                placeholder="Minimo de 6 caracteres"
+                placeholder="Mínimo de 6 caracteres"
                 required
               />
             </label>
@@ -452,7 +461,7 @@ function App() {
               setMessage('')
             }}
           >
-            {authMode === 'login' ? 'Criar uma conta' : 'Ja tenho uma conta'}
+            {authMode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
           </button>
 
           {message && <p className="status-message">{message}</p>}
@@ -464,17 +473,28 @@ function App() {
   return (
     <main className="app-shell">
       <Toaster richColors position="top-right" />
+      <header className="app-header">
+        <div>
+          <span className="eyebrow">DecisionLog</span>
+          <h1>Gestão de decisões</h1>
+          <p>Registre, acompanhe e audite decisões importantes do projeto.</p>
+        </div>
+        <div className="session-card">
+          <span>Sessão ativa</span>
+          <strong>{user.name}</strong>
+        </div>
+      </header>
       <section className="workspace">
         <aside className="panel form-panel">
           <div className="section-heading">
             <span className="eyebrow">DecisionLog</span>
-            <h1>{editingDecision ? 'Editar decisao' : 'Registrar decisao'}</h1>
+            <h1>{editingDecision ? 'Editar decisão' : 'Registrar decisão'}</h1>
             <p className="user-line">Logado como {user.name}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="decision-form">
             <label>
-              Titulo
+              Título
               <input
                 value={form.title}
                 onChange={(event) => updateField('title', event.target.value)}
@@ -488,13 +508,13 @@ function App() {
               <textarea
                 value={form.context}
                 onChange={(event) => updateField('context', event.target.value)}
-                placeholder="Cenario, restricoes, pessoas envolvidas..."
+                placeholder="Cenário, restrições, pessoas envolvidas..."
                 required
               />
             </label>
 
             <label>
-              Decisao
+              Decisão
               <textarea
                 value={form.decision}
                 onChange={(event) => updateField('decision', event.target.value)}
@@ -517,14 +537,14 @@ function App() {
               {isSubmitting
                 ? 'Salvando...'
                 : editingDecision
-                  ? 'Atualizar decisao'
-                  : 'Salvar decisao'}
+                  ? 'Atualizar decisão'
+                  : 'Salvar decisão'}
             </button>
           </form>
 
           {editingDecision && (
             <button className="ghost-button" type="button" onClick={cancelEditing}>
-              Cancelar edicao
+              Cancelar edição
             </button>
           )}
 
@@ -539,15 +559,15 @@ function App() {
           <div className="section-heading with-tabs">
             <div>
               <span className="eyebrow">Painel</span>
-              <h2>{activeView === 'audit' ? 'Auditoria' : 'Decisoes registradas'}</h2>
+              <h2>{activeView === 'audit' ? 'Auditoria' : 'Decisões registradas'}</h2>
             </div>
-            <nav className="view-tabs" aria-label="Navegacao principal">
+            <nav className="view-tabs" aria-label="Navegação principal">
               <button
                 type="button"
                 className={activeView === 'decisions' ? 'active' : ''}
                 onClick={() => setActiveView('decisions')}
               >
-                Decisoes
+                Decisões
               </button>
               <button
                 type="button"
@@ -565,13 +585,13 @@ function App() {
                 <p className="empty-state">Carregando auditoria...</p>
               ) : auditLogs.length === 0 ? (
                 <p className="empty-state">
-                  Nenhum log encontrado. Verifique se o MongoDB esta rodando.
+                  Nenhum log encontrado. Verifique se o MongoDB está rodando.
                 </p>
               ) : (
                 auditLogs.map((log) => (
                   <article className="audit-card" key={log.id}>
                     <div className="card-header">
-                      <h3>{log.action}</h3>
+                      <h3>{actionLabels[log.action] || log.action}</h3>
                       <time dateTime={log.timestamp}>
                         {new Intl.DateTimeFormat('pt-BR', {
                           dateStyle: 'short',
@@ -579,7 +599,7 @@ function App() {
                         }).format(new Date(log.timestamp))}
                       </time>
                     </div>
-                    <p>Usuario: {log.userId || 'sem usuario informado'}</p>
+                    <p>Usuário: {log.userId || 'sem usuário informado'}</p>
                     <pre>{JSON.stringify(log.details || {}, null, 2)}</pre>
                   </article>
                 ))
@@ -587,7 +607,7 @@ function App() {
             </section>
           ) : (
             <>
-              <section className="dashboard" aria-label="Resumo das decisoes">
+              <section className="dashboard" aria-label="Resumo das decisões">
                 <article>
                   <span>Total</span>
                   <strong>{dashboard.total}</strong>
@@ -607,8 +627,8 @@ function App() {
               </section>
 
               {latestDecisions.length > 0 && (
-                <section className="latest-decisions" aria-label="Ultimas decisoes">
-                  <h3>Ultimas decisoes</h3>
+                <section className="latest-decisions" aria-label="Últimas decisões">
+                  <h3>Últimas decisões</h3>
                   <ul>
                     {latestDecisions.map((item) => (
                       <li key={item.id}>
@@ -626,7 +646,7 @@ function App() {
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Titulo, contexto, decisao ou motivo"
+                    placeholder="Título, contexto, decisão ou motivo"
                   />
                 </label>
 
@@ -648,14 +668,16 @@ function App() {
               {isLoading ? (
                 <p className="empty-state">Carregando registros...</p>
               ) : decisions.length === 0 ? (
-                <p className="empty-state">Nenhuma decisao registrada ainda.</p>
+                <p className="empty-state">Nenhuma decisão registrada ainda.</p>
               ) : (
                 <div className="decision-list">
                   {decisions.map((item) => (
                     <article className="decision-card" key={item.id}>
                       <div className="card-header">
                         <h3>{item.title}</h3>
-                        <span>{item.status}</span>
+                        <span className={`status-badge status-${item.status}`}>
+                          {statusLabels[item.status] || item.status}
+                        </span>
                       </div>
                       <p>{item.decision}</p>
                       <dl>

@@ -21,7 +21,7 @@ export function isAuthenticated(
   const [, token] = authHeader.split(" ");
 
   if (!token) {
-    response.status(401).json({ error: "Token invalido." });
+    response.status(401).json({ error: "Token inválido." });
     return;
   }
 
@@ -38,6 +38,6 @@ export function isAuthenticated(
 
     next();
   } catch {
-    response.status(401).json({ error: "Token invalido." });
+    response.status(401).json({ error: "Token inválido." });
   }
 }

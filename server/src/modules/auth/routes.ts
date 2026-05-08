@@ -20,7 +20,7 @@ authRoutes.post(
     });
 
     if (existingUser) {
-      throw new AppError("E-mail ja cadastrado.", 409);
+      throw new AppError("E-mail já cadastrado.", 409);
     }
 
     const passwordHash = await bcrypt.hash(data.password, 10);
@@ -59,13 +59,13 @@ authRoutes.post(
     });
 
     if (!user) {
-      throw new AppError("Credenciais invalidas.", 401);
+      throw new AppError("Credenciais inválidas.", 401);
     }
 
     const passwordMatches = await bcrypt.compare(data.password, user.passwordHash);
 
     if (!passwordMatches) {
-      throw new AppError("Credenciais invalidas.", 401);
+      throw new AppError("Credenciais inválidas.", 401);
     }
 
     const token = jwt.sign(

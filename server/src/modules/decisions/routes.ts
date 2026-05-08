@@ -107,7 +107,7 @@ decisionRoutes.put(
     const decisionId = getDecisionId(request.params.id);
 
     if (!decisionId) {
-      throw new AppError("ID da decisao ausente.", 400);
+      throw new AppError("ID da decisão ausente.", 400);
     }
 
     const currentDecision = await prisma.decision.findUnique({
@@ -117,11 +117,11 @@ decisionRoutes.put(
     });
 
     if (!currentDecision) {
-      throw new AppError("Decisao nao encontrada.", 404);
+      throw new AppError("Decisão não encontrada.", 404);
     }
 
     if (currentDecision.userId && currentDecision.userId !== request.user?.id) {
-      throw new AppError("Voce nao pode alterar esta decisao.", 403);
+      throw new AppError("Você não pode alterar esta decisão.", 403);
     }
 
     const updatedDecision = await prisma.decision.update({
@@ -152,7 +152,7 @@ decisionRoutes.delete(
     const decisionId = getDecisionId(request.params.id);
 
     if (!decisionId) {
-      throw new AppError("ID da decisao ausente.", 400);
+      throw new AppError("ID da decisão ausente.", 400);
     }
 
     const currentDecision = await prisma.decision.findUnique({
@@ -162,11 +162,11 @@ decisionRoutes.delete(
     });
 
     if (!currentDecision) {
-      throw new AppError("Decisao nao encontrada.", 404);
+      throw new AppError("Decisão não encontrada.", 404);
     }
 
     if (currentDecision.userId && currentDecision.userId !== request.user?.id) {
-      throw new AppError("Voce nao pode excluir esta decisao.", 403);
+      throw new AppError("Você não pode excluir esta decisão.", 403);
     }
 
     await prisma.decision.delete({
