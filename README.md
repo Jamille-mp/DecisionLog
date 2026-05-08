@@ -78,6 +78,8 @@ Senha: 123456
 - Filtro por status
 - Dashboard com totais por status
 - Aprovar, arquivar e excluir decisoes
+- Edicao completa de decisoes
+- Tela de auditoria dos logs do MongoDB
 - Auditoria em MongoDB para acoes relevantes
 - Tratamento global de erros
 
@@ -90,6 +92,7 @@ GET  /decisions
 POST /decisions
 PUT  /decisions/:id
 DELETE /decisions/:id
+GET  /audit-logs
 ```
 
 Filtros:

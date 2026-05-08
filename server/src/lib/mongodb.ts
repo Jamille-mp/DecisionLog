@@ -34,3 +34,15 @@ export async function logActivity(
     console.error("Erro ao gravar log no MongoDB:", error);
   }
 }
+
+export async function listAuditLogs(limit = 50) {
+  const connectedClient = await getClient();
+  const database = connectedClient.db("decisionlog_logs");
+  const logs = database.collection("audit_logs");
+
+  return logs
+    .find({})
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .toArray();
+}

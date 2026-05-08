@@ -20,6 +20,14 @@ type Decision = {
   user?: User | null
 }
 
+type AuditLog = {
+  id: string
+  action: string
+  userId?: string
+  details?: Record<string, unknown>
+  timestamp: string
+}
+
 type FormState = {
   title: string
   context: string
@@ -70,6 +78,9 @@ function App() {
     return storedUser ? (JSON.parse(storedUser) as User) : null
   })
   const [decisions, setDecisions] = useState<Decision[]>([])
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
+  const [activeView, setActiveView] = useState<'decisions' | 'audit'>('decisions')
+  const [editingDecision, setEditingDecision] = useState<Decision | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [message, setMessage] = useState('')
@@ -107,19 +118,43 @@ function App() {
     setIsLoading(false)
   }
 
+  async function loadAuditLogs(currentToken = token) {
+    if (!currentToken) {
+      return
+    }
+
+    setIsLoading(true)
+    const response = await fetch(`${apiUrl}/audit-logs`, {
+      headers: {
+        Authorization: `Bearer ${currentToken}`,
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error('Nao foi possivel carregar a auditoria.')
+    }
+
+    const data = (await response.json()) as AuditLog[]
+    setAuditLogs(data)
+    setIsLoading(false)
+  }
+
   useEffect(() => {
     if (!token) {
       setIsLoading(false)
       return
     }
 
-    loadDecisions()
+    const loader =
+      activeView === 'audit' ? () => loadAuditLogs() : () => loadDecisions()
+
+    loader()
       .catch(() => {
         setMessage('Sessao expirada ou API indisponivel. Faca login novamente.')
         handleLogout()
       })
       .finally(() => setIsLoading(false))
-  }, [token, statusFilter, search])
+  }, [token, statusFilter, search, activeView])
 
   function updateField(field: keyof FormState, value: string) {
     setForm((currentForm) => ({
@@ -189,28 +224,46 @@ function App() {
     setIsSubmitting(true)
 
     try {
-      const response = await fetch(`${apiUrl}/decisions`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
+      const isEditing = Boolean(editingDecision)
+      const response = await fetch(
+        isEditing ? `${apiUrl}/decisions/${editingDecision?.id}` : `${apiUrl}/decisions`,
+        {
+          method: isEditing ? 'PUT' : 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(form),
         },
-        body: JSON.stringify(form),
-      })
+      )
 
       if (!response.ok) {
         throw new Error('Nao foi possivel salvar a decisao.')
       }
 
-      const createdDecision = (await response.json()) as Decision
-      setDecisions((currentDecisions) =>
-        matchesCurrentFilters(createdDecision)
-          ? [createdDecision, ...currentDecisions]
-          : currentDecisions,
-      )
+      const savedDecision = (await response.json()) as Decision
+
+      if (isEditing) {
+        setDecisions((currentDecisions) =>
+          matchesCurrentFilters(savedDecision)
+            ? currentDecisions.map((item) =>
+                item.id === savedDecision.id ? savedDecision : item,
+              )
+            : currentDecisions.filter((item) => item.id !== savedDecision.id),
+        )
+        setEditingDecision(null)
+        toast.success('Decisao atualizada.')
+      } else {
+        setDecisions((currentDecisions) =>
+          matchesCurrentFilters(savedDecision)
+            ? [savedDecision, ...currentDecisions]
+            : currentDecisions,
+        )
+        toast.success('Decisao registrada.')
+      }
+
       setForm(emptyForm)
-      setMessage('Decisao registrada com sucesso.')
-      toast.success('Decisao registrada.')
+      setMessage(isEditing ? 'Decisao atualizada.' : 'Decisao registrada com sucesso.')
     } catch {
       setMessage('Erro ao salvar. Confira se o backend esta rodando.')
       toast.error('Erro ao salvar decisao.')
@@ -278,6 +331,22 @@ function App() {
     }
   }
 
+  function startEditing(decisionItem: Decision) {
+    setEditingDecision(decisionItem)
+    setForm({
+      title: decisionItem.title,
+      context: decisionItem.context,
+      decision: decisionItem.decision,
+      reason: decisionItem.reason,
+    })
+    setActiveView('decisions')
+  }
+
+  function cancelEditing() {
+    setEditingDecision(null)
+    setForm(emptyForm)
+  }
+
   function matchesCurrentFilters(decisionItem: Decision) {
     const query = search.trim().toLowerCase()
     const matchesStatus = !statusFilter || decisionItem.status === statusFilter
@@ -299,6 +368,7 @@ function App() {
     setToken('')
     setUser(null)
     setDecisions([])
+    setAuditLogs([])
   }
 
   const dashboard = decisions.reduce(
@@ -398,7 +468,7 @@ function App() {
         <aside className="panel form-panel">
           <div className="section-heading">
             <span className="eyebrow">DecisionLog</span>
-            <h1>Registrar decisao</h1>
+            <h1>{editingDecision ? 'Editar decisao' : 'Registrar decisao'}</h1>
             <p className="user-line">Logado como {user.name}</p>
           </div>
 
@@ -444,9 +514,19 @@ function App() {
             </label>
 
             <button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Salvando...' : 'Salvar decisao'}
+              {isSubmitting
+                ? 'Salvando...'
+                : editingDecision
+                  ? 'Atualizar decisao'
+                  : 'Salvar decisao'}
             </button>
           </form>
+
+          {editingDecision && (
+            <button className="ghost-button" type="button" onClick={cancelEditing}>
+              Cancelar edicao
+            </button>
+          )}
 
           <button className="ghost-button" type="button" onClick={handleLogout}>
             Sair
@@ -456,128 +536,179 @@ function App() {
         </aside>
 
         <section className="panel list-panel">
-          <div className="section-heading">
-            <span className="eyebrow">Historico</span>
-            <h2>Decisoes registradas</h2>
-          </div>
-
-          <section className="dashboard" aria-label="Resumo das decisoes">
-            <article>
-              <span>Total</span>
-              <strong>{dashboard.total}</strong>
-            </article>
-            <article>
-              <span>Pendentes</span>
-              <strong>{dashboard.pending}</strong>
-            </article>
-            <article>
-              <span>Aprovadas</span>
-              <strong>{dashboard.approved}</strong>
-            </article>
-            <article>
-              <span>Arquivadas</span>
-              <strong>{dashboard.archived}</strong>
-            </article>
-          </section>
-
-          {latestDecisions.length > 0 && (
-            <section className="latest-decisions" aria-label="Ultimas decisoes">
-              <h3>Ultimas decisoes</h3>
-              <ul>
-                {latestDecisions.map((item) => (
-                  <li key={item.id}>
-                    <span>{item.title}</span>
-                    <strong>{statusLabels[item.status] || item.status}</strong>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          <div className="filters">
-            <label>
-              Buscar
-              <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="Titulo, contexto, decisao ou motivo"
-              />
-            </label>
-
-            <label>
-              Status
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value)}
-              >
-                {statusOptions.map((option) => (
-                  <option key={option.value || 'all'} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
-          {isLoading ? (
-            <p className="empty-state">Carregando registros...</p>
-          ) : decisions.length === 0 ? (
-            <p className="empty-state">Nenhuma decisao registrada ainda.</p>
-          ) : (
-            <div className="decision-list">
-              {decisions.map((item) => (
-                <article className="decision-card" key={item.id}>
-                  <div className="card-header">
-                    <h3>{item.title}</h3>
-                    <span>{item.status}</span>
-                  </div>
-                  <p>{item.decision}</p>
-                  <dl>
-                    <div>
-                      <dt>Contexto</dt>
-                      <dd>{item.context}</dd>
-                    </div>
-                    <div>
-                      <dt>Motivo</dt>
-                      <dd>{item.reason}</dd>
-                    </div>
-                    <div>
-                      <dt>Autor</dt>
-                      <dd>{item.user?.name || 'Registro anterior ao login'}</dd>
-                    </div>
-                  </dl>
-                  <div className="card-actions">
-                    <button
-                      type="button"
-                      onClick={() => updateDecisionStatus(item.id, 'approved')}
-                      disabled={item.status === 'approved'}
-                    >
-                      Aprovar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateDecisionStatus(item.id, 'archived')}
-                      disabled={item.status === 'archived'}
-                    >
-                      Arquivar
-                    </button>
-                    <button
-                      className="danger-button"
-                      type="button"
-                      onClick={() => deleteDecision(item.id)}
-                    >
-                      Excluir
-                    </button>
-                  </div>
-                  <time dateTime={item.createdAt}>
-                    {new Intl.DateTimeFormat('pt-BR', {
-                      dateStyle: 'short',
-                      timeStyle: 'short',
-                    }).format(new Date(item.createdAt))}
-                  </time>
-                </article>
-              ))}
+          <div className="section-heading with-tabs">
+            <div>
+              <span className="eyebrow">Painel</span>
+              <h2>{activeView === 'audit' ? 'Auditoria' : 'Decisoes registradas'}</h2>
             </div>
+            <nav className="view-tabs" aria-label="Navegacao principal">
+              <button
+                type="button"
+                className={activeView === 'decisions' ? 'active' : ''}
+                onClick={() => setActiveView('decisions')}
+              >
+                Decisoes
+              </button>
+              <button
+                type="button"
+                className={activeView === 'audit' ? 'active' : ''}
+                onClick={() => setActiveView('audit')}
+              >
+                Auditoria
+              </button>
+            </nav>
+          </div>
+
+          {activeView === 'audit' ? (
+            <section className="audit-list">
+              {isLoading ? (
+                <p className="empty-state">Carregando auditoria...</p>
+              ) : auditLogs.length === 0 ? (
+                <p className="empty-state">
+                  Nenhum log encontrado. Verifique se o MongoDB esta rodando.
+                </p>
+              ) : (
+                auditLogs.map((log) => (
+                  <article className="audit-card" key={log.id}>
+                    <div className="card-header">
+                      <h3>{log.action}</h3>
+                      <time dateTime={log.timestamp}>
+                        {new Intl.DateTimeFormat('pt-BR', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        }).format(new Date(log.timestamp))}
+                      </time>
+                    </div>
+                    <p>Usuario: {log.userId || 'sem usuario informado'}</p>
+                    <pre>{JSON.stringify(log.details || {}, null, 2)}</pre>
+                  </article>
+                ))
+              )}
+            </section>
+          ) : (
+            <>
+              <section className="dashboard" aria-label="Resumo das decisoes">
+                <article>
+                  <span>Total</span>
+                  <strong>{dashboard.total}</strong>
+                </article>
+                <article>
+                  <span>Pendentes</span>
+                  <strong>{dashboard.pending}</strong>
+                </article>
+                <article>
+                  <span>Aprovadas</span>
+                  <strong>{dashboard.approved}</strong>
+                </article>
+                <article>
+                  <span>Arquivadas</span>
+                  <strong>{dashboard.archived}</strong>
+                </article>
+              </section>
+
+              {latestDecisions.length > 0 && (
+                <section className="latest-decisions" aria-label="Ultimas decisoes">
+                  <h3>Ultimas decisoes</h3>
+                  <ul>
+                    {latestDecisions.map((item) => (
+                      <li key={item.id}>
+                        <span>{item.title}</span>
+                        <strong>{statusLabels[item.status] || item.status}</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              <div className="filters">
+                <label>
+                  Buscar
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Titulo, contexto, decisao ou motivo"
+                  />
+                </label>
+
+                <label>
+                  Status
+                  <select
+                    value={statusFilter}
+                    onChange={(event) => setStatusFilter(event.target.value)}
+                  >
+                    {statusOptions.map((option) => (
+                      <option key={option.value || 'all'} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {isLoading ? (
+                <p className="empty-state">Carregando registros...</p>
+              ) : decisions.length === 0 ? (
+                <p className="empty-state">Nenhuma decisao registrada ainda.</p>
+              ) : (
+                <div className="decision-list">
+                  {decisions.map((item) => (
+                    <article className="decision-card" key={item.id}>
+                      <div className="card-header">
+                        <h3>{item.title}</h3>
+                        <span>{item.status}</span>
+                      </div>
+                      <p>{item.decision}</p>
+                      <dl>
+                        <div>
+                          <dt>Contexto</dt>
+                          <dd>{item.context}</dd>
+                        </div>
+                        <div>
+                          <dt>Motivo</dt>
+                          <dd>{item.reason}</dd>
+                        </div>
+                        <div>
+                          <dt>Autor</dt>
+                          <dd>{item.user?.name || 'Registro anterior ao login'}</dd>
+                        </div>
+                      </dl>
+                      <div className="card-actions">
+                        <button type="button" onClick={() => startEditing(item)}>
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateDecisionStatus(item.id, 'approved')}
+                          disabled={item.status === 'approved'}
+                        >
+                          Aprovar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateDecisionStatus(item.id, 'archived')}
+                          disabled={item.status === 'archived'}
+                        >
+                          Arquivar
+                        </button>
+                        <button
+                          className="danger-button"
+                          type="button"
+                          onClick={() => deleteDecision(item.id)}
+                        >
+                          Excluir
+                        </button>
+                      </div>
+                      <time dateTime={item.createdAt}>
+                        {new Intl.DateTimeFormat('pt-BR', {
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        }).format(new Date(item.createdAt))}
+                      </time>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </section>
       </section>

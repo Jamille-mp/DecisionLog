@@ -2,6 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { errorHandler } from "./middlewares/errorHandler";
+import { auditRoutes } from "./modules/audit/routes";
 import { authRoutes } from "./modules/auth/routes";
 import { decisionRoutes } from "./modules/decisions/routes";
 
@@ -22,6 +23,7 @@ app.get("/health", (_request, response) => {
 
 app.use("/auth", authRoutes);
 app.use("/decisions", decisionRoutes);
+app.use("/audit-logs", auditRoutes);
 app.use(errorHandler);
 
 app.listen(port, () => {
