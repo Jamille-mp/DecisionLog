@@ -77,6 +77,8 @@ Senha: 123456
 - Listagem com busca textual
 - Filtro por status
 - Dashboard com totais por status
+- Graficos de distribuicao das decisoes
+- Layout corporativo com menu lateral
 - Aprovar, arquivar e excluir decisoes
 - Edicao completa de decisoes
 - Tela de auditoria dos logs do MongoDB

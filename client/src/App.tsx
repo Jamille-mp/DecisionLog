@@ -1,5 +1,30 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import {
+  CheckCircle2,
+  ClipboardList,
+  FilePenLine,
+  FileText,
+  History,
+  LayoutDashboard,
+  LogOut,
+  PlusCircle,
+  Search,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-react'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { Toaster, toast } from 'sonner'
 import './App.css'
 
@@ -66,6 +91,12 @@ const statusLabels: Record<string, string> = {
   pending: 'Pendente',
   approved: 'Aprovada',
   archived: 'Arquivada',
+}
+
+const statusChartColors: Record<string, string> = {
+  pending: '#D4B062',
+  approved: '#10B981',
+  archived: '#64748B',
 }
 
 const actionLabels: Record<string, string> = {
@@ -396,6 +427,11 @@ function App() {
   )
 
   const latestDecisions = decisions.slice(0, 3)
+  const chartData = [
+    { name: 'Pendentes', value: dashboard.pending, status: 'pending' },
+    { name: 'Aprovadas', value: dashboard.approved, status: 'approved' },
+    { name: 'Arquivadas', value: dashboard.archived, status: 'archived' },
+  ]
 
   if (!token || !user) {
     return (
@@ -471,23 +507,67 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell app-layout">
       <Toaster richColors position="top-right" />
-      <header className="app-header">
-        <div>
-          <span className="eyebrow">DecisionLog</span>
-          <h1>Gestão de decisões</h1>
-          <p>Registre, acompanhe e audite decisões importantes do projeto.</p>
+      <aside className="sidebar">
+        <div className="brand-block">
+          <div className="brand-mark">DL</div>
+          <div>
+            <strong>DecisionLog</strong>
+            <span>Plataforma corporativa</span>
+          </div>
         </div>
-        <div className="session-card">
-          <span>Sessão ativa</span>
-          <strong>{user.name}</strong>
+
+        <div className="sidebar-user">
+          <div className="avatar">{user.name.slice(0, 2).toUpperCase()}</div>
+          <div>
+            <strong>{user.name}</strong>
+            <span>Gestor</span>
+          </div>
         </div>
-      </header>
-      <section className="workspace">
+
+        <nav className="sidebar-nav" aria-label="Navegação principal">
+          <button
+            type="button"
+            className={activeView === 'decisions' ? 'active' : ''}
+            onClick={() => setActiveView('decisions')}
+          >
+            <LayoutDashboard size={18} />
+            Painel de decisões
+          </button>
+          <button
+            type="button"
+            className={activeView === 'audit' ? 'active' : ''}
+            onClick={() => setActiveView('audit')}
+          >
+            <History size={18} />
+            Trilha de auditoria
+          </button>
+        </nav>
+
+        <button className="sidebar-logout" type="button" onClick={handleLogout}>
+          <LogOut size={18} />
+          Sair
+        </button>
+      </aside>
+
+      <section className="main-area">
+        <header className="app-header">
+          <div>
+            <span className="eyebrow">Visão geral estratégica</span>
+            <h1>Gestão de decisões</h1>
+            <p>Registre, acompanhe e audite decisões importantes do projeto.</p>
+          </div>
+          <div className="session-card">
+            <span>Sessão ativa</span>
+            <strong>{user.name}</strong>
+          </div>
+        </header>
+
+        <section className="workspace">
         <aside className="panel form-panel">
           <div className="section-heading">
-            <span className="eyebrow">DecisionLog</span>
+            <span className="eyebrow">Registro</span>
             <h1>{editingDecision ? 'Editar decisão' : 'Registrar decisão'}</h1>
             <p className="user-line">Logado como {user.name}</p>
           </div>
@@ -534,6 +614,7 @@ function App() {
             </label>
 
             <button type="submit" disabled={isSubmitting}>
+              {editingDecision ? <FilePenLine size={17} /> : <PlusCircle size={17} />}
               {isSubmitting
                 ? 'Salvando...'
                 : editingDecision
@@ -549,6 +630,7 @@ function App() {
           )}
 
           <button className="ghost-button" type="button" onClick={handleLogout}>
+            <LogOut size={17} />
             Sair
           </button>
 
@@ -558,15 +640,16 @@ function App() {
         <section className="panel list-panel">
           <div className="section-heading with-tabs">
             <div>
-              <span className="eyebrow">Painel</span>
+              <span className="eyebrow">Monitoramento</span>
               <h2>{activeView === 'audit' ? 'Auditoria' : 'Decisões registradas'}</h2>
             </div>
-            <nav className="view-tabs" aria-label="Navegação principal">
+            <nav className="view-tabs" aria-label="Navegação da área de trabalho">
               <button
                 type="button"
                 className={activeView === 'decisions' ? 'active' : ''}
                 onClick={() => setActiveView('decisions')}
               >
+                <LayoutDashboard size={16} />
                 Decisões
               </button>
               <button
@@ -574,6 +657,7 @@ function App() {
                 className={activeView === 'audit' ? 'active' : ''}
                 onClick={() => setActiveView('audit')}
               >
+                <History size={16} />
                 Auditoria
               </button>
             </nav>
@@ -609,20 +693,67 @@ function App() {
             <>
               <section className="dashboard" aria-label="Resumo das decisões">
                 <article>
+                  <FileText size={22} />
                   <span>Total</span>
                   <strong>{dashboard.total}</strong>
                 </article>
                 <article>
+                  <ClipboardList size={22} />
                   <span>Pendentes</span>
                   <strong>{dashboard.pending}</strong>
                 </article>
                 <article>
+                  <CheckCircle2 size={22} />
                   <span>Aprovadas</span>
                   <strong>{dashboard.approved}</strong>
                 </article>
                 <article>
+                  <ShieldCheck size={22} />
                   <span>Arquivadas</span>
                   <strong>{dashboard.archived}</strong>
+                </article>
+              </section>
+
+              <section className="analytics-grid" aria-label="Gráficos de decisões">
+                <article className="chart-panel">
+                  <h3>Distribuição por status</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <BarChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="name" stroke="#64748B" />
+                      <YAxis allowDecimals={false} stroke="#64748B" />
+                      <Tooltip />
+                      <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                        {chartData.map((entry) => (
+                          <Cell key={entry.status} fill={statusChartColors[entry.status]} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </article>
+
+                <article className="chart-panel">
+                  <h3>Participação dos status</h3>
+                  <ResponsiveContainer width="100%" height={220}>
+                    <PieChart>
+                      <Pie
+                        data={chartData.filter((item) => item.value > 0)}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        outerRadius={80}
+                        label={({ name, percent }) =>
+                          `${name}: ${((percent || 0) * 100).toFixed(0)}%`
+                        }
+                      >
+                        {chartData.map((entry) => (
+                          <Cell key={entry.status} fill={statusChartColors[entry.status]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                    </PieChart>
+                  </ResponsiveContainer>
                 </article>
               </section>
 
@@ -643,11 +774,14 @@ function App() {
               <div className="filters">
                 <label>
                   Buscar
+                  <div className="input-with-icon">
+                    <Search size={16} />
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Título, contexto, decisão ou motivo"
                   />
+                  </div>
                 </label>
 
                 <label>
@@ -696,6 +830,7 @@ function App() {
                       </dl>
                       <div className="card-actions">
                         <button type="button" onClick={() => startEditing(item)}>
+                          <FilePenLine size={15} />
                           Editar
                         </button>
                         <button
@@ -717,6 +852,7 @@ function App() {
                           type="button"
                           onClick={() => deleteDecision(item.id)}
                         >
+                          <Trash2 size={15} />
                           Excluir
                         </button>
                       </div>
@@ -732,6 +868,7 @@ function App() {
               )}
             </>
           )}
+        </section>
         </section>
       </section>
     </main>
