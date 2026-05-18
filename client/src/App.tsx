@@ -1,19 +1,19 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import {
   CheckCircle2,
-  ClipboardList,
   Clock,
-  FilePenLine,
+  Edit2,
+  Eye,
   FileText,
+  FolderOpen,
   History,
   LayoutDashboard,
   LogOut,
-  PlusCircle,
   Search,
-  ShieldCheck,
   Trash2,
   User as UserIcon,
+  X,
 } from 'lucide-react'
 import {
   Bar,
@@ -28,7 +28,11 @@ import {
   YAxis,
 } from 'recharts'
 import { Toaster, toast } from 'sonner'
+import logo from './assets/decisionlog-logo.png'
 import './App.css'
+
+type Page = 'dashboard' | 'new-decision' | 'history' | 'audit'
+type Role = 'Administrador' | 'Gestor' | 'Auditor'
 
 type User = {
   id: string
@@ -36,15 +40,27 @@ type User = {
   email: string
 }
 
-type Decision = {
+type ApiDecision = {
   id: string
   title: string
   context: string
   decision: string
   reason: string
-  status: string
+  status: 'pending' | 'approved' | 'archived'
   createdAt: string
   user?: User | null
+}
+
+type DecisionView = {
+  id: string
+  titulo: string
+  departamento: string
+  impacto: 'Baixo' | 'Médio' | 'Alto'
+  status: 'Pendente' | 'Concluída' | 'Arquivada'
+  data: string
+  descricao: string
+  autor: string
+  source: ApiDecision
 }
 
 type AuditLog = {
@@ -55,50 +71,34 @@ type AuditLog = {
   timestamp: string
 }
 
-type FormState = {
-  title: string
-  context: string
-  decision: string
-  reason: string
+type DecisionFormData = {
+  titulo: string
+  departamento: string
+  impacto: 'Baixo' | 'Médio' | 'Alto' | ''
+  status: 'Pendente' | 'Concluída'
+  descricao: string
 }
 
-type AuthState = {
+type AuthForm = {
   name: string
   email: string
   password: string
 }
 
-const emptyForm: FormState = {
-  title: '',
-  context: '',
-  decision: '',
-  reason: '',
-}
+const apiUrl = 'http://localhost:3333'
 
-const emptyAuth: AuthState = {
+const emptyAuthForm: AuthForm = {
   name: '',
   email: '',
   password: '',
 }
 
-const apiUrl = 'http://localhost:3333'
-const statusOptions = [
-  { label: 'Todos', value: '' },
-  { label: 'Pendentes', value: 'pending' },
-  { label: 'Aprovadas', value: 'approved' },
-  { label: 'Arquivadas', value: 'archived' },
-]
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pendente',
-  approved: 'Aprovada',
-  archived: 'Arquivada',
-}
-
-const statusChartColors: Record<string, string> = {
-  pending: '#D4B062',
-  approved: '#10B981',
-  archived: '#64748B',
+const emptyDecisionForm: DecisionFormData = {
+  titulo: '',
+  departamento: '',
+  impacto: '',
+  status: 'Pendente',
+  descricao: '',
 }
 
 const actionLabels: Record<string, string> = {
@@ -106,66 +106,101 @@ const actionLabels: Record<string, string> = {
   USER_LOGGED_IN: 'Login realizado',
   DECISIONS_VIEWED: 'Decisões visualizadas',
   DECISION_CREATED: 'Decisão criada',
-  DECISION_UPDATED: 'Decisão atualizada',
-  DECISION_DELETED: 'Decisão excluída',
+  DECISION_UPDATED: 'Decisão editada',
+  DECISION_DELETED: 'Decisão inativada',
+}
+
+const statusToApi: Record<DecisionFormData['status'], ApiDecision['status']> = {
+  Pendente: 'pending',
+  Concluída: 'approved',
+}
+
+const statusToView: Record<ApiDecision['status'], DecisionView['status']> = {
+  pending: 'Pendente',
+  approved: 'Concluída',
+  archived: 'Arquivada',
+}
+
+function extractField(text: string, label: string) {
+  const expression = new RegExp(`${label}:\\s*([^\\n]+)`, 'i')
+  return text.match(expression)?.[1]?.trim()
+}
+
+function toDecisionView(decision: ApiDecision): DecisionView {
+  const departamento = extractField(decision.context, 'Departamento') || 'Projeto'
+  const impact = extractField(decision.context, 'Impacto') || 'Médio'
+  const impacto = ['Baixo', 'Médio', 'Alto'].includes(impact) ? impact : 'Médio'
+
+  return {
+    id: decision.id,
+    titulo: decision.title,
+    departamento,
+    impacto: impacto as DecisionView['impacto'],
+    status: statusToView[decision.status],
+    data: new Intl.DateTimeFormat('pt-BR').format(new Date(decision.createdAt)),
+    descricao: decision.reason || decision.decision,
+    autor: decision.user?.name || 'Registro anterior ao login',
+    source: decision,
+  }
+}
+
+function toPayload(form: DecisionFormData) {
+  return {
+    title: form.titulo,
+    context: `Departamento: ${form.departamento}\nImpacto: ${form.impacto}`,
+    decision: form.descricao,
+    reason: form.descricao,
+    status: statusToApi[form.status],
+  }
 }
 
 function App() {
-  const [form, setForm] = useState<FormState>(emptyForm)
-  const [authForm, setAuthForm] = useState<AuthState>(emptyAuth)
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [authForm, setAuthForm] = useState<AuthForm>(emptyAuthForm)
   const [token, setToken] = useState(() => localStorage.getItem('decisionlog:token') || '')
   const [user, setUser] = useState<User | null>(() => {
     const storedUser = localStorage.getItem('decisionlog:user')
     return storedUser ? (JSON.parse(storedUser) as User) : null
   })
-  const [decisions, setDecisions] = useState<Decision[]>([])
+  const [currentPage, setCurrentPage] = useState<Page>('dashboard')
+  const [decisions, setDecisions] = useState<ApiDecision[]>([])
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
-  const [activeView, setActiveView] = useState<'decisions' | 'audit'>('decisions')
-  const [editingDecision, setEditingDecision] = useState<Decision | null>(null)
+  const [selectedDecision, setSelectedDecision] = useState<DecisionView | null>(null)
+  const [editingDecision, setEditingDecision] = useState<DecisionView | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [message, setMessage] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [search, setSearch] = useState('')
 
-  async function loadDecisions(currentToken = token, filters = { statusFilter, search }) {
-    if (!currentToken) {
-      return
-    }
+  const userProfile = {
+    name: user?.name || 'Usuário',
+    role: 'Gestor' as Role,
+  }
+
+  const decisionViews = useMemo(() => decisions.map(toDecisionView), [decisions])
+
+  async function loadDecisions(currentToken = token) {
+    if (!currentToken) return
 
     setIsLoading(true)
-    const params = new URLSearchParams()
+    try {
+      const response = await fetch(`${apiUrl}/decisions`, {
+        headers: {
+          Authorization: `Bearer ${currentToken}`,
+        },
+      })
 
-    if (filters.statusFilter) {
-      params.set('status', filters.statusFilter)
+      if (!response.ok) {
+        throw new Error('Não foi possível carregar as decisões.')
+      }
+
+      setDecisions((await response.json()) as ApiDecision[])
+    } finally {
+      setIsLoading(false)
     }
-
-    if (filters.search.trim()) {
-      params.set('search', filters.search.trim())
-    }
-
-    const response = await fetch(`${apiUrl}/decisions?${params.toString()}`, {
-      headers: {
-        Authorization: `Bearer ${currentToken}`,
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error('Não foi possível carregar as decisões.')
-    }
-
-    const data = (await response.json()) as Decision[]
-    setDecisions(data)
-    setIsLoading(false)
   }
 
   async function loadAuditLogs(currentToken = token) {
-    if (!currentToken) {
-      return
-    }
+    if (!currentToken) return
 
-    setIsLoading(true)
     const response = await fetch(`${apiUrl}/audit-logs`, {
       headers: {
         Authorization: `Bearer ${currentToken}`,
@@ -176,45 +211,20 @@ function App() {
       throw new Error('Não foi possível carregar a auditoria.')
     }
 
-    const data = (await response.json()) as AuditLog[]
-    setAuditLogs(data)
-    setIsLoading(false)
+    setAuditLogs((await response.json()) as AuditLog[])
   }
 
   useEffect(() => {
-    if (!token) {
-      setIsLoading(false)
-      return
-    }
+    if (!token || !user) return
 
-    const loader =
-      activeView === 'audit' ? () => loadAuditLogs() : () => loadDecisions()
-
-    loader()
-      .catch(() => {
-        setMessage('Sessão expirada ou API indisponível. Faça login novamente.')
-        handleLogout()
-      })
-      .finally(() => setIsLoading(false))
-  }, [token, statusFilter, search, activeView])
-
-  function updateField(field: keyof FormState, value: string) {
-    setForm((currentForm) => ({
-      ...currentForm,
-      [field]: value,
-    }))
-  }
-
-  function updateAuthField(field: keyof AuthState, value: string) {
-    setAuthForm((currentForm) => ({
-      ...currentForm,
-      [field]: value,
-    }))
-  }
+    Promise.all([loadDecisions(), loadAuditLogs()]).catch(() => {
+      toast.error('Sessão expirada ou API indisponível.')
+      handleLogout()
+    })
+  }, [token, user])
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setMessage('')
     setIsSubmitting(true)
 
     try {
@@ -237,10 +247,9 @@ function App() {
       }
 
       if (authMode === 'register') {
+        toast.success('Usuário cadastrado. Faça login para continuar.')
         setAuthMode('login')
-        setAuthForm((currentForm) => ({ ...currentForm, password: '' }))
-        setMessage('Usuário cadastrado. Agora faça login.')
-        toast.success('Usuário cadastrado. Agora faça login.')
+        setAuthForm((current) => ({ ...current, password: '' }))
         return
       }
 
@@ -249,159 +258,13 @@ function App() {
       localStorage.setItem('decisionlog:user', JSON.stringify(data.user))
       setToken(data.token)
       setUser(data.user)
-      setAuthForm(emptyAuth)
-      setMessage('')
+      setAuthForm(emptyAuthForm)
       toast.success('Login realizado.')
     } catch {
-      setMessage('Não foi possível autenticar. Confira os dados e a API.')
-      toast.error('Não foi possível autenticar.')
+      toast.error('Não foi possível autenticar. Confira os dados.')
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setMessage('')
-    setIsSubmitting(true)
-
-    try {
-      const isEditing = Boolean(editingDecision)
-      const response = await fetch(
-        isEditing ? `${apiUrl}/decisions/${editingDecision?.id}` : `${apiUrl}/decisions`,
-        {
-          method: isEditing ? 'PUT' : 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(form),
-        },
-      )
-
-      if (!response.ok) {
-        throw new Error('Não foi possível salvar a decisão.')
-      }
-
-      const savedDecision = (await response.json()) as Decision
-
-      if (isEditing) {
-        setDecisions((currentDecisions) =>
-          matchesCurrentFilters(savedDecision)
-            ? currentDecisions.map((item) =>
-                item.id === savedDecision.id ? savedDecision : item,
-              )
-            : currentDecisions.filter((item) => item.id !== savedDecision.id),
-        )
-        setEditingDecision(null)
-        toast.success('Decisão atualizada.')
-      } else {
-        setDecisions((currentDecisions) =>
-          matchesCurrentFilters(savedDecision)
-            ? [savedDecision, ...currentDecisions]
-            : currentDecisions,
-        )
-        toast.success('Decisão registrada.')
-      }
-
-      setForm(emptyForm)
-      setMessage(isEditing ? 'Decisão atualizada.' : 'Decisão registrada com sucesso.')
-    } catch {
-      setMessage('Erro ao salvar. Confira se o backend está rodando.')
-      toast.error('Erro ao salvar decisão.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  async function updateDecisionStatus(decisionId: string, status: string) {
-    setMessage('')
-
-    try {
-      const response = await fetch(`${apiUrl}/decisions/${decisionId}`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Não foi possível atualizar a decisão.')
-      }
-
-      const updatedDecision = (await response.json()) as Decision
-      setDecisions((currentDecisions) =>
-        matchesCurrentFilters(updatedDecision)
-          ? currentDecisions.map((item) =>
-              item.id === updatedDecision.id ? updatedDecision : item,
-            )
-          : currentDecisions.filter((item) => item.id !== updatedDecision.id),
-      )
-      setMessage('Status atualizado.')
-      toast.success('Status atualizado.')
-    } catch {
-      setMessage('Erro ao atualizar status.')
-      toast.error('Erro ao atualizar status.')
-    }
-  }
-
-  async function deleteDecision(decisionId: string) {
-    setMessage('')
-
-    try {
-      const response = await fetch(`${apiUrl}/decisions/${decisionId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error('Não foi possível excluir a decisão.')
-      }
-
-      setDecisions((currentDecisions) =>
-        currentDecisions.filter((item) => item.id !== decisionId),
-      )
-      setMessage('Decisão excluída.')
-      toast.success('Decisão excluída.')
-    } catch {
-      setMessage('Erro ao excluir decisão.')
-      toast.error('Erro ao excluir decisão.')
-    }
-  }
-
-  function startEditing(decisionItem: Decision) {
-    setEditingDecision(decisionItem)
-    setForm({
-      title: decisionItem.title,
-      context: decisionItem.context,
-      decision: decisionItem.decision,
-      reason: decisionItem.reason,
-    })
-    setActiveView('decisions')
-  }
-
-  function cancelEditing() {
-    setEditingDecision(null)
-    setForm(emptyForm)
-  }
-
-  function matchesCurrentFilters(decisionItem: Decision) {
-    const query = search.trim().toLowerCase()
-    const matchesStatus = !statusFilter || decisionItem.status === statusFilter
-    const matchesSearch =
-      !query ||
-      [
-        decisionItem.title,
-        decisionItem.context,
-        decisionItem.decision,
-        decisionItem.reason,
-      ].some((value) => value.toLowerCase().includes(query))
-
-    return matchesStatus && matchesSearch
   }
 
   function handleLogout() {
@@ -409,505 +272,737 @@ function App() {
     localStorage.removeItem('decisionlog:user')
     setToken('')
     setUser(null)
+    setCurrentPage('dashboard')
     setDecisions([])
     setAuditLogs([])
   }
 
-  const dashboard = decisions.reduce(
-    (summary, item) => ({
-      total: summary.total + 1,
-      pending: summary.pending + (item.status === 'pending' ? 1 : 0),
-      approved: summary.approved + (item.status === 'approved' ? 1 : 0),
-      archived: summary.archived + (item.status === 'archived' ? 1 : 0),
-    }),
-    {
-      total: 0,
-      pending: 0,
-      approved: 0,
-      archived: 0,
-    },
-  )
+  async function handleSaveDecision(formData: DecisionFormData) {
+    setIsSubmitting(true)
 
-  const latestDecisions = decisions.slice(0, 3)
-  const chartData = [
-    { name: 'Pendentes', value: dashboard.pending, status: 'pending' },
-    { name: 'Aprovadas', value: dashboard.approved, status: 'approved' },
-    { name: 'Arquivadas', value: dashboard.archived, status: 'archived' },
-  ]
+    try {
+      const payload = toPayload(formData)
+      const response = await fetch(
+        editingDecision ? `${apiUrl}/decisions/${editingDecision.id}` : `${apiUrl}/decisions`,
+        {
+          method: editingDecision ? 'PUT' : 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        },
+      )
+
+      if (!response.ok) {
+        throw new Error('Não foi possível salvar a decisão.')
+      }
+
+      const savedDecision = (await response.json()) as ApiDecision
+
+      setDecisions((current) =>
+        editingDecision
+          ? current.map((item) => (item.id === savedDecision.id ? savedDecision : item))
+          : [savedDecision, ...current],
+      )
+      setEditingDecision(null)
+      setCurrentPage('history')
+      toast.success(editingDecision ? 'Decisão atualizada.' : 'Decisão registrada com sucesso.')
+      void loadAuditLogs()
+    } catch {
+      toast.error('Erro ao salvar decisão. Verifique se a API está rodando.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  function handleEditDecision(decision: DecisionView) {
+    setEditingDecision(decision)
+    setCurrentPage('new-decision')
+  }
+
+  async function handleDeleteDecision(id: string) {
+    const confirmed = window.confirm('Deseja realmente inativar esta decisão?')
+    if (!confirmed) return
+
+    try {
+      const response = await fetch(`${apiUrl}/decisions/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('Não foi possível inativar a decisão.')
+      }
+
+      setDecisions((current) => current.filter((decision) => decision.id !== id))
+      toast.success('Decisão inativada.')
+      void loadAuditLogs()
+    } catch {
+      toast.error('Erro ao inativar decisão.')
+    }
+  }
+
+  function renderContent() {
+    switch (currentPage) {
+      case 'dashboard':
+        return <Dashboard decisions={decisionViews} isLoading={isLoading} />
+      case 'new-decision':
+        return (
+          <NewDecision
+            editingDecision={editingDecision}
+            isSubmitting={isSubmitting}
+            onCancelEdit={() => setEditingDecision(null)}
+            onSave={handleSaveDecision}
+            userRole={userProfile.role}
+          />
+        )
+      case 'history':
+        return (
+          <DecisionHistory
+            decisions={decisionViews}
+            userRole={userProfile.role}
+            onEdit={handleEditDecision}
+            onDelete={handleDeleteDecision}
+            onView={setSelectedDecision}
+          />
+        )
+      case 'audit':
+        return <AuditTrail events={auditLogs} />
+      default:
+        return <Dashboard decisions={decisionViews} isLoading={isLoading} />
+    }
+  }
 
   if (!token || !user) {
     return (
-      <main className="app-shell auth-shell">
+      <>
         <Toaster richColors position="top-right" />
-        <section className="panel auth-panel">
-          <div className="section-heading">
-            <span className="eyebrow">DecisionLog</span>
-            <h1>{authMode === 'login' ? 'Entrar' : 'Criar conta'}</h1>
-          </div>
-
-          <form onSubmit={handleAuthSubmit} className="decision-form">
-            {authMode === 'register' && (
-              <label>
-                Nome
-                <input
-                  value={authForm.name}
-                  onChange={(event) => updateAuthField('name', event.target.value)}
-                  placeholder="Seu nome"
-                  required
-                />
-              </label>
-            )}
-
-            <label>
-              E-mail
-              <input
-                type="email"
-                value={authForm.email}
-                onChange={(event) => updateAuthField('email', event.target.value)}
-                placeholder="seu.email@exemplo.com"
-                required
-              />
-            </label>
-
-            <label>
-              Senha
-              <input
-                type="password"
-                value={authForm.password}
-                onChange={(event) => updateAuthField('password', event.target.value)}
-                placeholder="Mínimo de 6 caracteres"
-                required
-              />
-            </label>
-
-            <button type="submit" disabled={isSubmitting}>
-              {isSubmitting
-                ? 'Aguarde...'
-                : authMode === 'login'
-                  ? 'Entrar'
-                  : 'Cadastrar'}
-            </button>
-          </form>
-
-          <button
-            className="ghost-button"
-            type="button"
-            onClick={() => {
-              setAuthMode((currentMode) =>
-                currentMode === 'login' ? 'register' : 'login',
-              )
-              setMessage('')
-            }}
-          >
-            {authMode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
-          </button>
-
-          {message && <p className="status-message">{message}</p>}
-        </section>
-      </main>
+        <Login
+          authForm={authForm}
+          authMode={authMode}
+          isSubmitting={isSubmitting}
+          onChange={setAuthForm}
+          onModeChange={setAuthMode}
+          onSubmit={handleAuthSubmit}
+        />
+      </>
     )
   }
 
   return (
-    <main className="app-shell app-layout">
+    <div className="app-frame">
       <Toaster richColors position="top-right" />
-      <aside className="sidebar">
-        <div className="brand-block">
-          <div className="brand-mark">DL</div>
-          <div>
-            <strong>DecisionLog</strong>
-            <span>Plataforma corporativa</span>
-          </div>
+      <Sidebar
+        currentPage={currentPage}
+        onLogout={handleLogout}
+        onNavigate={setCurrentPage}
+        userProfile={userProfile}
+      />
+      <main className="content-area">{renderContent()}</main>
+      <ViewDecisionModal decision={selectedDecision} onClose={() => setSelectedDecision(null)} />
+    </div>
+  )
+}
+
+function Login({
+  authForm,
+  authMode,
+  isSubmitting,
+  onChange,
+  onModeChange,
+  onSubmit,
+}: {
+  authForm: AuthForm
+  authMode: 'login' | 'register'
+  isSubmitting: boolean
+  onChange: (form: AuthForm) => void
+  onModeChange: (mode: 'login' | 'register') => void
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+}) {
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <div className="logo-wrap">
+          <img src={logo} alt="DecisionLog" />
         </div>
 
-        <div className="sidebar-user">
-          <div className="avatar">{user.name.slice(0, 2).toUpperCase()}</div>
-          <div>
-            <strong>{user.name}</strong>
-            <span>Gestor</span>
-          </div>
-        </div>
+        <h2>Sistema de Gestão de Capital Intelectual</h2>
 
-        <nav className="sidebar-nav" aria-label="Navegação principal">
-          <button
-            type="button"
-            className={activeView === 'decisions' ? 'active' : ''}
-            onClick={() => setActiveView('decisions')}
-          >
-            <LayoutDashboard size={18} />
-            Painel de decisões
-          </button>
-          <button
-            type="button"
-            className={activeView === 'audit' ? 'active' : ''}
-            onClick={() => setActiveView('audit')}
-          >
-            <History size={18} />
-            Trilha de auditoria
-          </button>
-        </nav>
-
-        <button className="sidebar-logout" type="button" onClick={handleLogout}>
-          <LogOut size={18} />
-          Sair
-        </button>
-      </aside>
-
-      <section className="main-area">
-        <header className="app-header">
-          <div>
-            <span className="eyebrow">Visão geral estratégica</span>
-            <h1>Gestão de decisões</h1>
-            <p>Registre, acompanhe e audite decisões importantes do projeto.</p>
-          </div>
-          <div className="session-card">
-            <span>Sessão ativa</span>
-            <strong>{user.name}</strong>
-          </div>
-        </header>
-
-        <section className="workspace">
-        <aside className="panel form-panel">
-          <div className="section-heading">
-            <span className="eyebrow">Registro</span>
-            <h1>{editingDecision ? 'Editar decisão' : 'Registrar decisão'}</h1>
-            <p className="user-line">Logado como {user.name}</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="decision-form">
-            <label>
-              Título
+        <form onSubmit={onSubmit} className="login-form">
+          {authMode === 'register' && (
+            <div>
+              <label htmlFor="name">Nome</label>
               <input
-                value={form.title}
-                onChange={(event) => updateField('title', event.target.value)}
-                placeholder="Ex: Escolha do banco de dados"
+                id="name"
+                value={authForm.name}
+                onChange={(event) => onChange({ ...authForm, name: event.target.value })}
+                placeholder="Seu nome completo"
                 required
               />
-            </label>
-
-            <label>
-              Contexto
-              <textarea
-                value={form.context}
-                onChange={(event) => updateField('context', event.target.value)}
-                placeholder="Cenário, restrições, pessoas envolvidas..."
-                required
-              />
-            </label>
-
-            <label>
-              Decisão
-              <textarea
-                value={form.decision}
-                onChange={(event) => updateField('decision', event.target.value)}
-                placeholder="Qual foi a escolha feita?"
-                required
-              />
-            </label>
-
-            <label>
-              Motivo
-              <textarea
-                value={form.reason}
-                onChange={(event) => updateField('reason', event.target.value)}
-                placeholder="Por que essa escolha faz sentido?"
-                required
-              />
-            </label>
-
-            <button type="submit" disabled={isSubmitting}>
-              {editingDecision ? <FilePenLine size={17} /> : <PlusCircle size={17} />}
-              {isSubmitting
-                ? 'Salvando...'
-                : editingDecision
-                  ? 'Atualizar decisão'
-                  : 'Salvar decisão'}
-            </button>
-          </form>
-
-          {editingDecision && (
-            <button className="ghost-button" type="button" onClick={cancelEditing}>
-              Cancelar edição
-            </button>
+            </div>
           )}
 
-          <button className="ghost-button" type="button" onClick={handleLogout}>
-            <LogOut size={17} />
-            Sair
-          </button>
-
-          {message && <p className="status-message">{message}</p>}
-        </aside>
-
-        <section className="panel list-panel">
-          <div className="section-heading with-tabs">
-            <div>
-              <span className="eyebrow">Monitoramento</span>
-              <h2>{activeView === 'audit' ? 'Auditoria' : 'Decisões registradas'}</h2>
-            </div>
-            <nav className="view-tabs" aria-label="Navegação da área de trabalho">
-              <button
-                type="button"
-                className={activeView === 'decisions' ? 'active' : ''}
-                onClick={() => setActiveView('decisions')}
-              >
-                <LayoutDashboard size={16} />
-                Decisões
-              </button>
-              <button
-                type="button"
-                className={activeView === 'audit' ? 'active' : ''}
-                onClick={() => setActiveView('audit')}
-              >
-                <History size={16} />
-                Auditoria
-              </button>
-            </nav>
+          <div>
+            <label htmlFor="email">E-mail</label>
+            <input
+              id="email"
+              type="email"
+              value={authForm.email}
+              onChange={(event) => onChange({ ...authForm, email: event.target.value })}
+              placeholder="seu.email@empresa.com"
+              required
+            />
           </div>
 
-          {activeView === 'audit' ? (
-            <section className="audit-timeline-panel">
-              {isLoading ? (
-                <p className="empty-state">Carregando auditoria...</p>
-              ) : auditLogs.length === 0 ? (
-                <p className="empty-state">
-                  Nenhum log encontrado. Verifique se o MongoDB está rodando.
-                </p>
+          <div>
+            <label htmlFor="password">Senha</label>
+            <input
+              id="password"
+              type="password"
+              value={authForm.password}
+              onChange={(event) => onChange({ ...authForm, password: event.target.value })}
+              placeholder="********"
+              required
+            />
+          </div>
+
+          <button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Aguarde...' : authMode === 'login' ? 'Entrar' : 'Cadastrar'}
+          </button>
+        </form>
+
+        <button
+          className="mode-button"
+          type="button"
+          onClick={() => onModeChange(authMode === 'login' ? 'register' : 'login')}
+        >
+          {authMode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
+        </button>
+
+        <p>Plataforma de Governança Corporativa</p>
+      </div>
+    </div>
+  )
+}
+
+function Sidebar({
+  currentPage,
+  onNavigate,
+  userProfile,
+  onLogout,
+}: {
+  currentPage: Page
+  onNavigate: (page: Page) => void
+  userProfile: { name: string; role: Role }
+  onLogout: () => void
+}) {
+  const menuItems = [
+    { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'new-decision' as const, label: 'Nova Decisão', icon: FileText },
+    { id: 'history' as const, label: 'Histórico de Decisões', icon: FolderOpen },
+    { id: 'audit' as const, label: 'Trilha de Auditoria', icon: History },
+  ]
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-logo">
+        <img src={logo} alt="DecisionLog" />
+      </div>
+
+      <div className="profile-box">
+        <div className="profile-avatar">
+          {userProfile.name
+            .split(' ')
+            .map((part) => part[0])
+            .join('')
+            .substring(0, 2)
+            .toUpperCase()}
+        </div>
+        <div>
+          <p>{userProfile.name}</p>
+          <span>{userProfile.role}</span>
+        </div>
+      </div>
+
+      <nav className="sidebar-menu" aria-label="Navegação principal">
+        {menuItems.map((item) => {
+          const Icon = item.icon
+          const isActive = currentPage === item.id
+          return (
+            <button
+              key={item.id}
+              className={isActive ? 'active' : ''}
+              type="button"
+              onClick={() => onNavigate(item.id)}
+            >
+              <Icon />
+              <span>{item.label}</span>
+            </button>
+          )
+        })}
+      </nav>
+
+      <div className="sidebar-footer">
+        <button type="button" onClick={onLogout}>
+          <LogOut />
+          <span>Sair</span>
+        </button>
+      </div>
+    </aside>
+  )
+}
+
+function Dashboard({ decisions, isLoading }: { decisions: DecisionView[]; isLoading: boolean }) {
+  const totalDecisions = decisions.length
+  const pendingDecisions = decisions.filter((decision) => decision.status === 'Pendente').length
+  const completedDecisions = decisions.filter((decision) => decision.status === 'Concluída').length
+
+  const departmentData = Object.values(
+    decisions.reduce<Record<string, { name: string; decisoes: number }>>((summary, decision) => {
+      summary[decision.departamento] ||= { name: decision.departamento, decisoes: 0 }
+      summary[decision.departamento].decisoes += 1
+      return summary
+    }, {}),
+  )
+
+  const impactData = [
+    { id: 'impact-1', name: 'Alto', value: decisions.filter((item) => item.impacto === 'Alto').length, color: '#DC2626' },
+    { id: 'impact-2', name: 'Médio', value: decisions.filter((item) => item.impacto === 'Médio').length, color: '#F59E0B' },
+    { id: 'impact-3', name: 'Baixo', value: decisions.filter((item) => item.impacto === 'Baixo').length, color: '#3B82F6' },
+  ]
+
+  const fallbackDepartmentData = departmentData.length > 0 ? departmentData : [{ name: 'Sem dados', decisoes: 0 }]
+  const fallbackImpactData = impactData.some((item) => item.value > 0)
+    ? impactData
+    : [{ id: 'empty', name: 'Sem dados', value: 1, color: '#E5E7EB' }]
+
+  return (
+    <section className="page-section">
+      <h1>Visão Geral Estratégica</h1>
+
+      <div className="kpi-grid">
+        <KpiCard icon={FileText} label="Total de Decisões" value={totalDecisions} tone="primary" />
+        <KpiCard icon={Clock} label="Decisões Pendentes" value={pendingDecisions} tone="warning" />
+        <KpiCard icon={CheckCircle2} label="Decisões Concluídas" value={completedDecisions} tone="success" />
+      </div>
+
+      {isLoading && <p className="loading-text">Carregando informações...</p>}
+
+      <div className="chart-grid">
+        <article className="chart-card">
+          <h3>Volume de Decisões por Departamento</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={fallbackDepartmentData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+              <XAxis dataKey="name" stroke="#6B7280" />
+              <YAxis allowDecimals={false} stroke="#6B7280" />
+              <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '8px' }} />
+              <Bar dataKey="decisoes" fill="#183354" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </article>
+
+        <article className="chart-card">
+          <h3>Distribuição por Nível de Impacto</h3>
+          <ResponsiveContainer width="100%" height={300}>
+            <PieChart>
+              <Pie
+                data={fallbackImpactData}
+                cx="50%"
+                cy="50%"
+                dataKey="value"
+                fill="#8884d8"
+                label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
+                labelLine={false}
+                outerRadius={100}
+              >
+                {fallbackImpactData.map((entry) => (
+                  <Cell key={entry.id} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </article>
+      </div>
+    </section>
+  )
+}
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: typeof FileText
+  label: string
+  value: number
+  tone: 'primary' | 'warning' | 'success'
+}) {
+  return (
+    <article className="kpi-card">
+      <div>
+        <p>{label}</p>
+        <strong className={tone}>{value}</strong>
+      </div>
+      <div className={`kpi-icon ${tone}`}>
+        <Icon />
+      </div>
+    </article>
+  )
+}
+
+function NewDecision({
+  editingDecision,
+  isSubmitting,
+  onCancelEdit,
+  onSave,
+  userRole,
+}: {
+  editingDecision: DecisionView | null
+  isSubmitting: boolean
+  onCancelEdit: () => void
+  onSave: (decision: DecisionFormData) => Promise<void>
+  userRole: Role
+}) {
+  const [formData, setFormData] = useState<DecisionFormData>(emptyDecisionForm)
+
+  useEffect(() => {
+    if (!editingDecision) {
+      setFormData(emptyDecisionForm)
+      return
+    }
+
+    setFormData({
+      titulo: editingDecision.titulo,
+      departamento: editingDecision.departamento,
+      impacto: editingDecision.impacto,
+      status: editingDecision.status === 'Concluída' ? 'Concluída' : 'Pendente',
+      descricao: editingDecision.descricao,
+    })
+  }, [editingDecision])
+
+  const isReadOnly = userRole === 'Auditor'
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void onSave(formData)
+  }
+
+  if (isReadOnly) {
+    return (
+      <section className="page-section">
+        <div className="empty-card">
+          <p>Você não tem permissão para criar novas decisões.</p>
+          <span>Apenas Administradores e Gestores podem registrar decisões.</span>
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="page-section">
+      <h1>{editingDecision ? 'Editar Decisão' : 'Registrar Nova Decisão'}</h1>
+
+      <div className="form-card">
+        <form onSubmit={handleSubmit} className="decision-form">
+          <div className="form-grid">
+            <div className="full-field">
+              <label htmlFor="titulo">Título da Decisão</label>
+              <input
+                id="titulo"
+                value={formData.titulo}
+                onChange={(event) => setFormData({ ...formData, titulo: event.target.value })}
+                placeholder="Ex: Implementação de novo sistema de controle de estoque"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="departamento">Departamento Responsável</label>
+              <select
+                id="departamento"
+                value={formData.departamento}
+                onChange={(event) => setFormData({ ...formData, departamento: event.target.value })}
+                required
+              >
+                <option value="">Selecione...</option>
+                <option value="Financeiro">Financeiro</option>
+                <option value="RH">RH</option>
+                <option value="Operações">Operações</option>
+                <option value="TI">TI</option>
+                <option value="Comercial">Comercial</option>
+                <option value="Jurídico">Jurídico</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Nível de Impacto</label>
+              <div className="radio-stack">
+                {(['Baixo', 'Médio', 'Alto'] as const).map((impacto) => (
+                  <label key={impacto}>
+                    <input
+                      checked={formData.impacto === impacto}
+                      name="impacto"
+                      onChange={(event) => setFormData({ ...formData, impacto: event.target.value as DecisionFormData['impacto'] })}
+                      required
+                      type="radio"
+                      value={impacto}
+                    />
+                    <span>{impacto}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="status">Status</label>
+              <select
+                id="status"
+                value={formData.status}
+                onChange={(event) => setFormData({ ...formData, status: event.target.value as DecisionFormData['status'] })}
+                required
+              >
+                <option value="Pendente">Pendente</option>
+                <option value="Concluída">Concluída</option>
+              </select>
+            </div>
+
+            <div className="full-field">
+              <label htmlFor="descricao">Descrição Detalhada</label>
+              <textarea
+                id="descricao"
+                value={formData.descricao}
+                onChange={(event) => setFormData({ ...formData, descricao: event.target.value })}
+                placeholder="Descreva os detalhes da decisão, contexto, impactos esperados e ações a serem tomadas..."
+                required
+              />
+            </div>
+          </div>
+
+          <div className="form-actions">
+            {editingDecision && (
+              <button className="secondary-action" type="button" onClick={onCancelEdit}>
+                Cancelar
+              </button>
+            )}
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Salvando...' : editingDecision ? 'Atualizar Decisão' : 'Salvar Decisão'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  )
+}
+
+function DecisionHistory({
+  decisions,
+  userRole,
+  onEdit,
+  onDelete,
+  onView,
+}: {
+  decisions: DecisionView[]
+  userRole: Role
+  onEdit: (decision: DecisionView) => void
+  onDelete: (id: string) => void
+  onView: (decision: DecisionView) => void
+}) {
+  const [searchTerm, setSearchTerm] = useState('')
+  const canEdit = userRole === 'Administrador' || userRole === 'Gestor'
+  const filteredDecisions = decisions.filter(
+    (decision) =>
+      decision.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      decision.departamento.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  return (
+    <section className="page-section">
+      <h1>Histórico de Decisões</h1>
+
+      <div className="search-wrap">
+        <Search />
+        <input
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Buscar decisão..."
+          type="text"
+        />
+      </div>
+
+      <div className="table-card">
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Título</th>
+                <th>Departamento</th>
+                <th>Impacto</th>
+                <th>Status</th>
+                <th>Data</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredDecisions.length === 0 ? (
+                <tr>
+                  <td colSpan={7}>Nenhuma decisão encontrada</td>
+                </tr>
               ) : (
-                auditLogs.map((log, index) => (
-                  <article className="audit-event" key={log.id}>
-                    {index !== auditLogs.length - 1 && <span className="timeline-line" />}
-                    <div className="timeline-dot">
-                      <Clock size={16} />
-                    </div>
-                    <div className="audit-event-content">
-                      <div className="audit-event-header">
-                        <div>
-                          <h3>{actionLabels[log.action] || log.action}</h3>
-                          <p>
-                            <UserIcon size={15} />
-                            {log.userId || 'sem usuário informado'}
-                          </p>
-                        </div>
-                        <time dateTime={log.timestamp}>
-                          {new Intl.DateTimeFormat('pt-BR', {
-                            dateStyle: 'short',
-                            timeStyle: 'short',
-                          }).format(new Date(log.timestamp))}
-                        </time>
+                filteredDecisions.map((decision) => (
+                  <tr key={decision.id}>
+                    <td>#{decision.id.slice(0, 8)}</td>
+                    <td>{decision.titulo}</td>
+                    <td>{decision.departamento}</td>
+                    <td>
+                      <span className={`tag impact-${decision.impacto.toLowerCase()}`}>{decision.impacto}</span>
+                    </td>
+                    <td>
+                      <span className={`tag status-${decision.status.toLowerCase()}`}>{decision.status}</span>
+                    </td>
+                    <td>{decision.data}</td>
+                    <td>
+                      <div className="action-row">
+                        <button type="button" onClick={() => onView(decision)} title="Visualizar">
+                          <Eye />
+                        </button>
+                        {canEdit && (
+                          <>
+                            <button className="gold" type="button" onClick={() => onEdit(decision)} title="Editar">
+                              <Edit2 />
+                            </button>
+                            <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Inativar">
+                              <Trash2 />
+                            </button>
+                          </>
+                        )}
                       </div>
-                      <div className="audit-decision-line">
-                        <FileText size={15} />
-                        <span>
-                          {typeof log.details?.title === 'string'
-                            ? log.details.title
-                            : typeof log.details?.decisionId === 'string'
-                              ? `Decisão ${log.details.decisionId}`
-                              : 'Evento do sistema'}
-                        </span>
-                      </div>
-                      <pre>{JSON.stringify(log.details || {}, null, 2)}</pre>
-                    </div>
-                  </article>
+                    </td>
+                  </tr>
                 ))
               )}
-            </section>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function AuditTrail({ events }: { events: AuditLog[] }) {
+  return (
+    <section className="page-section">
+      <h1>Histórico de Alterações</h1>
+
+      <div className="audit-card">
+        <div className="timeline">
+          {events.length === 0 ? (
+            <p className="empty-message">Nenhum evento de auditoria registrado</p>
           ) : (
-            <>
-              <section className="dashboard" aria-label="Resumo das decisões">
-                <article>
-                  <FileText size={22} />
-                  <span>Total</span>
-                  <strong>{dashboard.total}</strong>
-                </article>
-                <article>
-                  <ClipboardList size={22} />
-                  <span>Pendentes</span>
-                  <strong>{dashboard.pending}</strong>
-                </article>
-                <article>
-                  <CheckCircle2 size={22} />
-                  <span>Aprovadas</span>
-                  <strong>{dashboard.approved}</strong>
-                </article>
-                <article>
-                  <ShieldCheck size={22} />
-                  <span>Arquivadas</span>
-                  <strong>{dashboard.archived}</strong>
-                </article>
-              </section>
-
-              <section className="analytics-grid" aria-label="Gráficos de decisões">
-                <article className="chart-panel">
-                  <h3>Distribuição por status</h3>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                      <XAxis dataKey="name" stroke="#64748B" />
-                      <YAxis allowDecimals={false} stroke="#64748B" />
-                      <Tooltip />
-                      <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                        {chartData.map((entry) => (
-                          <Cell key={entry.status} fill={statusChartColors[entry.status]} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </article>
-
-                <article className="chart-panel">
-                  <h3>Participação dos status</h3>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={chartData.filter((item) => item.value > 0)}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={80}
-                        label={({ name, percent }) =>
-                          `${name}: ${((percent || 0) * 100).toFixed(0)}%`
-                        }
-                      >
-                        {chartData.map((entry) => (
-                          <Cell key={entry.status} fill={statusChartColors[entry.status]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </article>
-              </section>
-
-              {latestDecisions.length > 0 && (
-                <section className="latest-decisions" aria-label="Últimas decisões">
-                  <h3>Últimas decisões</h3>
-                  <ul>
-                    {latestDecisions.map((item) => (
-                      <li key={item.id}>
-                        <span>{item.title}</span>
-                        <strong>{statusLabels[item.status] || item.status}</strong>
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-
-              <div className="filters">
-                <label>
-                  Buscar
-                  <div className="input-with-icon">
-                    <Search size={16} />
-                  <input
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Título, contexto, decisão ou motivo"
-                  />
-                  </div>
-                </label>
-
-                <label>
-                  Status
-                  <select
-                    value={statusFilter}
-                    onChange={(event) => setStatusFilter(event.target.value)}
-                  >
-                    {statusOptions.map((option) => (
-                      <option key={option.value || 'all'} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              {isLoading ? (
-                <p className="empty-state">Carregando registros...</p>
-              ) : decisions.length === 0 ? (
-                <p className="empty-state">Nenhuma decisão registrada ainda.</p>
-              ) : (
-                <div className="decision-table-shell">
-                  <table className="decision-table">
-                    <thead>
-                      <tr>
-                        <th>ID</th>
-                        <th>Título</th>
-                        <th>Status</th>
-                        <th>Autor</th>
-                        <th>Data</th>
-                        <th>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {decisions.map((item) => (
-                        <tr key={item.id}>
-                          <td>#{item.id.slice(0, 8)}</td>
-                          <td>
-                            <strong>{item.title}</strong>
-                            <span>{item.decision}</span>
-                          </td>
-                          <td>
-                            <span className={`status-badge status-${item.status}`}>
-                              {statusLabels[item.status] || item.status}
-                            </span>
-                          </td>
-                          <td>{item.user?.name || 'Registro anterior ao login'}</td>
-                          <td>
-                            {new Intl.DateTimeFormat('pt-BR', {
-                              dateStyle: 'short',
-                            }).format(new Date(item.createdAt))}
-                          </td>
-                          <td>
-                            <div className="table-actions">
-                              <button
-                                className="icon-button edit"
-                                type="button"
-                                onClick={() => startEditing(item)}
-                                title="Editar"
-                              >
-                                <FilePenLine size={16} />
-                              </button>
-                              <button
-                                className="icon-button approve"
-                                type="button"
-                                onClick={() => updateDecisionStatus(item.id, 'approved')}
-                                disabled={item.status === 'approved'}
-                                title="Aprovar"
-                              >
-                                <CheckCircle2 size={16} />
-                              </button>
-                              <button
-                                className="icon-button archive"
-                                type="button"
-                                onClick={() => updateDecisionStatus(item.id, 'archived')}
-                                disabled={item.status === 'archived'}
-                                title="Arquivar"
-                              >
-                                <ShieldCheck size={16} />
-                              </button>
-                              <button
-                                className="icon-button danger"
-                                type="button"
-                                onClick={() => deleteDecision(item.id)}
-                                title="Excluir"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            events.map((event, index) => (
+              <div key={event.id} className="timeline-item">
+                {index !== events.length - 1 && <div className="timeline-line" />}
+                <div className="timeline-dot">
+                  <Clock />
                 </div>
-              )}
-            </>
+                <div className="timeline-content">
+                  <div className="timeline-header">
+                    <div>
+                      <UserIcon />
+                      <span>{event.userId || 'Usuário autenticado'}</span>
+                    </div>
+                    <time>
+                      {new Intl.DateTimeFormat('pt-BR', {
+                        dateStyle: 'short',
+                        timeStyle: 'short',
+                      }).format(new Date(event.timestamp))}
+                    </time>
+                  </div>
+
+                  <div className="timeline-action">
+                    <FileText />
+                    <span>{actionLabels[event.action] || event.action}</span>
+                  </div>
+
+                  <p>
+                    Decisão:{' '}
+                    {typeof event.details?.title === 'string'
+                      ? event.details.title
+                      : typeof event.details?.decisionId === 'string'
+                        ? event.details.decisionId
+                        : 'Evento do sistema'}
+                  </p>
+                </div>
+              </div>
+            ))
           )}
-        </section>
-        </section>
-      </section>
-    </main>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ViewDecisionModal({ decision, onClose }: { decision: DecisionView | null; onClose: () => void }) {
+  if (!decision) return null
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-card">
+        <div className="modal-header">
+          <h2>Detalhes da Decisão</h2>
+          <button type="button" onClick={onClose}>
+            <X />
+          </button>
+        </div>
+
+        <div className="modal-content">
+          <Detail label="ID da Decisão" value={`#${decision.id.slice(0, 8)}`} />
+          <Detail label="Título" value={decision.titulo} />
+
+          <div className="detail-grid">
+            <Detail label="Departamento" value={decision.departamento} />
+            <Detail label="Data" value={decision.data} />
+          </div>
+
+          <div className="detail-grid">
+            <div>
+              <p>Nível de Impacto</p>
+              <span className={`tag impact-${decision.impacto.toLowerCase()}`}>{decision.impacto}</span>
+            </div>
+            <div>
+              <p>Status</p>
+              <span className={`tag status-${decision.status.toLowerCase()}`}>{decision.status}</span>
+            </div>
+          </div>
+
+          <div>
+            <p>Descrição Detalhada</p>
+            <div className="description-box">{decision.descricao}</div>
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <button type="button" onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p>{label}</p>
+      <strong>{value}</strong>
+    </div>
   )
 }
 
