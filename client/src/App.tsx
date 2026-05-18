@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import {
   CheckCircle2,
   ClipboardList,
+  Clock,
   FilePenLine,
   FileText,
   History,
@@ -12,6 +13,7 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  User as UserIcon,
 } from 'lucide-react'
 import {
   Bar,
@@ -664,7 +666,7 @@ function App() {
           </div>
 
           {activeView === 'audit' ? (
-            <section className="audit-list">
+            <section className="audit-timeline-panel">
               {isLoading ? (
                 <p className="empty-state">Carregando auditoria...</p>
               ) : auditLogs.length === 0 ? (
@@ -672,19 +674,40 @@ function App() {
                   Nenhum log encontrado. Verifique se o MongoDB está rodando.
                 </p>
               ) : (
-                auditLogs.map((log) => (
-                  <article className="audit-card" key={log.id}>
-                    <div className="card-header">
-                      <h3>{actionLabels[log.action] || log.action}</h3>
-                      <time dateTime={log.timestamp}>
-                        {new Intl.DateTimeFormat('pt-BR', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        }).format(new Date(log.timestamp))}
-                      </time>
+                auditLogs.map((log, index) => (
+                  <article className="audit-event" key={log.id}>
+                    {index !== auditLogs.length - 1 && <span className="timeline-line" />}
+                    <div className="timeline-dot">
+                      <Clock size={16} />
                     </div>
-                    <p>Usuário: {log.userId || 'sem usuário informado'}</p>
-                    <pre>{JSON.stringify(log.details || {}, null, 2)}</pre>
+                    <div className="audit-event-content">
+                      <div className="audit-event-header">
+                        <div>
+                          <h3>{actionLabels[log.action] || log.action}</h3>
+                          <p>
+                            <UserIcon size={15} />
+                            {log.userId || 'sem usuário informado'}
+                          </p>
+                        </div>
+                        <time dateTime={log.timestamp}>
+                          {new Intl.DateTimeFormat('pt-BR', {
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                          }).format(new Date(log.timestamp))}
+                        </time>
+                      </div>
+                      <div className="audit-decision-line">
+                        <FileText size={15} />
+                        <span>
+                          {typeof log.details?.title === 'string'
+                            ? log.details.title
+                            : typeof log.details?.decisionId === 'string'
+                              ? `Decisão ${log.details.decisionId}`
+                              : 'Evento do sistema'}
+                        </span>
+                      </div>
+                      <pre>{JSON.stringify(log.details || {}, null, 2)}</pre>
+                    </div>
                   </article>
                 ))
               )}
@@ -804,66 +827,79 @@ function App() {
               ) : decisions.length === 0 ? (
                 <p className="empty-state">Nenhuma decisão registrada ainda.</p>
               ) : (
-                <div className="decision-list">
-                  {decisions.map((item) => (
-                    <article className="decision-card" key={item.id}>
-                      <div className="card-header">
-                        <h3>{item.title}</h3>
-                        <span className={`status-badge status-${item.status}`}>
-                          {statusLabels[item.status] || item.status}
-                        </span>
-                      </div>
-                      <p>{item.decision}</p>
-                      <dl>
-                        <div>
-                          <dt>Contexto</dt>
-                          <dd>{item.context}</dd>
-                        </div>
-                        <div>
-                          <dt>Motivo</dt>
-                          <dd>{item.reason}</dd>
-                        </div>
-                        <div>
-                          <dt>Autor</dt>
-                          <dd>{item.user?.name || 'Registro anterior ao login'}</dd>
-                        </div>
-                      </dl>
-                      <div className="card-actions">
-                        <button type="button" onClick={() => startEditing(item)}>
-                          <FilePenLine size={15} />
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateDecisionStatus(item.id, 'approved')}
-                          disabled={item.status === 'approved'}
-                        >
-                          Aprovar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateDecisionStatus(item.id, 'archived')}
-                          disabled={item.status === 'archived'}
-                        >
-                          Arquivar
-                        </button>
-                        <button
-                          className="danger-button"
-                          type="button"
-                          onClick={() => deleteDecision(item.id)}
-                        >
-                          <Trash2 size={15} />
-                          Excluir
-                        </button>
-                      </div>
-                      <time dateTime={item.createdAt}>
-                        {new Intl.DateTimeFormat('pt-BR', {
-                          dateStyle: 'short',
-                          timeStyle: 'short',
-                        }).format(new Date(item.createdAt))}
-                      </time>
-                    </article>
-                  ))}
+                <div className="decision-table-shell">
+                  <table className="decision-table">
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Título</th>
+                        <th>Status</th>
+                        <th>Autor</th>
+                        <th>Data</th>
+                        <th>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {decisions.map((item) => (
+                        <tr key={item.id}>
+                          <td>#{item.id.slice(0, 8)}</td>
+                          <td>
+                            <strong>{item.title}</strong>
+                            <span>{item.decision}</span>
+                          </td>
+                          <td>
+                            <span className={`status-badge status-${item.status}`}>
+                              {statusLabels[item.status] || item.status}
+                            </span>
+                          </td>
+                          <td>{item.user?.name || 'Registro anterior ao login'}</td>
+                          <td>
+                            {new Intl.DateTimeFormat('pt-BR', {
+                              dateStyle: 'short',
+                            }).format(new Date(item.createdAt))}
+                          </td>
+                          <td>
+                            <div className="table-actions">
+                              <button
+                                className="icon-button edit"
+                                type="button"
+                                onClick={() => startEditing(item)}
+                                title="Editar"
+                              >
+                                <FilePenLine size={16} />
+                              </button>
+                              <button
+                                className="icon-button approve"
+                                type="button"
+                                onClick={() => updateDecisionStatus(item.id, 'approved')}
+                                disabled={item.status === 'approved'}
+                                title="Aprovar"
+                              >
+                                <CheckCircle2 size={16} />
+                              </button>
+                              <button
+                                className="icon-button archive"
+                                type="button"
+                                onClick={() => updateDecisionStatus(item.id, 'archived')}
+                                disabled={item.status === 'archived'}
+                                title="Arquivar"
+                              >
+                                <ShieldCheck size={16} />
+                              </button>
+                              <button
+                                className="icon-button danger"
+                                type="button"
+                                onClick={() => deleteDecision(item.id)}
+                                title="Excluir"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </>
