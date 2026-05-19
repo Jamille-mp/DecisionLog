@@ -60,7 +60,7 @@ authRoutes.post(
       },
     });
 
-    if (!user) {
+    if (!user || !user.active) {
       throw new AppError("Credenciais inválidas.", 401);
     }
 
@@ -74,6 +74,7 @@ authRoutes.post(
       {
         email: user.email,
         role: user.role,
+        active: user.active,
       },
       process.env.JWT_SECRET || "dev-secret",
       {

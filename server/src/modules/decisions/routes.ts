@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AppError } from "../../errors/AppError";
+import { publishDomainEvent } from "../../lib/eventBus";
 import { logActivity } from "../../lib/mongodb";
 import { prisma } from "../../lib/prisma";
 import { asyncHandler } from "../../middlewares/asyncHandler";
@@ -22,6 +23,7 @@ const decisionInclude = {
       role: true,
     },
   },
+  departmentRef: true,
 };
 
 function getDecisionId(id: string | string[] | undefined) {
@@ -91,8 +93,23 @@ decisionRoutes.post(
   "/",
   requireRole(["admin", "manager"]),
   asyncHandler(async (request, response) => {
-    const { title, context, decision, reason, department, impact } =
+    const { title, context, decision, reason, department, departmentId, impact } =
       createDecisionSchema.parse(request.body);
+    let departmentName = department;
+
+    if (departmentId) {
+      const selectedDepartment = await prisma.department.findUnique({
+        where: {
+          id: departmentId,
+        },
+      });
+
+      if (!selectedDepartment || !selectedDepartment.active) {
+        throw new AppError("Departamento não encontrado ou inativo.", 400);
+      }
+
+      departmentName = selectedDepartment.name;
+    }
 
     const newDecision = await prisma.decision.create({
       data: {
@@ -100,7 +117,8 @@ decisionRoutes.post(
         context,
         decision,
         reason,
-        department,
+        department: departmentName,
+        departmentId,
         impact,
         userId: request.user?.id,
       },
@@ -116,6 +134,11 @@ decisionRoutes.post(
       },
       request.user?.id,
     );
+    void publishDomainEvent("decision.created", {
+      decisionId: newDecision.id,
+      title: newDecision.title,
+      userId: request.user?.id,
+    });
 
     response.status(201).json(newDecision);
   }),
@@ -127,6 +150,7 @@ decisionRoutes.put(
   asyncHandler(async (request, response) => {
     const data = updateDecisionSchema.parse(request.body);
     const decisionId = getDecisionId(request.params.id);
+    let updateData = data;
 
     if (!decisionId) {
       throw new AppError("ID da decisão ausente.", 400);
@@ -159,11 +183,28 @@ decisionRoutes.put(
       );
     }
 
+    if (data.departmentId) {
+      const selectedDepartment = await prisma.department.findUnique({
+        where: {
+          id: data.departmentId,
+        },
+      });
+
+      if (!selectedDepartment || !selectedDepartment.active) {
+        throw new AppError("Departamento não encontrado ou inativo.", 400);
+      }
+
+      updateData = {
+        ...data,
+        department: selectedDepartment.name,
+      };
+    }
+
     const updatedDecision = await prisma.decision.update({
       where: {
         id: currentDecision.id,
       },
-      data,
+      data: updateData,
       include: decisionInclude,
     });
 
@@ -172,12 +213,18 @@ decisionRoutes.put(
       {
         decisionId: updatedDecision.id,
         title: updatedDecision.title,
-        updatedFields: Object.keys(data),
+        updatedFields: Object.keys(updateData),
         estadoAnterior: currentDecision,
         estadoNovo: updatedDecision,
       },
       request.user?.id,
     );
+    void publishDomainEvent("decision.updated", {
+      decisionId: updatedDecision.id,
+      title: updatedDecision.title,
+      updatedFields: Object.keys(updateData),
+      userId: request.user?.id,
+    });
 
     response.json(updatedDecision);
   }),
@@ -235,6 +282,11 @@ decisionRoutes.delete(
       },
       request.user?.id,
     );
+    void publishDomainEvent("decision.inactivated", {
+      decisionId: currentDecision.id,
+      title: currentDecision.title,
+      userId: request.user?.id,
+    });
 
     response.json(inactiveDecision);
   }),

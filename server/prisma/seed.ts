@@ -22,6 +22,18 @@ const seedUsers = [
   },
 ];
 
+const seedDepartments = [
+  "Financeiro",
+  "RH",
+  "Operações",
+  "TI",
+  "Comercial",
+  "Jurídico",
+  "Compliance",
+  "Gestão",
+  "Segurança",
+];
+
 const seedDecisions = [
   {
     title: "Adotar MySQL para dados principais",
@@ -115,6 +127,24 @@ async function main() {
   );
 
   const userByEmail = new Map(users.map((user) => [user.email, user]));
+  const departments = await Promise.all(
+    seedDepartments.map((name) =>
+      prisma.department.upsert({
+        where: {
+          name,
+        },
+        update: {
+          active: true,
+        },
+        create: {
+          name,
+        },
+      }),
+    ),
+  );
+  const departmentByName = new Map(
+    departments.map((department) => [department.name, department]),
+  );
 
   await prisma.decision.deleteMany({
     where: {
@@ -131,6 +161,7 @@ async function main() {
       decision: decision.decision,
       reason: decision.reason,
       department: decision.department,
+      departmentId: departmentByName.get(decision.department)?.id,
       impact: decision.impact,
       status: decision.status,
       active: true,

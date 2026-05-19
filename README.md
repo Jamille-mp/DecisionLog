@@ -76,13 +76,18 @@ Auditor:       auditor@decisionlog.local / 123456
 
 - Cadastro e login de usuários
 - Perfis de acesso: Administrador, Gestor e Auditor
+- Gestão administrativa de usuários e permissões
+- Cadastro e ativação/inativação de departamentos
 - Registro de decisões com departamento e impacto
 - Listagem com busca textual
 - Dashboard com totais e gráficos por departamento/impacto
 - Edição completa de decisões
 - Exclusão lógica por inativação
 - Auditoria no MongoDB com estado anterior e novo estado
+- Consulta de auditoria por decisão
 - Tela de auditoria restrita a Administradores e Auditores
+- Health check com MySQL, MongoDB e circuito de eventos
+- Publicação interna de eventos de domínio com circuit breaker simples
 - Tratamento global de erros
 - Testes automatizados mínimos da API
 
@@ -95,8 +100,14 @@ GET  /decisions
 POST /decisions
 PUT  /decisions/:id
 DELETE /decisions/:id
+GET  /departments
+POST /departments
+PATCH /departments/:id
+GET  /users
+PATCH /users/:id
 GET  /audit-logs
 GET  /audit-logs/decisions/:decisionId
+GET  /health
 ```
 
 Filtros:

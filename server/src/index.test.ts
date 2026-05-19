@@ -5,9 +5,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   prisma: {
+    $queryRaw: vi.fn(),
     user: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      findMany: vi.fn(),
+      update: vi.fn(),
+    },
+    department: {
+      findMany: vi.fn(),
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     decision: {
       findMany: vi.fn(),
@@ -21,6 +30,7 @@ const mocks = vi.hoisted(() => ({
   logActivity: vi.fn(),
   listAuditLogs: vi.fn(),
   listAuditLogsByDecision: vi.fn(),
+  checkMongoHealth: vi.fn(),
 }));
 
 vi.mock("./lib/prisma", () => ({
@@ -31,6 +41,7 @@ vi.mock("./lib/mongodb", () => ({
   logActivity: mocks.logActivity,
   listAuditLogs: mocks.listAuditLogs,
   listAuditLogsByDecision: mocks.listAuditLogsByDecision,
+  checkMongoHealth: mocks.checkMongoHealth,
 }));
 
 process.env.NODE_ENV = "test";
@@ -64,6 +75,7 @@ describe("DecisionLog API", () => {
       email: "admin@decisionlog.local",
       passwordHash: await bcrypt.hash("123456", 10),
       role: "admin",
+      active: true,
     });
 
     const response = await request(app).post("/auth/login").send({
@@ -171,5 +183,86 @@ describe("DecisionLog API", () => {
 
     expect(response.status).toBe(403);
     expect(mocks.listAuditLogs).not.toHaveBeenCalled();
+  });
+
+  it("lista histórico de auditoria de uma decisão específica", async () => {
+    mocks.listAuditLogsByDecision.mockResolvedValue([
+      {
+        _id: { toString: () => "log-1" },
+        action: "DECISION_UPDATED",
+        userId: "user-1",
+        details: { decisionId: "decision-1" },
+        timestamp: new Date(),
+      },
+    ]);
+
+    const response = await request(app)
+      .get("/audit-logs/decisions/decision-1")
+      .set("Authorization", `Bearer ${makeToken("admin")}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveLength(1);
+    expect(mocks.listAuditLogsByDecision).toHaveBeenCalledWith("decision-1", 50);
+  });
+
+  it("permite administrador alterar perfil de usuário", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-2",
+      name: "Auditor",
+      email: "auditor@decisionlog.local",
+      role: "auditor",
+      active: true,
+      passwordHash: "hash",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mocks.prisma.user.update.mockResolvedValue({
+      id: "user-2",
+      name: "Auditor",
+      email: "auditor@decisionlog.local",
+      role: "manager",
+      active: true,
+      createdAt: new Date(),
+    });
+
+    const response = await request(app)
+      .patch("/users/user-2")
+      .set("Authorization", `Bearer ${makeToken("admin")}`)
+      .send({ role: "manager" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.role).toBe("manager");
+  });
+
+  it("cria departamento ativo", async () => {
+    mocks.prisma.department.create.mockResolvedValue({
+      id: "department-1",
+      name: "Inovação",
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    const response = await request(app)
+      .post("/departments")
+      .set("Authorization", `Bearer ${makeToken("admin")}`)
+      .send({ name: "Inovação" });
+
+    expect(response.status).toBe(201);
+    expect(response.body.name).toBe("Inovação");
+  });
+
+  it("retorna health check completo", async () => {
+    mocks.prisma.$queryRaw.mockResolvedValue([{ "1": 1 }]);
+    mocks.checkMongoHealth.mockResolvedValue(undefined);
+
+    const response = await request(app).get("/health");
+
+    expect(response.status).toBe(200);
+    expect(response.body.checks.mysql).toBe("ok");
+    expect(response.body.checks.mongodb).toBe("ok");
+    expect(response.body.checks.events).toEqual(
+      expect.objectContaining({ state: expect.any(String) }),
+    );
   });
 });

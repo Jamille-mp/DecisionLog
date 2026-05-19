@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import {
+  Activity,
+  Building2,
   CheckCircle2,
   Clock,
   Edit2,
@@ -13,6 +15,7 @@ import {
   Search,
   Trash2,
   User as UserIcon,
+  Users,
   X,
 } from 'lucide-react'
 import {
@@ -31,7 +34,7 @@ import { Toaster, toast } from 'sonner'
 import logo from './assets/decisionlog-logo.png'
 import './App.css'
 
-type Page = 'dashboard' | 'new-decision' | 'history' | 'audit'
+type Page = 'dashboard' | 'new-decision' | 'history' | 'audit' | 'users' | 'departments'
 type ApiRole = 'admin' | 'manager' | 'auditor'
 type RoleLabel = 'Administrador' | 'Gestor' | 'Auditor'
 type ApiStatus = 'pending' | 'approved' | 'archived' | 'inactive'
@@ -42,6 +45,27 @@ type User = {
   name: string
   email: string
   role: ApiRole
+  active: boolean
+  createdAt?: string
+}
+
+type Department = {
+  id: string
+  name: string
+  active: boolean
+}
+
+type Health = {
+  status: string
+  checks: {
+    mysql: string
+    mongodb: string
+    events: {
+      state: string
+      failureCount: number
+      publishedEvents: number
+    }
+  }
 }
 
 type ApiDecision = {
@@ -51,6 +75,8 @@ type ApiDecision = {
   decision: string
   reason: string
   department: string
+  departmentId?: string | null
+  departmentRef?: Department | null
   impact: ApiImpact
   status: ApiStatus
   active: boolean
@@ -62,6 +88,7 @@ type DecisionView = {
   id: string
   titulo: string
   departamento: string
+  departamentoId?: string | null
   impacto: 'Baixo' | 'Médio' | 'Alto'
   status: 'Pendente' | 'Concluída' | 'Arquivada' | 'Inativa'
   data: string
@@ -80,6 +107,7 @@ type AuditLog = {
 
 type DecisionFormData = {
   titulo: string
+  departamentoId: string
   departamento: string
   impacto: 'Baixo' | 'Médio' | 'Alto' | ''
   status: 'Pendente' | 'Concluída'
@@ -102,6 +130,7 @@ const emptyAuthForm: AuthForm = {
 
 const emptyDecisionForm: DecisionFormData = {
   titulo: '',
+  departamentoId: '',
   departamento: '',
   impacto: '',
   status: 'Pendente',
@@ -114,9 +143,18 @@ const roleLabels: Record<ApiRole, RoleLabel> = {
   auditor: 'Auditor',
 }
 
+const labelToRole: Record<RoleLabel, ApiRole> = {
+  Administrador: 'admin',
+  Gestor: 'manager',
+  Auditor: 'auditor',
+}
+
 const actionLabels: Record<string, string> = {
   USER_REGISTERED: 'Usuário cadastrado',
   USER_LOGGED_IN: 'Login realizado',
+  USER_UPDATED: 'Usuário atualizado',
+  DEPARTMENT_CREATED: 'Departamento criado',
+  DEPARTMENT_UPDATED: 'Departamento atualizado',
   DECISIONS_VIEWED: 'Decisões visualizadas',
   DECISION_CREATED: 'Decisão criada',
   DECISION_UPDATED: 'Decisão editada',
@@ -151,7 +189,8 @@ function toDecisionView(decision: ApiDecision): DecisionView {
   return {
     id: decision.id,
     titulo: decision.title,
-    departamento: decision.department,
+    departamento: decision.departmentRef?.name || decision.department,
+    departamentoId: decision.departmentId,
     impacto: impactToView[decision.impact],
     status: statusToView[decision.status],
     data: new Intl.DateTimeFormat('pt-BR').format(new Date(decision.createdAt)),
@@ -168,8 +207,15 @@ function toPayload(form: DecisionFormData) {
     decision: form.descricao,
     reason: form.descricao,
     department: form.departamento,
+    departmentId: form.departamentoId,
     impact: impactToApi[form.impacto || 'Médio'],
     status: statusToApi[form.status],
+  }
+}
+
+function authHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
   }
 }
 
@@ -183,13 +229,18 @@ function App() {
   })
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
   const [decisions, setDecisions] = useState<ApiDecision[]>([])
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [users, setUsers] = useState<User[]>([])
+  const [health, setHealth] = useState<Health | null>(null)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
+  const [decisionAuditLogs, setDecisionAuditLogs] = useState<AuditLog[]>([])
   const [selectedDecision, setSelectedDecision] = useState<DecisionView | null>(null)
   const [editingDecision, setEditingDecision] = useState<DecisionView | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const canAccessAudit = user?.role === 'admin' || user?.role === 'auditor'
+  const isAdmin = user?.role === 'admin'
   const userProfile = {
     name: user?.name || 'Usuário',
     role: roleLabels[user?.role || 'manager'],
@@ -205,36 +256,39 @@ function App() {
     async function loadInitialData() {
       setIsLoading(true)
       try {
-        const decisionResponse = await fetch(`${apiUrl}/decisions`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        })
-
-        if (!decisionResponse.ok) {
-          throw new Error('Não foi possível carregar as decisões.')
-        }
-
-        const loadedDecisions = (await decisionResponse.json()) as ApiDecision[]
-        let loadedAuditLogs: AuditLog[] = []
+        const requests = [
+          fetch(`${apiUrl}/decisions`, { headers: authHeaders(token) }),
+          fetch(`${apiUrl}/departments`, { headers: authHeaders(token) }),
+          fetch(`${apiUrl}/health`),
+        ]
 
         if (canAccessAudit) {
-          const auditResponse = await fetch(`${apiUrl}/audit-logs`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          })
-
-          if (!auditResponse.ok) {
-            throw new Error('Não foi possível carregar a auditoria.')
-          }
-
-          loadedAuditLogs = (await auditResponse.json()) as AuditLog[]
+          requests.push(fetch(`${apiUrl}/audit-logs`, { headers: authHeaders(token) }))
         }
+
+        if (isAdmin) {
+          requests.push(fetch(`${apiUrl}/users`, { headers: authHeaders(token) }))
+        }
+
+        const responses = await Promise.all(requests)
+
+        if (responses.some((response) => !response.ok)) {
+          throw new Error('Falha ao carregar dados iniciais.')
+        }
+
+        const loadedDecisions = (await responses[0].json()) as ApiDecision[]
+        const loadedDepartments = (await responses[1].json()) as Department[]
+        const loadedHealth = (await responses[2].json()) as Health
+        let cursor = 3
+        const loadedAuditLogs = canAccessAudit ? ((await responses[cursor++].json()) as AuditLog[]) : []
+        const loadedUsers = isAdmin ? ((await responses[cursor].json()) as User[]) : []
 
         if (isCurrent) {
           setDecisions(loadedDecisions)
+          setDepartments(loadedDepartments)
+          setHealth(loadedHealth)
           setAuditLogs(loadedAuditLogs)
+          setUsers(loadedUsers)
         }
       } catch {
         toast.error('Sessão expirada ou API indisponível.')
@@ -251,20 +305,55 @@ function App() {
     return () => {
       isCurrent = false
     }
-  }, [token, user, canAccessAudit])
+  }, [token, user, canAccessAudit, isAdmin])
 
   async function refreshAuditLogs(currentToken = token) {
     if (!currentToken || !canAccessAudit) return
 
     const response = await fetch(`${apiUrl}/audit-logs`, {
-      headers: {
-        Authorization: `Bearer ${currentToken}`,
-      },
+      headers: authHeaders(currentToken),
     })
 
     if (response.ok) {
       setAuditLogs((await response.json()) as AuditLog[])
     }
+  }
+
+  async function refreshDepartments(currentToken = token) {
+    const response = await fetch(`${apiUrl}/departments`, {
+      headers: authHeaders(currentToken),
+    })
+
+    if (response.ok) {
+      setDepartments((await response.json()) as Department[])
+    }
+  }
+
+  async function refreshUsers(currentToken = token) {
+    if (!isAdmin) return
+
+    const response = await fetch(`${apiUrl}/users`, {
+      headers: authHeaders(currentToken),
+    })
+
+    if (response.ok) {
+      setUsers((await response.json()) as User[])
+    }
+  }
+
+  async function loadDecisionAudit(decisionId: string) {
+    if (!canAccessAudit) return
+
+    const response = await fetch(`${apiUrl}/audit-logs/decisions/${decisionId}`, {
+      headers: authHeaders(token),
+    })
+
+    if (!response.ok) {
+      toast.error('Não foi possível carregar o histórico da decisão.')
+      return
+    }
+
+    setDecisionAuditLogs((await response.json()) as AuditLog[])
   }
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
@@ -318,7 +407,10 @@ function App() {
     setUser(null)
     setCurrentPage('dashboard')
     setDecisions([])
+    setDepartments([])
+    setUsers([])
     setAuditLogs([])
+    setDecisionAuditLogs([])
   }
 
   async function handleSaveDecision(formData: DecisionFormData) {
@@ -331,7 +423,7 @@ function App() {
         {
           method: editingDecision ? 'PUT' : 'POST',
           headers: {
-            Authorization: `Bearer ${token}`,
+            ...authHeaders(token),
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(payload),
@@ -360,11 +452,6 @@ function App() {
     }
   }
 
-  function handleEditDecision(decision: DecisionView) {
-    setEditingDecision(decision)
-    setCurrentPage('new-decision')
-  }
-
   async function handleDeleteDecision(id: string) {
     const confirmed = window.confirm('Deseja realmente inativar esta decisão?')
     if (!confirmed) return
@@ -372,9 +459,7 @@ function App() {
     try {
       const response = await fetch(`${apiUrl}/decisions/${id}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders(token),
       })
 
       if (!response.ok) {
@@ -389,23 +474,94 @@ function App() {
     }
   }
 
+  async function handleUpdateUser(userId: string, data: Partial<Pick<User, 'role' | 'active'>>) {
+    const response = await fetch(`${apiUrl}/users/${userId}`, {
+      method: 'PATCH',
+      headers: {
+        ...authHeaders(token),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+
+    if (!response.ok) {
+      toast.error('Não foi possível atualizar o usuário.')
+      return
+    }
+
+    toast.success('Usuário atualizado.')
+    void refreshUsers()
+    void refreshAuditLogs()
+  }
+
+  async function handleCreateDepartment(name: string) {
+    const response = await fetch(`${apiUrl}/departments`, {
+      method: 'POST',
+      headers: {
+        ...authHeaders(token),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+    })
+
+    if (!response.ok) {
+      toast.error('Não foi possível criar o departamento.')
+      return
+    }
+
+    toast.success('Departamento criado.')
+    void refreshDepartments()
+    void refreshAuditLogs()
+  }
+
+  async function handleToggleDepartment(department: Department) {
+    const response = await fetch(`${apiUrl}/departments/${department.id}`, {
+      method: 'PATCH',
+      headers: {
+        ...authHeaders(token),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ active: !department.active }),
+    })
+
+    if (!response.ok) {
+      toast.error('Não foi possível atualizar o departamento.')
+      return
+    }
+
+    toast.success('Departamento atualizado.')
+    void refreshDepartments()
+    void refreshAuditLogs()
+  }
+
   function navigateTo(page: Page) {
     if (page === 'audit' && !canAccessAudit) {
       toast.error('Apenas administradores e auditores acessam a auditoria.')
       return
     }
 
+    if ((page === 'users' || page === 'departments') && !isAdmin) {
+      toast.error('Apenas administradores acessam esta área.')
+      return
+    }
+
     setCurrentPage(page)
+  }
+
+  function openDecision(decision: DecisionView) {
+    setSelectedDecision(decision)
+    setDecisionAuditLogs([])
   }
 
   function renderContent() {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard decisions={decisionViews} isLoading={isLoading} />
+        return <Dashboard decisions={decisionViews} health={health} isLoading={isLoading} />
       case 'new-decision':
         return (
           <NewDecision
             key={editingDecision?.id || 'new'}
+            departments={departments}
             editingDecision={editingDecision}
             isSubmitting={isSubmitting}
             onCancelEdit={() => setEditingDecision(null)}
@@ -418,15 +574,28 @@ function App() {
           <DecisionHistory
             decisions={decisionViews}
             userRole={userProfile.role}
-            onEdit={handleEditDecision}
+            onEdit={(decision) => {
+              setEditingDecision(decision)
+              setCurrentPage('new-decision')
+            }}
             onDelete={handleDeleteDecision}
-            onView={setSelectedDecision}
+            onView={openDecision}
           />
         )
       case 'audit':
         return <AuditTrail events={auditLogs} />
+      case 'users':
+        return <UsersPage currentUserId={user?.id} onUpdate={handleUpdateUser} users={users} />
+      case 'departments':
+        return (
+          <DepartmentsPage
+            departments={departments}
+            onCreate={handleCreateDepartment}
+            onToggle={handleToggleDepartment}
+          />
+        )
       default:
-        return <Dashboard decisions={decisionViews} isLoading={isLoading} />
+        return <Dashboard decisions={decisionViews} health={health} isLoading={isLoading} />
     }
   }
 
@@ -450,6 +619,7 @@ function App() {
     <div className="app-frame">
       <Toaster richColors position="top-right" />
       <Sidebar
+        canAccessAdmin={isAdmin}
         canAccessAudit={canAccessAudit}
         currentPage={currentPage}
         onLogout={handleLogout}
@@ -457,7 +627,13 @@ function App() {
         userProfile={userProfile}
       />
       <main className="content-area">{renderContent()}</main>
-      <ViewDecisionModal decision={selectedDecision} onClose={() => setSelectedDecision(null)} />
+      <ViewDecisionModal
+        auditLogs={decisionAuditLogs}
+        canAccessAudit={canAccessAudit}
+        decision={selectedDecision}
+        onClose={() => setSelectedDecision(null)}
+        onLoadAudit={loadDecisionAudit}
+      />
     </div>
   )
 }
@@ -483,9 +659,7 @@ function Login({
         <div className="logo-wrap">
           <img src={logo} alt="DecisionLog" />
         </div>
-
         <h2>Sistema de Gestão de Capital Intelectual</h2>
-
         <form onSubmit={onSubmit} className="login-form">
           {authMode === 'register' && (
             <div>
@@ -499,7 +673,6 @@ function Login({
               />
             </div>
           )}
-
           <div>
             <label htmlFor="email">E-mail</label>
             <input
@@ -511,7 +684,6 @@ function Login({
               required
             />
           </div>
-
           <div>
             <label htmlFor="password">Senha</label>
             <input
@@ -523,12 +695,10 @@ function Login({
               required
             />
           </div>
-
           <button type="submit" disabled={isSubmitting}>
             {isSubmitting ? 'Aguarde...' : authMode === 'login' ? 'Entrar' : 'Cadastrar'}
           </button>
         </form>
-
         <button
           className="mode-button"
           type="button"
@@ -536,7 +706,6 @@ function Login({
         >
           {authMode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
         </button>
-
         <p>Plataforma de Governança Corporativa</p>
       </div>
     </div>
@@ -544,12 +713,14 @@ function Login({
 }
 
 function Sidebar({
+  canAccessAdmin,
   canAccessAudit,
   currentPage,
   onNavigate,
   userProfile,
   onLogout,
 }: {
+  canAccessAdmin: boolean
   canAccessAudit: boolean
   currentPage: Page
   onNavigate: (page: Page) => void
@@ -563,6 +734,12 @@ function Sidebar({
     ...(canAccessAudit
       ? [{ id: 'audit' as const, label: 'Trilha de Auditoria', icon: History }]
       : []),
+    ...(canAccessAdmin
+      ? [
+          { id: 'users' as const, label: 'Usuários e Permissões', icon: Users },
+          { id: 'departments' as const, label: 'Departamentos', icon: Building2 },
+        ]
+      : []),
   ]
 
   return (
@@ -570,7 +747,6 @@ function Sidebar({
       <div className="sidebar-logo">
         <img src={logo} alt="DecisionLog" />
       </div>
-
       <div className="profile-box">
         <div className="profile-avatar">
           {userProfile.name
@@ -585,7 +761,6 @@ function Sidebar({
           <span>{userProfile.role}</span>
         </div>
       </div>
-
       <nav className="sidebar-menu" aria-label="Navegação principal">
         {menuItems.map((item) => {
           const Icon = item.icon
@@ -603,7 +778,6 @@ function Sidebar({
           )
         })}
       </nav>
-
       <div className="sidebar-footer">
         <button type="button" onClick={onLogout}>
           <LogOut />
@@ -614,11 +788,18 @@ function Sidebar({
   )
 }
 
-function Dashboard({ decisions, isLoading }: { decisions: DecisionView[]; isLoading: boolean }) {
+function Dashboard({
+  decisions,
+  health,
+  isLoading,
+}: {
+  decisions: DecisionView[]
+  health: Health | null
+  isLoading: boolean
+}) {
   const totalDecisions = decisions.length
   const pendingDecisions = decisions.filter((decision) => decision.status === 'Pendente').length
   const completedDecisions = decisions.filter((decision) => decision.status === 'Concluída').length
-
   const departmentData = Object.values(
     decisions.reduce<Record<string, { name: string; decisoes: number }>>((summary, decision) => {
       summary[decision.departamento] ||= { name: decision.departamento, decisoes: 0 }
@@ -626,13 +807,11 @@ function Dashboard({ decisions, isLoading }: { decisions: DecisionView[]; isLoad
       return summary
     }, {}),
   )
-
   const impactData = [
     { id: 'impact-1', name: 'Alto', value: decisions.filter((item) => item.impacto === 'Alto').length, color: '#DC2626' },
     { id: 'impact-2', name: 'Médio', value: decisions.filter((item) => item.impacto === 'Médio').length, color: '#F59E0B' },
     { id: 'impact-3', name: 'Baixo', value: decisions.filter((item) => item.impacto === 'Baixo').length, color: '#3B82F6' },
   ]
-
   const fallbackDepartmentData = departmentData.length > 0 ? departmentData : [{ name: 'Sem dados', decisoes: 0 }]
   const fallbackImpactData = impactData.some((item) => item.value > 0)
     ? impactData
@@ -640,16 +819,28 @@ function Dashboard({ decisions, isLoading }: { decisions: DecisionView[]; isLoad
 
   return (
     <section className="page-section">
-      <h1>Visão Geral Estratégica</h1>
-
+      <div className="page-title-row">
+        <h1>Visão Geral Estratégica</h1>
+        {health && (
+          <div className={`health-pill ${health.status}`}>
+            <Activity />
+            API {health.status === 'ok' ? 'saudável' : 'degradada'}
+          </div>
+        )}
+      </div>
       <div className="kpi-grid">
         <KpiCard icon={FileText} label="Total de Decisões" value={totalDecisions} tone="primary" />
         <KpiCard icon={Clock} label="Decisões Pendentes" value={pendingDecisions} tone="warning" />
         <KpiCard icon={CheckCircle2} label="Decisões Concluídas" value={completedDecisions} tone="success" />
       </div>
-
+      {health && (
+        <div className="health-grid">
+          <span>MySQL: {health.checks.mysql}</span>
+          <span>MongoDB: {health.checks.mongodb}</span>
+          <span>Eventos: {health.checks.events.state}</span>
+        </div>
+      )}
       {isLoading && <p className="loading-text">Carregando informações...</p>}
-
       <div className="chart-grid">
         <article className="chart-card">
           <h3>Volume de Decisões por Departamento</h3>
@@ -663,7 +854,6 @@ function Dashboard({ decisions, isLoading }: { decisions: DecisionView[]; isLoad
             </BarChart>
           </ResponsiveContainer>
         </article>
-
         <article className="chart-card">
           <h3>Distribuição por Nível de Impacto</h3>
           <ResponsiveContainer width="100%" height={300}>
@@ -716,12 +906,14 @@ function KpiCard({
 }
 
 function NewDecision({
+  departments,
   editingDecision,
   isSubmitting,
   onCancelEdit,
   onSave,
   userRole,
 }: {
+  departments: Department[]
   editingDecision: DecisionView | null
   isSubmitting: boolean
   onCancelEdit: () => void
@@ -732,6 +924,7 @@ function NewDecision({
     editingDecision
       ? {
           titulo: editingDecision.titulo,
+          departamentoId: editingDecision.departamentoId || '',
           departamento: editingDecision.departamento,
           impacto: editingDecision.impacto,
           status: editingDecision.status === 'Concluída' ? 'Concluída' : 'Pendente',
@@ -739,8 +932,16 @@ function NewDecision({
         }
       : emptyDecisionForm,
   )
-
   const isReadOnly = userRole === 'Auditor'
+
+  function handleDepartmentChange(departmentId: string) {
+    const department = departments.find((item) => item.id === departmentId)
+    setFormData({
+      ...formData,
+      departamentoId: departmentId,
+      departamento: department?.name || '',
+    })
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -761,7 +962,6 @@ function NewDecision({
   return (
     <section className="page-section">
       <h1>{editingDecision ? 'Editar Decisão' : 'Registrar Nova Decisão'}</h1>
-
       <div className="form-card">
         <form onSubmit={handleSubmit} className="decision-form">
           <div className="form-grid">
@@ -775,26 +975,22 @@ function NewDecision({
                 required
               />
             </div>
-
             <div>
               <label htmlFor="departamento">Departamento Responsável</label>
               <select
                 id="departamento"
-                value={formData.departamento}
-                onChange={(event) => setFormData({ ...formData, departamento: event.target.value })}
+                value={formData.departamentoId}
+                onChange={(event) => handleDepartmentChange(event.target.value)}
                 required
               >
                 <option value="">Selecione...</option>
-                <option value="Financeiro">Financeiro</option>
-                <option value="RH">RH</option>
-                <option value="Operações">Operações</option>
-                <option value="TI">TI</option>
-                <option value="Comercial">Comercial</option>
-                <option value="Jurídico">Jurídico</option>
-                <option value="Compliance">Compliance</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
               </select>
             </div>
-
             <div>
               <label>Nível de Impacto</label>
               <div className="radio-stack">
@@ -813,7 +1009,6 @@ function NewDecision({
                 ))}
               </div>
             </div>
-
             <div>
               <label htmlFor="status">Status</label>
               <select
@@ -826,7 +1021,6 @@ function NewDecision({
                 <option value="Concluída">Concluída</option>
               </select>
             </div>
-
             <div className="full-field">
               <label htmlFor="descricao">Descrição Detalhada</label>
               <textarea
@@ -838,7 +1032,6 @@ function NewDecision({
               />
             </div>
           </div>
-
           <div className="form-actions">
             {editingDecision && (
               <button className="secondary-action" type="button" onClick={onCancelEdit}>
@@ -879,7 +1072,6 @@ function DecisionHistory({
   return (
     <section className="page-section">
       <h1>Histórico de Decisões</h1>
-
       <div className="search-wrap">
         <Search />
         <input
@@ -889,63 +1081,180 @@ function DecisionHistory({
           type="text"
         />
       </div>
-
-      <div className="table-card">
-        <div className="table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Título</th>
-                <th>Departamento</th>
-                <th>Impacto</th>
-                <th>Status</th>
-                <th>Data</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredDecisions.length === 0 ? (
-                <tr>
-                  <td colSpan={7}>Nenhuma decisão encontrada</td>
-                </tr>
-              ) : (
-                filteredDecisions.map((decision) => (
-                  <tr key={decision.id}>
-                    <td>#{decision.id.slice(0, 8)}</td>
-                    <td>{decision.titulo}</td>
-                    <td>{decision.departamento}</td>
-                    <td>
-                      <span className={`tag impact-${decision.impacto.toLowerCase()}`}>{decision.impacto}</span>
-                    </td>
-                    <td>
-                      <span className={`tag status-${decision.status.toLowerCase()}`}>{decision.status}</span>
-                    </td>
-                    <td>{decision.data}</td>
-                    <td>
-                      <div className="action-row">
-                        <button type="button" onClick={() => onView(decision)} title="Visualizar">
-                          <Eye />
+      <DataTable>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Título</th>
+            <th>Departamento</th>
+            <th>Impacto</th>
+            <th>Status</th>
+            <th>Data</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredDecisions.length === 0 ? (
+            <tr>
+              <td colSpan={7}>Nenhuma decisão encontrada</td>
+            </tr>
+          ) : (
+            filteredDecisions.map((decision) => (
+              <tr key={decision.id}>
+                <td>#{decision.id.slice(0, 8)}</td>
+                <td>{decision.titulo}</td>
+                <td>{decision.departamento}</td>
+                <td>
+                  <span className={`tag impact-${decision.impacto.toLowerCase()}`}>{decision.impacto}</span>
+                </td>
+                <td>
+                  <span className={`tag status-${decision.status.toLowerCase()}`}>{decision.status}</span>
+                </td>
+                <td>{decision.data}</td>
+                <td>
+                  <div className="action-row">
+                    <button type="button" onClick={() => onView(decision)} title="Visualizar">
+                      <Eye />
+                    </button>
+                    {canEdit && (
+                      <>
+                        <button className="gold" type="button" onClick={() => onEdit(decision)} title="Editar">
+                          <Edit2 />
                         </button>
-                        {canEdit && (
-                          <>
-                            <button className="gold" type="button" onClick={() => onEdit(decision)} title="Editar">
-                              <Edit2 />
-                            </button>
-                            <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Inativar">
-                              <Trash2 />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                        <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Inativar">
+                          <Trash2 />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </DataTable>
+    </section>
+  )
+}
+
+function UsersPage({
+  currentUserId,
+  onUpdate,
+  users,
+}: {
+  currentUserId?: string
+  onUpdate: (userId: string, data: Partial<Pick<User, 'role' | 'active'>>) => void
+  users: User[]
+}) {
+  return (
+    <section className="page-section">
+      <h1>Usuários e Permissões</h1>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>E-mail</th>
+            <th>Perfil</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((item) => (
+            <tr key={item.id}>
+              <td>{item.name}</td>
+              <td>{item.email}</td>
+              <td>
+                <select
+                  className="table-select"
+                  value={roleLabels[item.role]}
+                  onChange={(event) =>
+                    onUpdate(item.id, { role: labelToRole[event.target.value as RoleLabel] })
+                  }
+                >
+                  <option>Administrador</option>
+                  <option>Gestor</option>
+                  <option>Auditor</option>
+                </select>
+              </td>
+              <td>
+                <span className={`tag ${item.active ? 'status-concluída' : 'status-inativa'}`}>
+                  {item.active ? 'Ativo' : 'Inativo'}
+                </span>
+              </td>
+              <td>
+                <button
+                  className="inline-action"
+                  disabled={item.id === currentUserId}
+                  type="button"
+                  onClick={() => onUpdate(item.id, { active: !item.active })}
+                >
+                  {item.active ? 'Inativar' : 'Ativar'}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
+    </section>
+  )
+}
+
+function DepartmentsPage({
+  departments,
+  onCreate,
+  onToggle,
+}: {
+  departments: Department[]
+  onCreate: (name: string) => void
+  onToggle: (department: Department) => void
+}) {
+  const [name, setName] = useState('')
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    onCreate(name)
+    setName('')
+  }
+
+  return (
+    <section className="page-section">
+      <h1>Departamentos</h1>
+      <form className="compact-form" onSubmit={handleSubmit}>
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Novo departamento"
+          required
+        />
+        <button type="submit">Adicionar</button>
+      </form>
+      <DataTable>
+        <thead>
+          <tr>
+            <th>Nome</th>
+            <th>Status</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {departments.map((department) => (
+            <tr key={department.id}>
+              <td>{department.name}</td>
+              <td>
+                <span className={`tag ${department.active ? 'status-concluída' : 'status-inativa'}`}>
+                  {department.active ? 'Ativo' : 'Inativo'}
+                </span>
+              </td>
+              <td>
+                <button className="inline-action" type="button" onClick={() => onToggle(department)}>
+                  {department.active ? 'Inativar' : 'Ativar'}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </DataTable>
     </section>
   )
 }
@@ -954,56 +1263,81 @@ function AuditTrail({ events }: { events: AuditLog[] }) {
   return (
     <section className="page-section">
       <h1>Histórico de Alterações</h1>
-
-      <div className="audit-card">
-        <div className="timeline">
-          {events.length === 0 ? (
-            <p className="empty-message">Nenhum evento de auditoria registrado</p>
-          ) : (
-            events.map((event, index) => (
-              <div key={event.id} className="timeline-item">
-                {index !== events.length - 1 && <div className="timeline-line" />}
-                <div className="timeline-dot">
-                  <Clock />
-                </div>
-                <div className="timeline-content">
-                  <div className="timeline-header">
-                    <div>
-                      <UserIcon />
-                      <span>{event.userId || 'Usuário autenticado'}</span>
-                    </div>
-                    <time>
-                      {new Intl.DateTimeFormat('pt-BR', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      }).format(new Date(event.timestamp))}
-                    </time>
-                  </div>
-
-                  <div className="timeline-action">
-                    <FileText />
-                    <span>{actionLabels[event.action] || event.action}</span>
-                  </div>
-
-                  <p>
-                    Decisão:{' '}
-                    {typeof event.details?.title === 'string'
-                      ? event.details.title
-                      : typeof event.details?.decisionId === 'string'
-                        ? event.details.decisionId
-                        : 'Evento do sistema'}
-                  </p>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
+      <AuditList events={events} />
     </section>
   )
 }
 
-function ViewDecisionModal({ decision, onClose }: { decision: DecisionView | null; onClose: () => void }) {
+function AuditList({ events }: { events: AuditLog[] }) {
+  return (
+    <div className="audit-card">
+      <div className="timeline">
+        {events.length === 0 ? (
+          <p className="empty-message">Nenhum evento de auditoria registrado</p>
+        ) : (
+          events.map((event, index) => (
+            <div key={event.id} className="timeline-item">
+              {index !== events.length - 1 && <div className="timeline-line" />}
+              <div className="timeline-dot">
+                <Clock />
+              </div>
+              <div className="timeline-content">
+                <div className="timeline-header">
+                  <div>
+                    <UserIcon />
+                    <span>{event.userId || 'Usuário autenticado'}</span>
+                  </div>
+                  <time>
+                    {new Intl.DateTimeFormat('pt-BR', {
+                      dateStyle: 'short',
+                      timeStyle: 'short',
+                    }).format(new Date(event.timestamp))}
+                  </time>
+                </div>
+                <div className="timeline-action">
+                  <FileText />
+                  <span>{actionLabels[event.action] || event.action}</span>
+                </div>
+                <p>
+                  Decisão:{' '}
+                  {typeof event.details?.title === 'string'
+                    ? event.details.title
+                    : typeof event.details?.decisionId === 'string'
+                      ? event.details.decisionId
+                      : 'Evento do sistema'}
+                </p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
+function DataTable({ children }: { children: ReactNode }) {
+  return (
+    <div className="table-card">
+      <div className="table-scroll">
+        <table>{children}</table>
+      </div>
+    </div>
+  )
+}
+
+function ViewDecisionModal({
+  auditLogs,
+  canAccessAudit,
+  decision,
+  onClose,
+  onLoadAudit,
+}: {
+  auditLogs: AuditLog[]
+  canAccessAudit: boolean
+  decision: DecisionView | null
+  onClose: () => void
+  onLoadAudit: (decisionId: string) => void
+}) {
   if (!decision) return null
 
   return (
@@ -1015,16 +1349,13 @@ function ViewDecisionModal({ decision, onClose }: { decision: DecisionView | nul
             <X />
           </button>
         </div>
-
         <div className="modal-content">
           <Detail label="ID da Decisão" value={`#${decision.id.slice(0, 8)}`} />
           <Detail label="Título" value={decision.titulo} />
-
           <div className="detail-grid">
             <Detail label="Departamento" value={decision.departamento} />
             <Detail label="Data" value={decision.data} />
           </div>
-
           <div className="detail-grid">
             <div>
               <p>Nível de Impacto</p>
@@ -1035,13 +1366,19 @@ function ViewDecisionModal({ decision, onClose }: { decision: DecisionView | nul
               <span className={`tag status-${decision.status.toLowerCase()}`}>{decision.status}</span>
             </div>
           </div>
-
           <div>
             <p>Descrição Detalhada</p>
             <div className="description-box">{decision.descricao}</div>
           </div>
+          {canAccessAudit && (
+            <div>
+              <button className="inline-action" type="button" onClick={() => onLoadAudit(decision.id)}>
+                Ver histórico desta decisão
+              </button>
+              {auditLogs.length > 0 && <AuditList events={auditLogs} />}
+            </div>
+          )}
         </div>
-
         <div className="modal-footer">
           <button type="button" onClick={onClose}>
             Fechar

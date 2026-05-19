@@ -60,3 +60,9 @@ export async function listAuditLogsByDecision(decisionId: string, limit = 50) {
     .limit(limit)
     .toArray();
 }
+
+export async function checkMongoHealth() {
+  const connectedClient = await getClient();
+  const database = connectedClient.db("decisionlog_logs");
+  await database.command({ ping: 1 });
+}

@@ -258,6 +258,42 @@ button:disabled {
   line-height: 1.2;
 }
 
+.page-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.page-title-row h1 {
+  margin: 0;
+}
+
+.health-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid #bbf7d0;
+  background: #dcfce7;
+  color: #15803d;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+.health-pill.degraded {
+  border-color: #fde68a;
+  background: #fef3c7;
+  color: #a16207;
+}
+
+.health-pill svg {
+  width: 16px;
+  height: 16px;
+}
+
 .kpi-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -340,6 +376,21 @@ button:disabled {
   gap: 24px;
 }
 
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.health-grid span {
+  border: 1px solid rgba(24, 51, 84, 0.1);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #183354;
+  padding: 12px 14px;
+}
+
 .chart-card {
   padding: 24px;
 }
@@ -418,6 +469,42 @@ button:disabled {
 
 .form-actions .secondary-action:hover {
   background: #e5e7eb;
+}
+
+.compact-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.compact-form input,
+.table-select {
+  width: 100%;
+  border: 1px solid rgba(24, 51, 84, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #183354;
+  outline: none;
+  padding: 10px 12px;
+}
+
+.compact-form button,
+.inline-action {
+  border-radius: 8px;
+  background: #183354;
+  color: #ffffff;
+  padding: 10px 14px;
+}
+
+.inline-action {
+  width: auto;
+  font-size: 13px;
+}
+
+.inline-action:disabled {
+  background: #cbd5e1;
+  color: #475569;
 }
 
 .empty-card {
