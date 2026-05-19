@@ -1,6 +1,6 @@
 # DecisionLog
 
-Sistema web para registrar, acompanhar e auditar decisoes de projeto.
+Sistema web para registrar, acompanhar e auditar decisões corporativas.
 
 ## Tecnologias
 
@@ -8,17 +8,18 @@ Sistema web para registrar, acompanhar e auditar decisoes de projeto.
 - Backend: Node.js, Express e TypeScript
 - Banco relacional: MySQL com Prisma
 - Auditoria: MongoDB com driver nativo
-- Autenticacao: JWT
-- Validacao: Zod
+- Autenticação: JWT
+- Validação: Zod
+- Testes: Vitest e Supertest
 
 ## Estrutura
 
 ```text
 client/  Frontend React
-server/  API Express, Prisma, autenticacao e auditoria
+server/  API Express, Prisma, autenticação, RBAC e auditoria
 ```
 
-## Configuracao Do Backend
+## Configuração do Backend
 
 Crie o arquivo `server/.env` com base em `server/.env.example`.
 
@@ -63,27 +64,27 @@ Frontend: http://127.0.0.1:5173
 Backend:  http://localhost:3333
 ```
 
-## Usuario De Demonstracao
+## Usuários de Demonstração
 
 ```text
-E-mail: admin@decisionlog.local
-Senha: 123456
+Administrador: admin@decisionlog.local / 123456
+Gestor:        analista@decisionlog.local / 123456
+Auditor:       auditor@decisionlog.local / 123456
 ```
 
 ## Funcionalidades
 
-- Cadastro e login de usuarios
-- Registro de decisoes
+- Cadastro e login de usuários
+- Perfis de acesso: Administrador, Gestor e Auditor
+- Registro de decisões com departamento e impacto
 - Listagem com busca textual
-- Filtro por status
-- Dashboard com totais por status
-- Graficos de distribuicao das decisoes
-- Layout corporativo com menu lateral
-- Aprovar, arquivar e excluir decisoes
-- Edicao completa de decisoes
-- Tela de auditoria dos logs do MongoDB
-- Auditoria em MongoDB para acoes relevantes
+- Dashboard com totais e gráficos por departamento/impacto
+- Edição completa de decisões
+- Exclusão lógica por inativação
+- Auditoria no MongoDB com estado anterior e novo estado
+- Tela de auditoria restrita a Administradores e Auditores
 - Tratamento global de erros
+- Testes automatizados mínimos da API
 
 ## Rotas Principais
 
@@ -95,6 +96,7 @@ POST /decisions
 PUT  /decisions/:id
 DELETE /decisions/:id
 GET  /audit-logs
+GET  /audit-logs/decisions/:decisionId
 ```
 
 Filtros:
@@ -103,4 +105,23 @@ Filtros:
 GET /decisions?status=approved
 GET /decisions?search=mysql
 GET /decisions?status=approved&search=mysql
+GET /decisions?includeInactive=true
+```
+
+## Verificação
+
+Backend:
+
+```powershell
+cd server
+npm.cmd run build
+npm.cmd test
+```
+
+Frontend:
+
+```powershell
+cd client
+npm.cmd run lint
+npm.cmd run build
 ```

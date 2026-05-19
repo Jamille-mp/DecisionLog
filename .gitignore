@@ -5,3 +5,4 @@ server/src/generated/
 .env
 .DS_Store
 npm-debug.log*
+.tmp-pdf/

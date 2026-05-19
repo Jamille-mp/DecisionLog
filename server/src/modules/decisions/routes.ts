@@ -4,6 +4,7 @@ import { logActivity } from "../../lib/mongodb";
 import { prisma } from "../../lib/prisma";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import { isAuthenticated } from "../../middlewares/isAuthenticated";
+import { requireRole } from "../../middlewares/requireRole";
 import {
   createDecisionSchema,
   listDecisionQuerySchema,
@@ -18,6 +19,7 @@ const decisionInclude = {
       id: true,
       name: true,
       email: true,
+      role: true,
     },
   },
 };
@@ -26,14 +28,29 @@ function getDecisionId(id: string | string[] | undefined) {
   return Array.isArray(id) ? id[0] : id;
 }
 
+function canManageDecision(
+  role: string | undefined,
+  currentUserId: string | undefined,
+  decisionUserId: string | null,
+) {
+  if (role === "admin") {
+    return true;
+  }
+
+  return role === "manager" && decisionUserId === currentUserId;
+}
+
 decisionRoutes.use(isAuthenticated);
 
 decisionRoutes.get(
   "/",
   asyncHandler(async (request, response) => {
-    const { status, search } = listDecisionQuerySchema.parse(request.query);
+    const { status, search, includeInactive } = listDecisionQuerySchema.parse(
+      request.query,
+    );
     const decisions = await prisma.decision.findMany({
       where: {
+        ...(includeInactive ? {} : { active: true }),
         ...(status ? { status } : {}),
         ...(search
           ? {
@@ -42,6 +59,7 @@ decisionRoutes.get(
                 { context: { contains: search } },
                 { decision: { contains: search } },
                 { reason: { contains: search } },
+                { department: { contains: search } },
               ],
             }
           : {}),
@@ -59,6 +77,7 @@ decisionRoutes.get(
         filters: {
           status,
           search,
+          includeInactive: Boolean(includeInactive),
         },
       },
       request.user?.id,
@@ -70,10 +89,10 @@ decisionRoutes.get(
 
 decisionRoutes.post(
   "/",
+  requireRole(["admin", "manager"]),
   asyncHandler(async (request, response) => {
-    const { title, context, decision, reason } = createDecisionSchema.parse(
-      request.body,
-    );
+    const { title, context, decision, reason, department, impact } =
+      createDecisionSchema.parse(request.body);
 
     const newDecision = await prisma.decision.create({
       data: {
@@ -81,6 +100,8 @@ decisionRoutes.post(
         context,
         decision,
         reason,
+        department,
+        impact,
         userId: request.user?.id,
       },
       include: decisionInclude,
@@ -91,7 +112,7 @@ decisionRoutes.post(
       {
         decisionId: newDecision.id,
         title: newDecision.title,
-        status: newDecision.status,
+        estadoNovo: newDecision,
       },
       request.user?.id,
     );
@@ -102,6 +123,7 @@ decisionRoutes.post(
 
 decisionRoutes.put(
   "/:id",
+  requireRole(["admin", "manager"]),
   asyncHandler(async (request, response) => {
     const data = updateDecisionSchema.parse(request.body);
     const decisionId = getDecisionId(request.params.id);
@@ -116,12 +138,25 @@ decisionRoutes.put(
       },
     });
 
-    if (!currentDecision) {
+    if (!currentDecision || !currentDecision.active) {
       throw new AppError("Decisão não encontrada.", 404);
     }
 
-    if (currentDecision.userId && currentDecision.userId !== request.user?.id) {
+    if (
+      !canManageDecision(
+        request.user?.role,
+        request.user?.id,
+        currentDecision.userId,
+      )
+    ) {
       throw new AppError("Você não pode alterar esta decisão.", 403);
+    }
+
+    if (currentDecision.status === "approved" && request.user?.role !== "admin") {
+      throw new AppError(
+        "Apenas administradores podem editar decisões concluídas.",
+        403,
+      );
     }
 
     const updatedDecision = await prisma.decision.update({
@@ -138,6 +173,8 @@ decisionRoutes.put(
         decisionId: updatedDecision.id,
         title: updatedDecision.title,
         updatedFields: Object.keys(data),
+        estadoAnterior: currentDecision,
+        estadoNovo: updatedDecision,
       },
       request.user?.id,
     );
@@ -148,6 +185,7 @@ decisionRoutes.put(
 
 decisionRoutes.delete(
   "/:id",
+  requireRole(["admin", "manager"]),
   asyncHandler(async (request, response) => {
     const decisionId = getDecisionId(request.params.id);
 
@@ -161,18 +199,30 @@ decisionRoutes.delete(
       },
     });
 
-    if (!currentDecision) {
+    if (!currentDecision || !currentDecision.active) {
       throw new AppError("Decisão não encontrada.", 404);
     }
 
-    if (currentDecision.userId && currentDecision.userId !== request.user?.id) {
-      throw new AppError("Você não pode excluir esta decisão.", 403);
+    if (
+      !canManageDecision(
+        request.user?.role,
+        request.user?.id,
+        currentDecision.userId,
+      )
+    ) {
+      throw new AppError("Você não pode inativar esta decisão.", 403);
     }
 
-    await prisma.decision.delete({
+    const inactiveDecision = await prisma.decision.update({
       where: {
         id: currentDecision.id,
       },
+      data: {
+        active: false,
+        status: "inactive",
+        deletedAt: new Date(),
+      },
+      include: decisionInclude,
     });
 
     void logActivity(
@@ -180,10 +230,12 @@ decisionRoutes.delete(
       {
         decisionId: currentDecision.id,
         title: currentDecision.title,
+        estadoAnterior: currentDecision,
+        estadoNovo: inactiveDecision,
       },
       request.user?.id,
     );
 
-    response.status(204).send();
+    response.json(inactiveDecision);
   }),
 );

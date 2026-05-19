@@ -531,7 +531,8 @@ td {
 }
 
 .status-pendente,
-.status-arquivada {
+.status-arquivada,
+.status-inativa {
   border-color: #e5e7eb;
   background: #f3f4f6;
   color: #374151;

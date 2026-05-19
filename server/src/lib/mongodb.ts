@@ -46,3 +46,17 @@ export async function listAuditLogs(limit = 50) {
     .limit(limit)
     .toArray();
 }
+
+export async function listAuditLogsByDecision(decisionId: string, limit = 50) {
+  const connectedClient = await getClient();
+  const database = connectedClient.db("decisionlog_logs");
+  const logs = database.collection("audit_logs");
+
+  return logs
+    .find({
+      "details.decisionId": decisionId,
+    })
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .toArray();
+}

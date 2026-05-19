@@ -32,12 +32,16 @@ import logo from './assets/decisionlog-logo.png'
 import './App.css'
 
 type Page = 'dashboard' | 'new-decision' | 'history' | 'audit'
-type Role = 'Administrador' | 'Gestor' | 'Auditor'
+type ApiRole = 'admin' | 'manager' | 'auditor'
+type RoleLabel = 'Administrador' | 'Gestor' | 'Auditor'
+type ApiStatus = 'pending' | 'approved' | 'archived' | 'inactive'
+type ApiImpact = 'low' | 'medium' | 'high'
 
 type User = {
   id: string
   name: string
   email: string
+  role: ApiRole
 }
 
 type ApiDecision = {
@@ -46,7 +50,10 @@ type ApiDecision = {
   context: string
   decision: string
   reason: string
-  status: 'pending' | 'approved' | 'archived'
+  department: string
+  impact: ApiImpact
+  status: ApiStatus
+  active: boolean
   createdAt: string
   user?: User | null
 }
@@ -56,7 +63,7 @@ type DecisionView = {
   titulo: string
   departamento: string
   impacto: 'Baixo' | 'Médio' | 'Alto'
-  status: 'Pendente' | 'Concluída' | 'Arquivada'
+  status: 'Pendente' | 'Concluída' | 'Arquivada' | 'Inativa'
   data: string
   descricao: string
   autor: string
@@ -85,7 +92,7 @@ type AuthForm = {
   password: string
 }
 
-const apiUrl = 'http://localhost:3333'
+const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
 
 const emptyAuthForm: AuthForm = {
   name: '',
@@ -101,6 +108,12 @@ const emptyDecisionForm: DecisionFormData = {
   descricao: '',
 }
 
+const roleLabels: Record<ApiRole, RoleLabel> = {
+  admin: 'Administrador',
+  manager: 'Gestor',
+  auditor: 'Auditor',
+}
+
 const actionLabels: Record<string, string> = {
   USER_REGISTERED: 'Usuário cadastrado',
   USER_LOGGED_IN: 'Login realizado',
@@ -110,32 +123,36 @@ const actionLabels: Record<string, string> = {
   DECISION_DELETED: 'Decisão inativada',
 }
 
-const statusToApi: Record<DecisionFormData['status'], ApiDecision['status']> = {
+const impactToApi: Record<Exclude<DecisionFormData['impacto'], ''>, ApiImpact> = {
+  Baixo: 'low',
+  Médio: 'medium',
+  Alto: 'high',
+}
+
+const impactToView: Record<ApiImpact, DecisionView['impacto']> = {
+  low: 'Baixo',
+  medium: 'Médio',
+  high: 'Alto',
+}
+
+const statusToApi: Record<DecisionFormData['status'], ApiStatus> = {
   Pendente: 'pending',
   Concluída: 'approved',
 }
 
-const statusToView: Record<ApiDecision['status'], DecisionView['status']> = {
+const statusToView: Record<ApiStatus, DecisionView['status']> = {
   pending: 'Pendente',
   approved: 'Concluída',
   archived: 'Arquivada',
-}
-
-function extractField(text: string, label: string) {
-  const expression = new RegExp(`${label}:\\s*([^\\n]+)`, 'i')
-  return text.match(expression)?.[1]?.trim()
+  inactive: 'Inativa',
 }
 
 function toDecisionView(decision: ApiDecision): DecisionView {
-  const departamento = extractField(decision.context, 'Departamento') || 'Projeto'
-  const impact = extractField(decision.context, 'Impacto') || 'Médio'
-  const impacto = ['Baixo', 'Médio', 'Alto'].includes(impact) ? impact : 'Médio'
-
   return {
     id: decision.id,
     titulo: decision.title,
-    departamento,
-    impacto: impacto as DecisionView['impacto'],
+    departamento: decision.department,
+    impacto: impactToView[decision.impact],
     status: statusToView[decision.status],
     data: new Intl.DateTimeFormat('pt-BR').format(new Date(decision.createdAt)),
     descricao: decision.reason || decision.decision,
@@ -147,9 +164,11 @@ function toDecisionView(decision: ApiDecision): DecisionView {
 function toPayload(form: DecisionFormData) {
   return {
     title: form.titulo,
-    context: `Departamento: ${form.departamento}\nImpacto: ${form.impacto}`,
+    context: form.descricao,
     decision: form.descricao,
     reason: form.descricao,
+    department: form.departamento,
+    impact: impactToApi[form.impacto || 'Médio'],
     status: statusToApi[form.status],
   }
 }
@@ -170,36 +189,72 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  const canAccessAudit = user?.role === 'admin' || user?.role === 'auditor'
   const userProfile = {
     name: user?.name || 'Usuário',
-    role: 'Gestor' as Role,
+    role: roleLabels[user?.role || 'manager'],
   }
 
   const decisionViews = useMemo(() => decisions.map(toDecisionView), [decisions])
 
-  async function loadDecisions(currentToken = token) {
-    if (!currentToken) return
+  useEffect(() => {
+    if (!token || !user) return
 
-    setIsLoading(true)
-    try {
-      const response = await fetch(`${apiUrl}/decisions`, {
-        headers: {
-          Authorization: `Bearer ${currentToken}`,
-        },
-      })
+    let isCurrent = true
 
-      if (!response.ok) {
-        throw new Error('Não foi possível carregar as decisões.')
+    async function loadInitialData() {
+      setIsLoading(true)
+      try {
+        const decisionResponse = await fetch(`${apiUrl}/decisions`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+
+        if (!decisionResponse.ok) {
+          throw new Error('Não foi possível carregar as decisões.')
+        }
+
+        const loadedDecisions = (await decisionResponse.json()) as ApiDecision[]
+        let loadedAuditLogs: AuditLog[] = []
+
+        if (canAccessAudit) {
+          const auditResponse = await fetch(`${apiUrl}/audit-logs`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          })
+
+          if (!auditResponse.ok) {
+            throw new Error('Não foi possível carregar a auditoria.')
+          }
+
+          loadedAuditLogs = (await auditResponse.json()) as AuditLog[]
+        }
+
+        if (isCurrent) {
+          setDecisions(loadedDecisions)
+          setAuditLogs(loadedAuditLogs)
+        }
+      } catch {
+        toast.error('Sessão expirada ou API indisponível.')
+        handleLogout()
+      } finally {
+        if (isCurrent) {
+          setIsLoading(false)
+        }
       }
-
-      setDecisions((await response.json()) as ApiDecision[])
-    } finally {
-      setIsLoading(false)
     }
-  }
 
-  async function loadAuditLogs(currentToken = token) {
-    if (!currentToken) return
+    void loadInitialData()
+
+    return () => {
+      isCurrent = false
+    }
+  }, [token, user, canAccessAudit])
+
+  async function refreshAuditLogs(currentToken = token) {
+    if (!currentToken || !canAccessAudit) return
 
     const response = await fetch(`${apiUrl}/audit-logs`, {
       headers: {
@@ -207,21 +262,10 @@ function App() {
       },
     })
 
-    if (!response.ok) {
-      throw new Error('Não foi possível carregar a auditoria.')
+    if (response.ok) {
+      setAuditLogs((await response.json()) as AuditLog[])
     }
-
-    setAuditLogs((await response.json()) as AuditLog[])
   }
-
-  useEffect(() => {
-    if (!token || !user) return
-
-    Promise.all([loadDecisions(), loadAuditLogs()]).catch(() => {
-      toast.error('Sessão expirada ou API indisponível.')
-      handleLogout()
-    })
-  }, [token, user])
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -308,7 +352,7 @@ function App() {
       setEditingDecision(null)
       setCurrentPage('history')
       toast.success(editingDecision ? 'Decisão atualizada.' : 'Decisão registrada com sucesso.')
-      void loadAuditLogs()
+      void refreshAuditLogs()
     } catch {
       toast.error('Erro ao salvar decisão. Verifique se a API está rodando.')
     } finally {
@@ -339,10 +383,19 @@ function App() {
 
       setDecisions((current) => current.filter((decision) => decision.id !== id))
       toast.success('Decisão inativada.')
-      void loadAuditLogs()
+      void refreshAuditLogs()
     } catch {
       toast.error('Erro ao inativar decisão.')
     }
+  }
+
+  function navigateTo(page: Page) {
+    if (page === 'audit' && !canAccessAudit) {
+      toast.error('Apenas administradores e auditores acessam a auditoria.')
+      return
+    }
+
+    setCurrentPage(page)
   }
 
   function renderContent() {
@@ -352,6 +405,7 @@ function App() {
       case 'new-decision':
         return (
           <NewDecision
+            key={editingDecision?.id || 'new'}
             editingDecision={editingDecision}
             isSubmitting={isSubmitting}
             onCancelEdit={() => setEditingDecision(null)}
@@ -396,9 +450,10 @@ function App() {
     <div className="app-frame">
       <Toaster richColors position="top-right" />
       <Sidebar
+        canAccessAudit={canAccessAudit}
         currentPage={currentPage}
         onLogout={handleLogout}
-        onNavigate={setCurrentPage}
+        onNavigate={navigateTo}
         userProfile={userProfile}
       />
       <main className="content-area">{renderContent()}</main>
@@ -489,21 +544,25 @@ function Login({
 }
 
 function Sidebar({
+  canAccessAudit,
   currentPage,
   onNavigate,
   userProfile,
   onLogout,
 }: {
+  canAccessAudit: boolean
   currentPage: Page
   onNavigate: (page: Page) => void
-  userProfile: { name: string; role: Role }
+  userProfile: { name: string; role: RoleLabel }
   onLogout: () => void
 }) {
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'new-decision' as const, label: 'Nova Decisão', icon: FileText },
     { id: 'history' as const, label: 'Histórico de Decisões', icon: FolderOpen },
-    { id: 'audit' as const, label: 'Trilha de Auditoria', icon: History },
+    ...(canAccessAudit
+      ? [{ id: 'audit' as const, label: 'Trilha de Auditoria', icon: History }]
+      : []),
   ]
 
   return (
@@ -667,24 +726,19 @@ function NewDecision({
   isSubmitting: boolean
   onCancelEdit: () => void
   onSave: (decision: DecisionFormData) => Promise<void>
-  userRole: Role
+  userRole: RoleLabel
 }) {
-  const [formData, setFormData] = useState<DecisionFormData>(emptyDecisionForm)
-
-  useEffect(() => {
-    if (!editingDecision) {
-      setFormData(emptyDecisionForm)
-      return
-    }
-
-    setFormData({
-      titulo: editingDecision.titulo,
-      departamento: editingDecision.departamento,
-      impacto: editingDecision.impacto,
-      status: editingDecision.status === 'Concluída' ? 'Concluída' : 'Pendente',
-      descricao: editingDecision.descricao,
-    })
-  }, [editingDecision])
+  const [formData, setFormData] = useState<DecisionFormData>(() =>
+    editingDecision
+      ? {
+          titulo: editingDecision.titulo,
+          departamento: editingDecision.departamento,
+          impacto: editingDecision.impacto,
+          status: editingDecision.status === 'Concluída' ? 'Concluída' : 'Pendente',
+          descricao: editingDecision.descricao,
+        }
+      : emptyDecisionForm,
+  )
 
   const isReadOnly = userRole === 'Auditor'
 
@@ -737,6 +791,7 @@ function NewDecision({
                 <option value="TI">TI</option>
                 <option value="Comercial">Comercial</option>
                 <option value="Jurídico">Jurídico</option>
+                <option value="Compliance">Compliance</option>
               </select>
             </div>
 
@@ -808,7 +863,7 @@ function DecisionHistory({
   onView,
 }: {
   decisions: DecisionView[]
-  userRole: Role
+  userRole: RoleLabel
   onEdit: (decision: DecisionView) => void
   onDelete: (id: string) => void
   onView: (decision: DecisionView) => void

@@ -29,18 +29,20 @@ authRoutes.post(
         name: data.name,
         email: data.email,
         passwordHash,
+        role: data.role,
       },
       select: {
         id: true,
         name: true,
         email: true,
+        role: true,
         createdAt: true,
       },
     });
 
     void logActivity(
       "USER_REGISTERED",
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, role: user.role },
       user.id,
     );
 
@@ -71,6 +73,7 @@ authRoutes.post(
     const token = jwt.sign(
       {
         email: user.email,
+        role: user.role,
       },
       process.env.JWT_SECRET || "dev-secret",
       {
@@ -81,7 +84,7 @@ authRoutes.post(
 
     void logActivity(
       "USER_LOGGED_IN",
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, role: user.role },
       user.id,
     );
 
@@ -91,6 +94,7 @@ authRoutes.post(
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   }),

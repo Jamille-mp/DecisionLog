@@ -26,6 +26,10 @@ app.use("/decisions", decisionRoutes);
 app.use("/audit-logs", auditRoutes);
 app.use(errorHandler);
 
-app.listen(port, () => {
-  console.log(`DecisionLog API running on http://localhost:${port}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(port, () => {
+    console.log(`DecisionLog API running on http://localhost:${port}`);
+  });
+}
+
+export { app };

@@ -12,6 +12,7 @@ model User {
   name         String
   email        String     @unique
   passwordHash String
+  role         String     @default("manager")
   decisions    Decision[]
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
@@ -25,7 +26,11 @@ model Decision {
   context   String   @db.Text
   decision  String   @db.Text
   reason    String   @db.Text
+  department String   @default("Projeto")
+  impact    String   @default("medium")
   status    String   @default("pending")
+  active    Boolean  @default(true)
+  deletedAt DateTime?
   userId    String?
   user      User?    @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())

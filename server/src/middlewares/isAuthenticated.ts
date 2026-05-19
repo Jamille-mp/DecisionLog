@@ -1,9 +1,12 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
+type UserRole = "admin" | "manager" | "auditor";
+
 type TokenPayload = {
   sub: string;
   email: string;
+  role?: UserRole;
 };
 
 export function isAuthenticated(
@@ -34,6 +37,7 @@ export function isAuthenticated(
     request.user = {
       id: payload.sub,
       email: payload.email,
+      role: payload.role || "manager",
     };
 
     next();
