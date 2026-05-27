@@ -106,6 +106,8 @@ authRoutes.post(
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
+        preferredTheme: user.preferredTheme,
         role: user.role,
       },
     });

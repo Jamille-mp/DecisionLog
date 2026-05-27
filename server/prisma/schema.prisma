@@ -12,6 +12,8 @@ model User {
   name         String
   email        String     @unique
   passwordHash String
+  phone        String?
+  preferredTheme String   @default("light")
   role         String     @default("manager")
   active       Boolean    @default(true)
   termsAcceptedAt DateTime?

@@ -12,7 +12,10 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Moon,
   Search,
+  Settings,
+  Sun,
   Trash2,
   User as UserIcon,
   Users,
@@ -34,7 +37,7 @@ import { Toaster, toast } from 'sonner'
 import logo from './assets/decisionlog-logo.png'
 import './App.css'
 
-type Page = 'dashboard' | 'new-decision' | 'history' | 'audit' | 'users' | 'departments'
+type Page = 'dashboard' | 'new-decision' | 'history' | 'audit' | 'users' | 'departments' | 'profile'
 type ApiRole = 'admin' | 'manager' | 'auditor'
 type RoleLabel = 'Administrador' | 'Gestor' | 'Auditor'
 type ApiStatus = 'pending' | 'approved' | 'archived' | 'inactive'
@@ -44,6 +47,8 @@ type User = {
   id: string
   name: string
   email: string
+  phone?: string | null
+  preferredTheme?: 'light' | 'dark'
   role: ApiRole
   active: boolean
   createdAt?: string
@@ -144,6 +149,14 @@ const emptyDecisionForm: DecisionFormData = {
   impacto: '',
   status: 'Pendente',
   descricao: '',
+}
+
+type ProfileFormData = {
+  name: string
+  phone: string
+  preferredTheme: 'light' | 'dark'
+  currentPassword: string
+  newPassword: string
 }
 
 const roleLabels: Record<ApiRole, RoleLabel> = {
@@ -247,6 +260,7 @@ function App() {
   const [editingDecision, setEditingDecision] = useState<DecisionView | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null)
 
   const canAccessAudit = user?.role === 'admin' || user?.role === 'auditor'
   const isAdmin = user?.role === 'admin'
@@ -256,6 +270,10 @@ function App() {
   }
 
   const decisionViews = useMemo(() => decisions.map(toDecisionView), [decisions])
+
+  useEffect(() => {
+    document.body.dataset.theme = user?.preferredTheme || 'light'
+  }, [user?.preferredTheme])
 
   useEffect(() => {
     if (!token || !user) return
@@ -591,6 +609,46 @@ function App() {
     void refreshAuditLogs()
   }
 
+  async function handleUpdateProfile(data: ProfileFormData) {
+    setIsSubmitting(true)
+
+    try {
+      const payload: Record<string, string> = {
+        name: data.name,
+        phone: data.phone,
+        preferredTheme: data.preferredTheme,
+      }
+
+      if (data.newPassword) {
+        payload.currentPassword = data.currentPassword
+        payload.newPassword = data.newPassword
+      }
+
+      const response = await fetch(`${apiUrl}/users/me`, {
+        method: 'PATCH',
+        headers: {
+          ...authHeaders(token),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        throw new Error('Não foi possível atualizar o perfil.')
+      }
+
+      const updatedUser = (await response.json()) as User
+      localStorage.setItem('decisionlog:user', JSON.stringify(updatedUser))
+      setUser(updatedUser)
+      toast.success('Perfil atualizado.')
+      void refreshAuditLogs()
+    } catch {
+      toast.error('Não foi possível atualizar o perfil. Confira os dados.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   function navigateTo(page: Page) {
     if (page === 'audit' && !canAccessAudit) {
       toast.error('Apenas administradores e auditores acessam a auditoria.')
@@ -651,6 +709,10 @@ function App() {
             onToggle={handleToggleDepartment}
           />
         )
+      case 'profile':
+        return user ? (
+          <ProfilePage isSubmitting={isSubmitting} onSave={handleUpdateProfile} user={user} />
+        ) : null
       default:
         return <Dashboard decisions={decisionViews} health={health} isLoading={isLoading} />
     }
@@ -665,9 +727,11 @@ function App() {
           authMode={authMode}
           isSubmitting={isSubmitting}
           onChange={setAuthForm}
+          onOpenLegal={setLegalModal}
           onModeChange={setAuthMode}
           onSubmit={handleAuthSubmit}
         />
+        <LegalModal type={legalModal} onClose={() => setLegalModal(null)} />
       </>
     )
   }
@@ -700,6 +764,7 @@ function Login({
   authMode,
   isSubmitting,
   onChange,
+  onOpenLegal,
   onModeChange,
   onSubmit,
 }: {
@@ -707,6 +772,7 @@ function Login({
   authMode: AuthMode
   isSubmitting: boolean
   onChange: (form: AuthForm) => void
+  onOpenLegal: (type: 'terms' | 'privacy') => void
   onModeChange: (mode: AuthMode) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
@@ -768,6 +834,14 @@ function Login({
           )}
           {authMode === 'register' && (
             <div className="consent-box">
+              <div className="legal-actions">
+                <button type="button" onClick={() => onOpenLegal('terms')}>
+                  Ler Termos de Uso
+                </button>
+                <button type="button" onClick={() => onOpenLegal('privacy')}>
+                  Ler Política de Privacidade
+                </button>
+              </div>
               <label>
                 <input
                   checked={authForm.acceptedTerms}
@@ -775,7 +849,13 @@ function Login({
                   required
                   type="checkbox"
                 />
-                <span>Li e aceito os Termos de Uso do DecisionLog.</span>
+                <span>
+                  Li e aceito os{' '}
+                  <button className="text-link" type="button" onClick={() => onOpenLegal('terms')}>
+                    Termos de Uso
+                  </button>{' '}
+                  do DecisionLog.
+                </span>
               </label>
               <label>
                 <input
@@ -818,6 +898,166 @@ function Login({
   )
 }
 
+function LegalModal({
+  type,
+  onClose,
+}: {
+  type: 'terms' | 'privacy' | null
+  onClose: () => void
+}) {
+  if (!type) return null
+
+  const isTerms = type === 'terms'
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-card legal-modal">
+        <div className="modal-header">
+          <h2>{isTerms ? 'Termos de Uso' : 'Política de Privacidade e LGPD'}</h2>
+          <button type="button" onClick={onClose}>
+            <X />
+          </button>
+        </div>
+        <div className="modal-content legal-content">
+          {isTerms ? (
+            <>
+              <p>Ao utilizar o DecisionLog, o usuário declara que as informações registradas são verdadeiras e relacionadas às decisões da organização.</p>
+              <p>O acesso é pessoal e não deve ser compartilhado. Cada ação pode ser registrada para fins de auditoria, rastreabilidade e segurança.</p>
+              <p>O uso inadequado, a tentativa de acesso não autorizado ou a alteração indevida de registros podem levar à suspensão da conta.</p>
+            </>
+          ) : (
+            <>
+              <p>O DecisionLog trata nome, e-mail, telefone opcional, perfil de acesso e histórico de ações para autenticação, segurança e auditoria.</p>
+              <p>Os dados são usados para identificar responsáveis por decisões e manter rastreabilidade, conforme os princípios de finalidade, necessidade e transparência da LGPD.</p>
+              <p>O usuário pode atualizar seus dados de perfil na própria aplicação. Registros de auditoria são mantidos para integridade e prestação de contas.</p>
+            </>
+          )}
+        </div>
+        <div className="modal-footer">
+          <button type="button" onClick={onClose}>
+            Entendi
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ProfilePage({
+  isSubmitting,
+  onSave,
+  user,
+}: {
+  isSubmitting: boolean
+  onSave: (data: ProfileFormData) => Promise<void>
+  user: User
+}) {
+  const [formData, setFormData] = useState<ProfileFormData>({
+    name: user.name,
+    phone: user.phone || '',
+    preferredTheme: user.preferredTheme || 'light',
+    currentPassword: '',
+    newPassword: '',
+  })
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void onSave(formData)
+    setFormData((current) => ({
+      ...current,
+      currentPassword: '',
+      newPassword: '',
+    }))
+  }
+
+  return (
+    <section className="page-section">
+      <div className="page-title-row">
+        <h1>Meu Perfil</h1>
+        <span className="profile-role">{roleLabels[user.role]}</span>
+      </div>
+      <div className="form-card">
+        <form className="decision-form" onSubmit={handleSubmit}>
+          <div className="form-grid">
+            <div>
+              <label htmlFor="profileName">Nome</label>
+              <input
+                id="profileName"
+                value={formData.name}
+                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <label htmlFor="profileEmail">E-mail</label>
+              <input id="profileEmail" value={user.email} disabled />
+            </div>
+            <div>
+              <label htmlFor="profilePhone">Contato</label>
+              <input
+                id="profilePhone"
+                value={formData.phone}
+                onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                placeholder="Telefone ou WhatsApp"
+              />
+            </div>
+            <div>
+              <label>Modo de visualização</label>
+              <div className="theme-toggle">
+                <button
+                  className={formData.preferredTheme === 'light' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, preferredTheme: 'light' })}
+                >
+                  <Sun />
+                  Claro
+                </button>
+                <button
+                  className={formData.preferredTheme === 'dark' ? 'active' : ''}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, preferredTheme: 'dark' })}
+                >
+                  <Moon />
+                  Escuro
+                </button>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="currentPassword">Senha atual</label>
+              <input
+                id="currentPassword"
+                type="password"
+                value={formData.currentPassword}
+                onChange={(event) => setFormData({ ...formData, currentPassword: event.target.value })}
+                placeholder="Preencha apenas se for alterar"
+              />
+            </div>
+            <div>
+              <label htmlFor="newPassword">Nova senha</label>
+              <input
+                id="newPassword"
+                type="password"
+                value={formData.newPassword}
+                onChange={(event) => setFormData({ ...formData, newPassword: event.target.value })}
+                placeholder="Mínimo de 6 caracteres"
+              />
+            </div>
+          </div>
+          <div className="profile-summary">
+            <span>Termos aceitos no cadastro</span>
+            <span>Política de privacidade aceita no cadastro</span>
+          </div>
+          <div className="form-actions">
+            <button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Salvando...' : 'Salvar Perfil'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  )
+}
+
 function Sidebar({
   canAccessAdmin,
   canAccessAudit,
@@ -835,6 +1075,7 @@ function Sidebar({
 }) {
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'profile' as const, label: 'Meu Perfil', icon: Settings },
     { id: 'new-decision' as const, label: 'Nova Decisão', icon: FileText },
     { id: 'history' as const, label: 'Histórico de Decisões', icon: FolderOpen },
     ...(canAccessAudit

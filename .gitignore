@@ -5,5 +5,9 @@ server/src/generated/
 .env
 .DS_Store
 npm-debug.log*
+.client.log
+.client.err.log
+.server.log
+.server.err.log
 .tmp-pdf/
 backups/

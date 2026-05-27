@@ -2,6 +2,10 @@
   min-height: 100vh;
 }
 
+body[data-theme='dark'] {
+  background: #101827;
+}
+
 button,
 input,
 select,
@@ -23,6 +27,12 @@ button:disabled {
   display: flex;
   min-height: 100vh;
   background: #f5f5f7;
+}
+
+body[data-theme='dark'] .app-frame,
+body[data-theme='dark'] .content-area,
+body[data-theme='dark'] .login-page {
+  background: #101827;
 }
 
 .content-area {
@@ -56,8 +66,8 @@ button:disabled {
 }
 
 .logo-wrap img {
-  height: 64px;
-  max-width: 260px;
+  height: 86px;
+  max-width: 320px;
   object-fit: contain;
 }
 
@@ -102,6 +112,12 @@ button:disabled {
   color: #183354;
   outline: none;
   padding: 12px 16px;
+}
+
+.decision-form input:disabled {
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: not-allowed;
 }
 
 .decision-form select {
@@ -175,10 +191,32 @@ button:disabled {
   accent-color: #183354;
 }
 
+.legal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.legal-actions button,
+.text-link {
+  width: auto;
+  background: transparent;
+  color: #183354;
+  font-weight: 700;
+  padding: 0;
+  text-decoration: underline;
+}
+
 .helper-text {
   color: #6b7280;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.legal-content p {
+  margin: 0;
+  color: #374151;
+  line-height: 1.6;
 }
 
 .sidebar {
@@ -192,13 +230,14 @@ button:disabled {
 }
 
 .sidebar-logo {
+  background: #ffffff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 24px;
 }
 
 .sidebar-logo img {
-  height: 48px;
-  max-width: 176px;
+  height: 58px;
+  max-width: 202px;
   object-fit: contain;
 }
 
@@ -508,6 +547,57 @@ button:disabled {
 
 .form-actions .secondary-action:hover {
   background: #e5e7eb;
+}
+
+.profile-role {
+  border-radius: 999px;
+  background: #d4b062;
+  color: #183354;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 12px;
+}
+
+.theme-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.theme-toggle button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(24, 51, 84, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #183354;
+  padding: 11px 12px;
+}
+
+.theme-toggle button.active {
+  border-color: #d4b062;
+  background: #fff7e6;
+}
+
+.theme-toggle svg {
+  width: 16px;
+  height: 16px;
+}
+
+.profile-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.profile-summary span {
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #183354;
+  font-size: 13px;
+  padding: 8px 12px;
 }
 
 .compact-form {
@@ -901,6 +991,57 @@ td {
 .modal-footer {
   border-top: 1px solid #e5e7eb;
   padding: 24px;
+}
+
+body[data-theme='dark'] .login-card,
+body[data-theme='dark'] .kpi-card,
+body[data-theme='dark'] .chart-card,
+body[data-theme='dark'] .form-card,
+body[data-theme='dark'] .table-card,
+body[data-theme='dark'] .audit-card,
+body[data-theme='dark'] .empty-card,
+body[data-theme='dark'] .modal-card,
+body[data-theme='dark'] .health-grid span {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #172033;
+  box-shadow: none;
+}
+
+body[data-theme='dark'] .login-card h2,
+body[data-theme='dark'] .page-section h1,
+body[data-theme='dark'] .chart-card h3,
+body[data-theme='dark'] .modal-header h2,
+body[data-theme='dark'] td,
+body[data-theme='dark'] .modal-content strong,
+body[data-theme='dark'] .timeline-header span,
+body[data-theme='dark'] .timeline-action span,
+body[data-theme='dark'] .primary {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .login-card p,
+body[data-theme='dark'] .kpi-card p,
+body[data-theme='dark'] .modal-content p,
+body[data-theme='dark'] .timeline-content p,
+body[data-theme='dark'] .loading-text,
+body[data-theme='dark'] .empty-card span,
+body[data-theme='dark'] .legal-content p {
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] input,
+body[data-theme='dark'] select,
+body[data-theme='dark'] textarea,
+body[data-theme='dark'] .description-box,
+body[data-theme='dark'] .timeline-content {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #101827;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .modal-header {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #172033;
 }
 
 @media (max-width: 900px) {
