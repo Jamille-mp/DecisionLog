@@ -104,6 +104,7 @@ const seedDecisions = [
 
 async function main() {
   const passwordHash = await bcrypt.hash("123456", 10);
+  const consentAcceptedAt = new Date();
 
   const users = await Promise.all(
     seedUsers.map((user) =>
@@ -115,12 +116,16 @@ async function main() {
           name: user.name,
           passwordHash,
           role: user.role,
+          termsAcceptedAt: consentAcceptedAt,
+          privacyAcceptedAt: consentAcceptedAt,
         },
         create: {
           name: user.name,
           email: user.email,
           passwordHash,
           role: user.role,
+          termsAcceptedAt: consentAcceptedAt,
+          privacyAcceptedAt: consentAcceptedAt,
         },
       }),
     ),

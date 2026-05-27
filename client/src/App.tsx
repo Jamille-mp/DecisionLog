@@ -61,6 +61,7 @@ type Health = {
     mysql: string
     mongodb: string
     events: {
+      mode?: string
       state: string
       failureCount: number
       publishedEvents: number
@@ -118,7 +119,12 @@ type AuthForm = {
   name: string
   email: string
   password: string
+  acceptedTerms: boolean
+  acceptedPrivacy: boolean
+  resetToken: string
 }
+
+type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
 
@@ -126,6 +132,9 @@ const emptyAuthForm: AuthForm = {
   name: '',
   email: '',
   password: '',
+  acceptedTerms: false,
+  acceptedPrivacy: false,
+  resetToken: '',
 }
 
 const emptyDecisionForm: DecisionFormData = {
@@ -220,7 +229,7 @@ function authHeaders(token: string) {
 }
 
 function App() {
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
+  const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [authForm, setAuthForm] = useState<AuthForm>(emptyAuthForm)
   const [token, setToken] = useState(() => localStorage.getItem('decisionlog:token') || '')
   const [user, setUser] = useState<User | null>(() => {
@@ -361,11 +370,59 @@ function App() {
     setIsSubmitting(true)
 
     try {
+      if (authMode === 'forgot') {
+        const response = await fetch(`${apiUrl}/auth/forgot-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: authForm.email }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Falha ao solicitar recuperação de senha.')
+        }
+
+        const data = (await response.json()) as { message: string; resetToken?: string }
+        toast.success(data.message)
+        setAuthMode('reset')
+        setAuthForm((current) => ({ ...current, resetToken: data.resetToken || '' }))
+        return
+      }
+
+      if (authMode === 'reset') {
+        const response = await fetch(`${apiUrl}/auth/reset-password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            token: authForm.resetToken,
+            password: authForm.password,
+          }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Falha ao redefinir senha.')
+        }
+
+        toast.success('Senha atualizada. Faça login para continuar.')
+        setAuthMode('login')
+        setAuthForm(emptyAuthForm)
+        return
+      }
+
       const endpoint = authMode === 'login' ? 'login' : 'register'
       const body =
         authMode === 'login'
           ? { email: authForm.email, password: authForm.password }
-          : authForm
+          : {
+              name: authForm.name,
+              email: authForm.email,
+              password: authForm.password,
+              acceptedTerms: authForm.acceptedTerms,
+              acceptedPrivacy: authForm.acceptedPrivacy,
+            }
 
       const response = await fetch(`${apiUrl}/auth/${endpoint}`, {
         method: 'POST',
@@ -382,7 +439,7 @@ function App() {
       if (authMode === 'register') {
         toast.success('Usuário cadastrado. Faça login para continuar.')
         setAuthMode('login')
-        setAuthForm((current) => ({ ...current, password: '' }))
+        setAuthForm(emptyAuthForm)
         return
       }
 
@@ -647,10 +704,10 @@ function Login({
   onSubmit,
 }: {
   authForm: AuthForm
-  authMode: 'login' | 'register'
+  authMode: AuthMode
   isSubmitting: boolean
   onChange: (form: AuthForm) => void
-  onModeChange: (mode: 'login' | 'register') => void
+  onModeChange: (mode: AuthMode) => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }) {
   return (
@@ -684,21 +741,70 @@ function Login({
               required
             />
           </div>
-          <div>
-            <label htmlFor="password">Senha</label>
-            <input
-              id="password"
-              type="password"
-              value={authForm.password}
-              onChange={(event) => onChange({ ...authForm, password: event.target.value })}
-              placeholder="********"
-              required
-            />
-          </div>
+          {authMode === 'reset' && (
+            <div>
+              <label htmlFor="resetToken">Código de recuperação</label>
+              <input
+                id="resetToken"
+                value={authForm.resetToken}
+                onChange={(event) => onChange({ ...authForm, resetToken: event.target.value })}
+                placeholder="Cole o código recebido"
+                required
+              />
+            </div>
+          )}
+          {authMode !== 'forgot' && (
+            <div>
+              <label htmlFor="password">{authMode === 'reset' ? 'Nova senha' : 'Senha'}</label>
+              <input
+                id="password"
+                type="password"
+                value={authForm.password}
+                onChange={(event) => onChange({ ...authForm, password: event.target.value })}
+                placeholder="********"
+                required
+              />
+            </div>
+          )}
+          {authMode === 'register' && (
+            <div className="consent-box">
+              <label>
+                <input
+                  checked={authForm.acceptedTerms}
+                  onChange={(event) => onChange({ ...authForm, acceptedTerms: event.target.checked })}
+                  required
+                  type="checkbox"
+                />
+                <span>Li e aceito os Termos de Uso do DecisionLog.</span>
+              </label>
+              <label>
+                <input
+                  checked={authForm.acceptedPrivacy}
+                  onChange={(event) => onChange({ ...authForm, acceptedPrivacy: event.target.checked })}
+                  required
+                  type="checkbox"
+                />
+                <span>Autorizo o tratamento dos meus dados conforme a LGPD e a Política de Privacidade.</span>
+              </label>
+            </div>
+          )}
           <button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Aguarde...' : authMode === 'login' ? 'Entrar' : 'Cadastrar'}
+            {isSubmitting
+              ? 'Aguarde...'
+              : authMode === 'login'
+                ? 'Entrar'
+                : authMode === 'register'
+                  ? 'Cadastrar'
+                  : authMode === 'forgot'
+                    ? 'Enviar instruções'
+                    : 'Redefinir senha'}
           </button>
         </form>
+        {authMode === 'login' && (
+          <button className="mode-button subtle" type="button" onClick={() => onModeChange('forgot')}>
+            Esqueci minha senha
+          </button>
+        )}
         <button
           className="mode-button"
           type="button"

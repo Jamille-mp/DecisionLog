@@ -9,7 +9,10 @@
     "test": "vitest run",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "seed": "ts-node-dev --transpile-only --exit-child prisma/seed.ts"
+    "seed": "ts-node-dev --transpile-only --exit-child prisma/seed.ts",
+    "backup:mysql": "powershell -ExecutionPolicy Bypass -File scripts/backup-mysql.ps1",
+    "backup:mongodb": "powershell -ExecutionPolicy Bypass -File scripts/backup-mongodb.ps1",
+    "backup:all": "npm run backup:mysql && npm run backup:mongodb"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +21,7 @@
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "amqplib": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -27,6 +31,7 @@
     "zod": "^4.4.1"
   },
   "devDependencies": {
+    "@types/amqplib": "^0.10.8",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
