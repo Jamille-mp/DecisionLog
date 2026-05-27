@@ -11,6 +11,7 @@ Sistema web para registrar, acompanhar e auditar decisões corporativas.
 - Autenticação: JWT
 - Validação: Zod
 - Testes: Vitest e Supertest
+- Infraestrutura opcional: Docker Compose com MySQL, MongoDB e RabbitMQ
 
 ## Estrutura
 
@@ -38,6 +39,14 @@ PORT=3333
 ```
 
 ## Como Rodar
+
+Infraestrutura opcional com Docker:
+
+```powershell
+docker compose up -d
+```
+
+Guia detalhado: `docs/DOCKER_INFRA.md`.
 
 Backend:
 
