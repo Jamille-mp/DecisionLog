@@ -12,6 +12,7 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Menu,
   Moon,
   Search,
   Settings,
@@ -261,6 +262,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const canAccessAudit = user?.role === 'admin' || user?.role === 'auditor'
   const isAdmin = user?.role === 'admin'
@@ -650,6 +652,11 @@ function App() {
   }
 
   function navigateTo(page: Page) {
+    if (page === 'new-decision' && user?.role === 'auditor') {
+      toast.error('Auditores podem consultar, mas não registrar decisões.')
+      return
+    }
+
     if (page === 'audit' && !canAccessAudit) {
       toast.error('Apenas administradores e auditores acessam a auditoria.')
       return
@@ -661,6 +668,7 @@ function App() {
     }
 
     setCurrentPage(page)
+    setIsSidebarOpen(false)
   }
 
   function openDecision(decision: DecisionView) {
@@ -695,6 +703,7 @@ function App() {
             }}
             onDelete={handleDeleteDecision}
             onView={openDecision}
+            currentUserId={user?.id}
           />
         )
       case 'audit':
@@ -739,14 +748,36 @@ function App() {
   return (
     <div className="app-frame">
       <Toaster richColors position="top-right" />
+      <header className="topbar">
+        <button
+          className="menu-trigger"
+          type="button"
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Abrir menu"
+        >
+          <Menu />
+        </button>
+        <img src={logo} alt="DecisionLog" />
+        <span>{userProfile.role}</span>
+      </header>
       <Sidebar
         canAccessAdmin={isAdmin}
         canAccessAudit={canAccessAudit}
         currentPage={currentPage}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
         onLogout={handleLogout}
         onNavigate={navigateTo}
         userProfile={userProfile}
       />
+      {isSidebarOpen && (
+        <button
+          className="sidebar-scrim"
+          type="button"
+          onClick={() => setIsSidebarOpen(false)}
+          aria-label="Fechar menu"
+        />
+      )}
       <main className="content-area">{renderContent()}</main>
       <ViewDecisionModal
         auditLogs={decisionAuditLogs}
@@ -1062,6 +1093,8 @@ function Sidebar({
   canAccessAdmin,
   canAccessAudit,
   currentPage,
+  isOpen,
+  onClose,
   onNavigate,
   userProfile,
   onLogout,
@@ -1069,6 +1102,8 @@ function Sidebar({
   canAccessAdmin: boolean
   canAccessAudit: boolean
   currentPage: Page
+  isOpen: boolean
+  onClose: () => void
   onNavigate: (page: Page) => void
   userProfile: { name: string; role: RoleLabel }
   onLogout: () => void
@@ -1076,7 +1111,9 @@ function Sidebar({
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'profile' as const, label: 'Meu Perfil', icon: Settings },
-    { id: 'new-decision' as const, label: 'Nova Decisão', icon: FileText },
+    ...(userProfile.role !== 'Auditor'
+      ? [{ id: 'new-decision' as const, label: 'Nova Decisão', icon: FileText }]
+      : []),
     { id: 'history' as const, label: 'Histórico de Decisões', icon: FolderOpen },
     ...(canAccessAudit
       ? [{ id: 'audit' as const, label: 'Trilha de Auditoria', icon: History }]
@@ -1090,9 +1127,12 @@ function Sidebar({
   ]
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-logo">
         <img src={logo} alt="DecisionLog" />
+        <button type="button" onClick={onClose} aria-label="Fechar menu">
+          <X />
+        </button>
       </div>
       <div className="profile-box">
         <div className="profile-avatar">
@@ -1397,19 +1437,21 @@ function NewDecision({
 
 function DecisionHistory({
   decisions,
+  currentUserId,
   userRole,
   onEdit,
   onDelete,
   onView,
 }: {
   decisions: DecisionView[]
+  currentUserId?: string
   userRole: RoleLabel
   onEdit: (decision: DecisionView) => void
   onDelete: (id: string) => void
   onView: (decision: DecisionView) => void
 }) {
   const [searchTerm, setSearchTerm] = useState('')
-  const canEdit = userRole === 'Administrador' || userRole === 'Gestor'
+  const canCreateOrEdit = userRole === 'Administrador' || userRole === 'Gestor'
   const filteredDecisions = decisions.filter(
     (decision) =>
       decision.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1463,14 +1505,18 @@ function DecisionHistory({
                     <button type="button" onClick={() => onView(decision)} title="Visualizar">
                       <Eye />
                     </button>
-                    {canEdit && (
+                    {canCreateOrEdit && (
                       <>
-                        <button className="gold" type="button" onClick={() => onEdit(decision)} title="Editar">
-                          <Edit2 />
-                        </button>
-                        <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Inativar">
-                          <Trash2 />
-                        </button>
+                        {(userRole === 'Administrador' || decision.source.user?.id === currentUserId) && (
+                          <button className="gold" type="button" onClick={() => onEdit(decision)} title="Editar">
+                            <Edit2 />
+                          </button>
+                        )}
+                        {(userRole === 'Administrador' || decision.source.user?.id === currentUserId) && (
+                          <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Inativar">
+                            <Trash2 />
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
