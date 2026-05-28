@@ -22,6 +22,8 @@ const profileSelect = {
   email: true,
   phone: true,
   preferredTheme: true,
+  departmentId: true,
+  department: true,
   role: true,
   active: true,
   termsAcceptedAt: true,
@@ -63,12 +65,26 @@ userRoutes.patch(
 
     const updateData: {
       name?: string;
+      email?: string;
       phone?: string | null;
       preferredTheme?: string;
       passwordHash?: string;
     } = {};
 
     if (data.name) updateData.name = data.name;
+    if (data.email && data.email !== currentUser.email) {
+      const existingEmail = await prisma.user.findUnique({
+        where: {
+          email: data.email,
+        },
+      });
+
+      if (existingEmail) {
+        throw new AppError("E-mail já cadastrado.", 409);
+      }
+
+      updateData.email = data.email;
+    }
     if (data.phone !== undefined) updateData.phone = data.phone || null;
     if (data.preferredTheme) updateData.preferredTheme = data.preferredTheme;
 
@@ -122,6 +138,8 @@ userRoutes.get(
         email: true,
         phone: true,
         preferredTheme: true,
+        departmentId: true,
+        department: true,
         role: true,
         active: true,
         createdAt: true,
@@ -156,6 +174,18 @@ userRoutes.patch(
       throw new AppError("Usuário não encontrado.", 404);
     }
 
+    if (data.departmentId) {
+      const department = await prisma.department.findUnique({
+        where: {
+          id: data.departmentId,
+        },
+      });
+
+      if (!department || !department.active) {
+        throw new AppError("Departamento não encontrado ou inativo.", 400);
+      }
+    }
+
     const user = await prisma.user.update({
       where: {
         id: userId,
@@ -167,6 +197,8 @@ userRoutes.patch(
         email: true,
         phone: true,
         preferredTheme: true,
+        departmentId: true,
+        department: true,
         role: true,
         active: true,
         createdAt: true,

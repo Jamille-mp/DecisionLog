@@ -6,7 +6,7 @@ O DecisionLog usa controle de acesso por perfil.
 
 - Administrador: gerencia usuários, departamentos, permissões, auditoria e decisões.
 - Gestor: registra decisões, consulta histórico e pode editar/inativar apenas decisões sob sua responsabilidade.
-- Auditor: consulta decisões e trilhas de auditoria, sem criar, editar ou inativar decisões.
+- Auditor: consulta decisões e histórico de alterações das decisões, sem criar, editar ou inativar decisões.
 
 ## Dados do usuário
 
@@ -21,10 +21,10 @@ O sistema armazena:
 
 ## Quem pode ver
 
-- O próprio usuário vê e edita nome, contato, senha e tema em “Meu Perfil”.
+- O próprio usuário vê e edita nome, contato, senha e tema pelos ajustes de perfil acessíveis na bolinha do usuário.
 - Administradores veem lista de usuários para gestão de permissões e ativação/inativação.
 - Gestores e Auditores não acessam a tela administrativa de usuários.
-- Na listagem de decisões, a autoria mostra apenas dados mínimos necessários, como nome e perfil.
+- Na listagem de decisões, a autoria mostra apenas dados mínimos necessários, como nome e perfil. O e-mail do autor não é exposto na listagem geral de decisões.
 
 ## Regras aplicadas
 

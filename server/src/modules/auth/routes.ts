@@ -69,6 +69,9 @@ authRoutes.post(
       where: {
         email: data.email,
       },
+      include: {
+        department: true,
+      },
     });
 
     if (!user || !user.active) {
@@ -108,6 +111,8 @@ authRoutes.post(
         email: user.email,
         phone: user.phone,
         preferredTheme: user.preferredTheme,
+        departmentId: user.departmentId,
+        department: user.department,
         role: user.role,
       },
     });

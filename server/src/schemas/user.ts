@@ -5,6 +5,7 @@ export const updateUserSchema = z
   .object({
     role: userRoleSchema.optional(),
     active: z.boolean().optional(),
+    departmentId: z.string().uuid().nullable().optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "Informe ao menos um campo para atualizar.",
@@ -13,6 +14,7 @@ export const updateUserSchema = z
 export const updateProfileSchema = z
   .object({
     name: z.string().min(2).optional(),
+    email: z.email().optional(),
     phone: z.string().trim().max(30).nullable().optional(),
     preferredTheme: z.enum(["light", "dark"]).optional(),
     currentPassword: z.string().min(1).optional(),

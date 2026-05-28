@@ -38,7 +38,7 @@ import { Toaster, toast } from 'sonner'
 import logo from './assets/decisionlog-logo.png'
 import './App.css'
 
-type Page = 'dashboard' | 'new-decision' | 'history' | 'audit' | 'users' | 'departments' | 'profile'
+type Page = 'dashboard' | 'new-decision' | 'history' | 'audit' | 'users' | 'departments' | 'profile' | 'help'
 type ApiRole = 'admin' | 'manager' | 'auditor'
 type RoleLabel = 'Administrador' | 'Gestor' | 'Auditor'
 type ApiStatus = 'pending' | 'approved' | 'archived' | 'inactive'
@@ -50,6 +50,8 @@ type User = {
   email: string
   phone?: string | null
   preferredTheme?: 'light' | 'dark'
+  departmentId?: string | null
+  department?: Department | null
   role: ApiRole
   active: boolean
   createdAt?: string
@@ -154,6 +156,7 @@ const emptyDecisionForm: DecisionFormData = {
 
 type ProfileFormData = {
   name: string
+  email: string
   phone: string
   preferredTheme: 'light' | 'dark'
   currentPassword: string
@@ -164,6 +167,16 @@ const roleLabels: Record<ApiRole, RoleLabel> = {
   admin: 'Administrador',
   manager: 'Gestor',
   auditor: 'Auditor',
+}
+
+function getInitials(name: string) {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .substring(0, 2)
+    .toUpperCase()
 }
 
 const labelToRole: Record<RoleLabel, ApiRole> = {
@@ -263,12 +276,19 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
 
   const canAccessAudit = user?.role === 'admin' || user?.role === 'auditor'
   const isAdmin = user?.role === 'admin'
   const userProfile = {
     name: user?.name || 'Usuário',
     role: roleLabels[user?.role || 'manager'],
+    initials: (user?.name || 'Usuário')
+      .split(' ')
+      .map((part) => part[0])
+      .join('')
+      .substring(0, 2)
+      .toUpperCase(),
   }
 
   const decisionViews = useMemo(() => decisions.map(toDecisionView), [decisions])
@@ -551,7 +571,7 @@ function App() {
     }
   }
 
-  async function handleUpdateUser(userId: string, data: Partial<Pick<User, 'role' | 'active'>>) {
+  async function handleUpdateUser(userId: string, data: Partial<Pick<User, 'role' | 'active' | 'departmentId'>>) {
     const response = await fetch(`${apiUrl}/users/${userId}`, {
       method: 'PATCH',
       headers: {
@@ -617,6 +637,7 @@ function App() {
     try {
       const payload: Record<string, string> = {
         name: data.name,
+        email: data.email,
         phone: data.phone,
         preferredTheme: data.preferredTheme,
       }
@@ -669,6 +690,7 @@ function App() {
 
     setCurrentPage(page)
     setIsSidebarOpen(false)
+    setIsProfileMenuOpen(false)
   }
 
   function openDecision(decision: DecisionView) {
@@ -676,10 +698,16 @@ function App() {
     setDecisionAuditLogs([])
   }
 
+  function openProfile() {
+    setCurrentPage('profile')
+    setIsProfileMenuOpen(false)
+    setIsSidebarOpen(false)
+  }
+
   function renderContent() {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard decisions={decisionViews} health={health} isLoading={isLoading} />
+        return <Dashboard decisions={decisionViews} health={health} isAdmin={isAdmin} isLoading={isLoading} usersCount={users.filter((item) => item.active).length} />
       case 'new-decision':
         return (
           <NewDecision
@@ -709,7 +737,14 @@ function App() {
       case 'audit':
         return <AuditTrail events={auditLogs} />
       case 'users':
-        return <UsersPage currentUserId={user?.id} onUpdate={handleUpdateUser} users={users} />
+        return (
+          <UsersPage
+            currentUserId={user?.id}
+            departments={departments}
+            onUpdate={handleUpdateUser}
+            users={users}
+          />
+        )
       case 'departments':
         return (
           <DepartmentsPage
@@ -722,8 +757,10 @@ function App() {
         return user ? (
           <ProfilePage isSubmitting={isSubmitting} onSave={handleUpdateProfile} user={user} />
         ) : null
+      case 'help':
+        return <HelpPage userRole={userProfile.role} />
       default:
-        return <Dashboard decisions={decisionViews} health={health} isLoading={isLoading} />
+        return <Dashboard decisions={decisionViews} health={health} isAdmin={isAdmin} isLoading={isLoading} usersCount={users.filter((item) => item.active).length} />
     }
   }
 
@@ -757,8 +794,43 @@ function App() {
         >
           <Menu />
         </button>
-        <img src={logo} alt="DecisionLog" />
-        <span>{userProfile.role}</span>
+        <div className="topbar-brand">
+          <img src={logo} alt="DecisionLog" />
+          <button className="brand-button" type="button" onClick={() => navigateTo('dashboard')}>
+            <strong>DecisionLog</strong>
+            <span>Governança de decisões</span>
+          </button>
+        </div>
+        <div className="profile-menu-wrap">
+          <button
+            className="profile-floating"
+            type="button"
+            onClick={() => setIsProfileMenuOpen((current) => !current)}
+            aria-label="Abrir ajustes de perfil"
+          >
+            {userProfile.initials}
+          </button>
+          {isProfileMenuOpen && (
+            <div className="profile-popover">
+              <div className="profile-popover-header">
+                <strong>{userProfile.name}</strong>
+                <span>{userProfile.role}</span>
+              </div>
+              <button type="button" onClick={openProfile}>
+                <Settings />
+                Ajustes de perfil
+              </button>
+              <button type="button" onClick={() => navigateTo('help')}>
+                <FileText />
+                Ajuda e sobre o sistema
+              </button>
+              <button type="button" onClick={handleLogout}>
+                <LogOut />
+                Sair
+              </button>
+            </div>
+          )}
+        </div>
       </header>
       <Sidebar
         canAccessAdmin={isAdmin}
@@ -766,7 +838,6 @@ function App() {
         currentPage={currentPage}
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
-        onLogout={handleLogout}
         onNavigate={navigateTo}
         userProfile={userProfile}
       />
@@ -950,6 +1021,14 @@ function LegalModal({
           </button>
         </div>
         <div className="modal-content legal-content">
+          <div className="legal-summary">
+            <strong>{isTerms ? 'Antes de aceitar' : 'Tratamento de dados no DecisionLog'}</strong>
+            <span>
+              {isTerms
+                ? 'Os termos explicam responsabilidades, uso permitido e consequências de uso indevido.'
+                : 'A política explica quais dados são tratados, por qual motivo, quem acessa e quais direitos o usuário possui.'}
+            </span>
+          </div>
           {isTerms ? (
             <>
               <p>Ao utilizar o DecisionLog, o usuário declara que as informações registradas são verdadeiras e relacionadas às decisões da organização.</p>
@@ -985,6 +1064,7 @@ function ProfilePage({
 }) {
   const [formData, setFormData] = useState<ProfileFormData>({
     name: user.name,
+    email: user.email,
     phone: user.phone || '',
     preferredTheme: user.preferredTheme || 'light',
     currentPassword: '',
@@ -1007,83 +1087,161 @@ function ProfilePage({
         <h1>Meu Perfil</h1>
         <span className="profile-role">{roleLabels[user.role]}</span>
       </div>
-      <div className="form-card">
-        <form className="decision-form" onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div>
-              <label htmlFor="profileName">Nome</label>
-              <input
-                id="profileName"
-                value={formData.name}
-                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                required
-              />
+      <form className="profile-settings-layout" onSubmit={handleSubmit}>
+        <aside className="profile-overview">
+          <div className="profile-avatar large">{getInitials(user.name)}</div>
+          <div>
+            <h2>{user.name}</h2>
+            <p>{user.email}</p>
+          </div>
+          <div className="profile-overview-meta">
+            <span>{roleLabels[user.role]}</span>
+            <span>{user.department?.name || 'Sem departamento vinculado'}</span>
+          </div>
+        </aside>
+
+        <div className="profile-settings-stack">
+          <section className="profile-panel">
+            <div className="profile-panel-header">
+              <h2>Informações de contato</h2>
+              <p>Dados visíveis para administradores e usados para identificar responsáveis por decisões.</p>
+            </div>
+            <div className="form-grid">
+              <div>
+                <label htmlFor="profileName">Nome</label>
+                <input
+                  id="profileName"
+                  value={formData.name}
+                  onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="profilePhone">Contato</label>
+                <input
+                  id="profilePhone"
+                  value={formData.phone}
+                  onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                  placeholder="Telefone ou WhatsApp"
+                />
+              </div>
+              <div>
+                <label>Departamento</label>
+                <input value={user.department?.name || 'Não vinculado'} disabled />
+              </div>
+            </div>
+          </section>
+
+          <section className="profile-panel">
+            <div className="profile-panel-header">
+              <h2>E-mail de acesso</h2>
+              <p>Este e-mail é usado no login e na recuperação de senha.</p>
             </div>
             <div>
               <label htmlFor="profileEmail">E-mail</label>
-              <input id="profileEmail" value={user.email} disabled />
-            </div>
-            <div>
-              <label htmlFor="profilePhone">Contato</label>
               <input
-                id="profilePhone"
-                value={formData.phone}
-                onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
-                placeholder="Telefone ou WhatsApp"
+                id="profileEmail"
+                type="email"
+                value={formData.email}
+                onChange={(event) => setFormData({ ...formData, email: event.target.value })}
+                required
               />
             </div>
-            <div>
-              <label>Modo de visualização</label>
-              <div className="theme-toggle">
-                <button
-                  className={formData.preferredTheme === 'light' ? 'active' : ''}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, preferredTheme: 'light' })}
-                >
-                  <Sun />
-                  Claro
-                </button>
-                <button
-                  className={formData.preferredTheme === 'dark' ? 'active' : ''}
-                  type="button"
-                  onClick={() => setFormData({ ...formData, preferredTheme: 'dark' })}
-                >
-                  <Moon />
-                  Escuro
-                </button>
+          </section>
+
+          <section className="profile-panel">
+            <div className="profile-panel-header">
+              <h2>Alterar senha</h2>
+              <p>Preencha os campos abaixo apenas quando quiser trocar a senha.</p>
+            </div>
+            <div className="form-grid">
+              <div>
+                <label htmlFor="currentPassword">Senha atual</label>
+                <input
+                  id="currentPassword"
+                  type="password"
+                  value={formData.currentPassword}
+                  onChange={(event) => setFormData({ ...formData, currentPassword: event.target.value })}
+                  placeholder="Senha usada atualmente"
+                />
+              </div>
+              <div>
+                <label htmlFor="newPassword">Nova senha</label>
+                <input
+                  id="newPassword"
+                  type="password"
+                  value={formData.newPassword}
+                  onChange={(event) => setFormData({ ...formData, newPassword: event.target.value })}
+                  placeholder="Mínimo de 6 caracteres"
+                />
               </div>
             </div>
-            <div>
-              <label htmlFor="currentPassword">Senha atual</label>
-              <input
-                id="currentPassword"
-                type="password"
-                value={formData.currentPassword}
-                onChange={(event) => setFormData({ ...formData, currentPassword: event.target.value })}
-                placeholder="Preencha apenas se for alterar"
-              />
+          </section>
+
+          <section className="profile-panel">
+            <div className="profile-panel-header">
+              <h2>Preferências de visualização</h2>
+              <p>Escolha como deseja visualizar a plataforma neste navegador.</p>
             </div>
-            <div>
-              <label htmlFor="newPassword">Nova senha</label>
-              <input
-                id="newPassword"
-                type="password"
-                value={formData.newPassword}
-                onChange={(event) => setFormData({ ...formData, newPassword: event.target.value })}
-                placeholder="Mínimo de 6 caracteres"
-              />
+            <div className="theme-toggle">
+              <button
+                className={formData.preferredTheme === 'light' ? 'active' : ''}
+                type="button"
+                onClick={() => setFormData({ ...formData, preferredTheme: 'light' })}
+              >
+                <Sun />
+                Claro
+              </button>
+              <button
+                className={formData.preferredTheme === 'dark' ? 'active' : ''}
+                type="button"
+                onClick={() => setFormData({ ...formData, preferredTheme: 'dark' })}
+              >
+                <Moon />
+                Escuro
+              </button>
             </div>
-          </div>
-          <div className="profile-summary">
-            <span>Termos aceitos no cadastro</span>
-            <span>Política de privacidade aceita no cadastro</span>
-          </div>
-          <div className="form-actions">
+          </section>
+
+          <section className="profile-panel profile-consent-panel">
+            <div className="profile-summary">
+              <span>Termos aceitos no cadastro</span>
+              <span>Política de privacidade aceita no cadastro</span>
+            </div>
             <button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Salvando...' : 'Salvar Perfil'}
+              {isSubmitting ? 'Salvando...' : 'Salvar alterações'}
             </button>
-          </div>
-        </form>
+          </section>
+        </div>
+      </form>
+    </section>
+  )
+}
+
+function HelpPage({ userRole }: { userRole: RoleLabel }) {
+  return (
+    <section className="page-section">
+      <div className="page-title-row">
+        <h1>Ajuda e Sobre o Sistema</h1>
+        <span className="profile-role">{userRole}</span>
+      </div>
+      <div className="help-grid">
+        <article className="help-card">
+          <h2>Para que serve</h2>
+          <p>O DecisionLog registra decisões, contexto, motivo, impacto, status e responsáveis para preservar rastreabilidade e apoiar auditorias.</p>
+        </article>
+        <article className="help-card">
+          <h2>Fluxo básico</h2>
+          <p>Gestores e administradores registram decisões. Auditores acompanham histórico e alterações. Administradores organizam usuários, permissões e departamentos.</p>
+        </article>
+        <article className="help-card">
+          <h2>Dicas rápidas</h2>
+          <p>Use filtros por status, impacto, departamento e data para encontrar registros. A visão geral mostra indicadores rápidos, e os detalhes ficam nas telas de histórico e auditoria.</p>
+        </article>
+        <article className="help-card">
+          <h2>Problemas comuns</h2>
+          <p>Se a API parecer indisponível, um administrador pode verificar MySQL, MongoDB e eventos no painel da visão geral. Se esquecer a senha, use a recuperação na tela de login.</p>
+        </article>
       </div>
     </section>
   )
@@ -1097,7 +1255,6 @@ function Sidebar({
   onClose,
   onNavigate,
   userProfile,
-  onLogout,
 }: {
   canAccessAdmin: boolean
   canAccessAudit: boolean
@@ -1105,8 +1262,7 @@ function Sidebar({
   isOpen: boolean
   onClose: () => void
   onNavigate: (page: Page) => void
-  userProfile: { name: string; role: RoleLabel }
-  onLogout: () => void
+  userProfile: { name: string; role: RoleLabel; initials: string }
 }) {
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
@@ -1125,6 +1281,26 @@ function Sidebar({
         ]
       : []),
   ]
+
+  const navLabels: Partial<Record<Page, string>> = {
+    dashboard: 'Visão geral',
+    history: 'Decisões',
+    'new-decision': 'Nova decisão',
+    audit: 'Alterações de decisões',
+    departments: 'Departamentos',
+    users: 'Usuários e permissões',
+  }
+  const navOrder: Page[] = [
+    'dashboard',
+    'history',
+    ...(userProfile.role !== 'Auditor' ? (['new-decision'] as Page[]) : []),
+    ...(canAccessAudit ? (['audit'] as Page[]) : []),
+    ...(canAccessAdmin ? (['departments', 'users'] as Page[]) : []),
+  ]
+  const visibleMenuItems = navOrder
+    .map((id) => menuItems.find((item) => item.id === id))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .map((item) => ({ ...item, label: navLabels[item.id] || item.label }))
 
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -1149,7 +1325,7 @@ function Sidebar({
         </div>
       </div>
       <nav className="sidebar-menu" aria-label="Navegação principal">
-        {menuItems.map((item) => {
+        {visibleMenuItems.map((item) => {
           const Icon = item.icon
           const isActive = currentPage === item.id
           return (
@@ -1165,12 +1341,6 @@ function Sidebar({
           )
         })}
       </nav>
-      <div className="sidebar-footer">
-        <button type="button" onClick={onLogout}>
-          <LogOut />
-          <span>Sair</span>
-        </button>
-      </div>
     </aside>
   )
 }
@@ -1178,11 +1348,15 @@ function Sidebar({
 function Dashboard({
   decisions,
   health,
+  isAdmin,
   isLoading,
+  usersCount,
 }: {
   decisions: DecisionView[]
   health: Health | null
+  isAdmin: boolean
   isLoading: boolean
+  usersCount: number
 }) {
   const totalDecisions = decisions.length
   const pendingDecisions = decisions.filter((decision) => decision.status === 'Pendente').length
@@ -1208,7 +1382,7 @@ function Dashboard({
     <section className="page-section">
       <div className="page-title-row">
         <h1>Visão Geral Estratégica</h1>
-        {health && (
+        {isAdmin && health && (
           <div className={`health-pill ${health.status}`}>
             <Activity />
             API {health.status === 'ok' ? 'saudável' : 'degradada'}
@@ -1219,15 +1393,16 @@ function Dashboard({
         <KpiCard icon={FileText} label="Total de Decisões" value={totalDecisions} tone="primary" />
         <KpiCard icon={Clock} label="Decisões Pendentes" value={pendingDecisions} tone="warning" />
         <KpiCard icon={CheckCircle2} label="Decisões Concluídas" value={completedDecisions} tone="success" />
+        {isAdmin && <KpiCard icon={Users} label="Usuários Ativos" value={usersCount} tone="primary" />}
       </div>
-      {health && (
+      {isAdmin && health && (
         <div className="health-grid">
           <span>MySQL: {health.checks.mysql}</span>
           <span>MongoDB: {health.checks.mongodb}</span>
           <span>Eventos: {health.checks.events.state}</span>
         </div>
       )}
-      {isLoading && <p className="loading-text">Carregando informações...</p>}
+      {isLoading && <LoadingState label="Carregando indicadores..." />}
       <div className="chart-grid">
         <article className="chart-card">
           <h3>Volume de Decisões por Departamento</h3>
@@ -1289,6 +1464,15 @@ function KpiCard({
         <Icon />
       </div>
     </article>
+  )
+}
+
+function LoadingState({ label }: { label: string }) {
+  return (
+    <div className="loading-panel" role="status" aria-live="polite">
+      <span className="loading-spinner" aria-hidden="true" />
+      <span>{label}</span>
+    </div>
   )
 }
 
@@ -1451,11 +1635,20 @@ function DecisionHistory({
   onView: (decision: DecisionView) => void
 }) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [impactFilter, setImpactFilter] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
   const canCreateOrEdit = userRole === 'Administrador' || userRole === 'Gestor'
+  const departments = Array.from(new Set(decisions.map((decision) => decision.departamento))).sort()
   const filteredDecisions = decisions.filter(
     (decision) =>
-      decision.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      decision.departamento.toLowerCase().includes(searchTerm.toLowerCase()),
+      (decision.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        decision.departamento.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (!statusFilter || decision.status === statusFilter) &&
+      (!impactFilter || decision.impacto === impactFilter) &&
+      (!departmentFilter || decision.departamento === departmentFilter) &&
+      (!dateFilter || decision.data === new Intl.DateTimeFormat('pt-BR').format(new Date(`${dateFilter}T00:00:00`))),
   )
 
   return (
@@ -1469,6 +1662,28 @@ function DecisionHistory({
           placeholder="Buscar decisão..."
           type="text"
         />
+      </div>
+      <div className="filter-grid">
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          <option value="">Todos os status</option>
+          <option value="Pendente">Pendente</option>
+          <option value="Concluída">Concluída</option>
+          <option value="Arquivada">Arquivada</option>
+          <option value="Inativa">Inativa</option>
+        </select>
+        <select value={impactFilter} onChange={(event) => setImpactFilter(event.target.value)}>
+          <option value="">Todos os impactos</option>
+          <option value="Baixo">Baixo</option>
+          <option value="Médio">Médio</option>
+          <option value="Alto">Alto</option>
+        </select>
+        <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+          <option value="">Todos os departamentos</option>
+          {departments.map((department) => (
+            <option key={department} value={department}>{department}</option>
+          ))}
+        </select>
+        <input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
       </div>
       <DataTable>
         <thead>
@@ -1532,11 +1747,13 @@ function DecisionHistory({
 
 function UsersPage({
   currentUserId,
+  departments,
   onUpdate,
   users,
 }: {
   currentUserId?: string
-  onUpdate: (userId: string, data: Partial<Pick<User, 'role' | 'active'>>) => void
+  departments: Department[]
+  onUpdate: (userId: string, data: Partial<Pick<User, 'role' | 'active' | 'departmentId'>>) => void
   users: User[]
 }) {
   return (
@@ -1547,6 +1764,8 @@ function UsersPage({
           <tr>
             <th>Nome</th>
             <th>E-mail</th>
+            <th>Contato</th>
+            <th>Departamento</th>
             <th>Perfil</th>
             <th>Status</th>
             <th>Ações</th>
@@ -1557,6 +1776,23 @@ function UsersPage({
             <tr key={item.id}>
               <td>{item.name}</td>
               <td>{item.email}</td>
+              <td>{item.phone || 'Não informado'}</td>
+              <td>
+                <select
+                  className="table-select"
+                  value={item.departmentId || ''}
+                  onChange={(event) =>
+                    onUpdate(item.id, { departmentId: event.target.value || null })
+                  }
+                >
+                  <option value="">Não vinculado</option>
+                  {departments.map((department) => (
+                    <option key={department.id} value={department.id}>
+                      {department.name}
+                    </option>
+                  ))}
+                </select>
+              </td>
               <td>
                 <select
                   className="table-select"
@@ -1653,20 +1889,43 @@ function DepartmentsPage({
 }
 
 function AuditTrail({ events }: { events: AuditLog[] }) {
+  const [actionFilter, setActionFilter] = useState('')
+  const [dateFilter, setDateFilter] = useState('')
+  const decisionEvents = events.filter((event) => {
+    if (!event.action.startsWith('DECISION_')) return false
+    if (actionFilter && event.action !== actionFilter) return false
+    if (dateFilter && new Date(event.timestamp).toISOString().slice(0, 10) !== dateFilter) return false
+    return true
+  })
   return (
     <section className="page-section">
-      <h1>Histórico de Alterações</h1>
-      <AuditList events={events} />
+      <h1>Histórico de alterações nas decisões</h1>
+      <div className="filter-grid">
+        <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
+          <option value="">Todas as alterações</option>
+          <option value="DECISION_CREATED">Criação</option>
+          <option value="DECISION_UPDATED">Edição</option>
+          <option value="DECISION_DELETED">Inativação</option>
+        </select>
+        <input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
+      </div>
+      <AuditList events={decisionEvents} emptyMessage="Nenhuma alteração de decisão registrada" />
     </section>
   )
 }
 
-function AuditList({ events }: { events: AuditLog[] }) {
+function AuditList({
+  emptyMessage = 'Nenhum evento de auditoria registrado',
+  events,
+}: {
+  emptyMessage?: string
+  events: AuditLog[]
+}) {
   return (
     <div className="audit-card">
       <div className="timeline">
         {events.length === 0 ? (
-          <p className="empty-message">Nenhum evento de auditoria registrado</p>
+          <p className="empty-message">{emptyMessage}</p>
         ) : (
           events.map((event, index) => (
             <div key={event.id} className="timeline-item">

@@ -14,6 +14,8 @@ model User {
   passwordHash String
   phone        String?
   preferredTheme String   @default("light")
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
   role         String     @default("manager")
   active       Boolean    @default(true)
   termsAcceptedAt DateTime?
@@ -32,6 +34,7 @@ model Department {
   name      String     @unique
   active    Boolean    @default(true)
   decisions Decision[]
+  users     User[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
