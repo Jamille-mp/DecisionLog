@@ -10,6 +10,8 @@ Este projeto pode usar Docker para subir MySQL, MongoDB e RabbitMQ juntos, sem i
 
 O RabbitMQ é opcional no funcionamento diário. Se `EVENT_BROKER_MODE` estiver como `memory`, o sistema roda sem RabbitMQ. Se estiver como `rabbitmq`, a API publica os eventos no broker.
 
+Para a apresentação completa da arquitetura corporativa, use `EVENT_BROKER_MODE="rabbitmq"` com o container `rabbitmq` ativo. Assim o health check passa a mostrar eventos em modo RabbitMQ, em vez de apenas memória local.
+
 ## Subir os serviços
 
 Na raiz do projeto:
@@ -48,15 +50,15 @@ DATABASE_NAME="decisionlog"
 MONGODB_URL="mongodb://localhost:27017/decisionlog_logs"
 JWT_SECRET="change-this-secret"
 PORT=3333
-EVENT_BROKER_MODE="memory"
+EVENT_BROKER_MODE="rabbitmq"
 RABBITMQ_URL="amqp://localhost:5672"
 RABBITMQ_EXCHANGE="decisionlog.events"
 ```
 
-Para testar RabbitMQ de verdade:
+Para rodar sem RabbitMQ durante desenvolvimento rápido:
 
 ```env
-EVENT_BROKER_MODE="rabbitmq"
+EVENT_BROKER_MODE="memory"
 ```
 
 Depois reinicie o backend.
