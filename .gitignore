@@ -11,3 +11,5 @@ npm-debug.log*
 .server.err.log
 .tmp-pdf/
 backups/
+client/test-results/
+client/playwright-report/
