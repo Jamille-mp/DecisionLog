@@ -1,12 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import {
   Activity,
+  AlertTriangle,
+  ArrowLeft,
   Building2,
   CheckCircle2,
   Clock,
+  Download,
   Edit2,
   Eye,
+  EyeOff,
   FileText,
   FolderOpen,
   History,
@@ -14,6 +18,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  RotateCcw,
   Search,
   Settings,
   Sun,
@@ -38,7 +43,7 @@ import { Toaster, toast } from 'sonner'
 import logo from './assets/decisionlog-logo.png'
 import './App.css'
 
-type Page = 'dashboard' | 'new-decision' | 'history' | 'audit' | 'users' | 'departments' | 'profile' | 'help'
+type Page = 'dashboard' | 'new-decision' | 'history' | 'audit' | 'users' | 'departments' | 'profile' | 'help' | 'monitoring'
 type ApiRole = 'admin' | 'manager' | 'auditor'
 type RoleLabel = 'Administrador' | 'Gestor' | 'Auditor'
 type ApiStatus = 'pending' | 'approved' | 'archived' | 'inactive'
@@ -61,6 +66,13 @@ type Department = {
   id: string
   name: string
   active: boolean
+  deletedAt?: string | null
+  userCount?: number
+  decisionCount?: number
+  _count?: {
+    users: number
+    decisions: number
+  }
 }
 
 type Health = {
@@ -133,6 +145,10 @@ type AuthForm = {
 }
 
 type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
+type OidcConfig = {
+  enabled: boolean
+  providerName: string
+}
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
 
@@ -179,6 +195,42 @@ function getInitials(name: string) {
     .toUpperCase()
 }
 
+function isStrongPassword(password: string) {
+  const hasMinimumLength = password.length >= 8
+  const hasLetter = /[A-Za-zÀ-ÿ]/.test(password)
+  const hasNumber = /\d/.test(password)
+  const hasSpecial = /[^A-Za-zÀ-ÿ0-9]/.test(password)
+  const hasSequentialNumbers = /(012|123|234|345|456|567|678|789|987|876|765|654|543|432|321|210)/.test(password)
+
+  return hasMinimumLength && hasLetter && hasNumber && hasSpecial && !hasSequentialNumbers
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return 'Não informado'
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+function toIsoDateFromBrazilianDate(value: string) {
+  const [day, month, year] = value.split('/')
+  if (!day || !month || !year) return ''
+
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+}
+
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 11)
+
+  if (digits.length <= 2) return digits
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`
+
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`
+}
+
 const labelToRole: Record<RoleLabel, ApiRole> = {
   Administrador: 'admin',
   Gestor: 'manager',
@@ -188,12 +240,16 @@ const labelToRole: Record<RoleLabel, ApiRole> = {
 const actionLabels: Record<string, string> = {
   USER_REGISTERED: 'Usuário cadastrado',
   USER_LOGGED_IN: 'Login realizado',
+  USER_LOGGED_IN_OIDC: 'Login institucional realizado',
   USER_UPDATED: 'Usuário atualizado',
+  USER_DELETED: 'Usuário excluído',
   DEPARTMENT_CREATED: 'Departamento criado',
   DEPARTMENT_UPDATED: 'Departamento atualizado',
   DECISIONS_VIEWED: 'Decisões visualizadas',
   DECISION_CREATED: 'Decisão criada',
   DECISION_UPDATED: 'Decisão editada',
+  DECISION_ARCHIVED: 'Decisão arquivada',
+  DECISION_UNARCHIVED: 'Decisão desarquivada',
   DECISION_DELETED: 'Decisão inativada',
 }
 
@@ -263,7 +319,9 @@ function App() {
     const storedUser = localStorage.getItem('decisionlog:user')
     return storedUser ? (JSON.parse(storedUser) as User) : null
   })
+  const [oidcConfig, setOidcConfig] = useState<OidcConfig>({ enabled: false, providerName: 'Login institucional' })
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
+  const [pageHistory, setPageHistory] = useState<Page[]>([])
   const [decisions, setDecisions] = useState<ApiDecision[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [users, setUsers] = useState<User[]>([])
@@ -277,9 +335,11 @@ function App() {
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
+  const profileMenuRef = useRef<HTMLDivElement | null>(null)
 
   const canAccessAudit = user?.role === 'admin' || user?.role === 'auditor'
   const isAdmin = user?.role === 'admin'
+  const canGoBack = currentPage !== 'dashboard' && (pageHistory.length > 0 || Boolean(editingDecision))
   const userProfile = {
     name: user?.name || 'Usuário',
     role: roleLabels[user?.role || 'manager'],
@@ -294,8 +354,64 @@ function App() {
   const decisionViews = useMemo(() => decisions.map(toDecisionView), [decisions])
 
   useEffect(() => {
+    fetch(`${apiUrl}/auth/oidc/config`)
+      .then((response) => response.json())
+      .then((data: OidcConfig) => setOidcConfig(data))
+      .catch(() => setOidcConfig({ enabled: false, providerName: 'Login institucional' }))
+  }, [])
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const oidcToken = params.get('oidc_token')
+
+    if (!oidcToken) return
+
+    localStorage.setItem('decisionlog:token', oidcToken)
+    window.history.replaceState({}, document.title, window.location.pathname)
+
+    fetch(`${apiUrl}/users/me`, {
+      headers: authHeaders(oidcToken),
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Falha ao carregar perfil OpenID.')
+        return (await response.json()) as User
+      })
+      .then((profile) => {
+        localStorage.setItem('decisionlog:user', JSON.stringify(profile))
+        setToken(oidcToken)
+        setUser(profile)
+        document.body.dataset.theme = profile.preferredTheme || 'light'
+        toast.success('Login institucional realizado.')
+      })
+      .catch(() => {
+        localStorage.removeItem('decisionlog:token')
+        localStorage.removeItem('decisionlog:user')
+        setToken('')
+        setUser(null)
+        toast.error('Não foi possível concluir o login institucional.')
+      })
+  }, [])
+
+  useEffect(() => {
     document.body.dataset.theme = user?.preferredTheme || 'light'
   }, [user?.preferredTheme])
+
+  useEffect(() => {
+    if (!isProfileMenuOpen) return
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isProfileMenuOpen])
 
   useEffect(() => {
     if (!token || !user) return
@@ -307,7 +423,7 @@ function App() {
       try {
         const requests = [
           fetch(`${apiUrl}/decisions`, { headers: authHeaders(token) }),
-          fetch(`${apiUrl}/departments`, { headers: authHeaders(token) }),
+          fetch(`${apiUrl}/departments${isAdmin ? '?includeInactive=true' : ''}`, { headers: authHeaders(token) }),
           fetch(`${apiUrl}/health`),
         ]
 
@@ -369,7 +485,7 @@ function App() {
   }
 
   async function refreshDepartments(currentToken = token) {
-    const response = await fetch(`${apiUrl}/departments`, {
+    const response = await fetch(`${apiUrl}/departments${isAdmin ? '?includeInactive=true' : ''}`, {
       headers: authHeaders(currentToken),
     })
 
@@ -407,6 +523,12 @@ function App() {
 
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+
+    if ((authMode === 'register' || authMode === 'reset') && !isStrongPassword(authForm.password)) {
+      toast.error('A senha deve ter 8 caracteres ou mais, com letra, número, caractere especial e sem sequência numérica.')
+      return
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -503,11 +625,16 @@ function App() {
     setToken('')
     setUser(null)
     setCurrentPage('dashboard')
+    setPageHistory([])
     setDecisions([])
     setDepartments([])
     setUsers([])
     setAuditLogs([])
     setDecisionAuditLogs([])
+  }
+
+  function handleOidcLogin() {
+    window.location.href = `${apiUrl}/auth/oidc/start`
   }
 
   async function handleSaveDecision(formData: DecisionFormData) {
@@ -571,6 +698,58 @@ function App() {
     }
   }
 
+  async function handleArchiveDecision(decision: DecisionView) {
+    const shouldUnarchive = decision.status === 'Arquivada'
+    const nextStatus = shouldUnarchive ? 'pending' : 'archived'
+    const response = await fetch(`${apiUrl}/decisions/${decision.id}`, {
+      method: 'PUT',
+      headers: {
+        ...authHeaders(token),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        title: decision.source.title,
+        context: decision.source.context,
+        decision: decision.source.decision,
+        reason: decision.source.reason,
+        department: decision.source.department,
+        departmentId: decision.source.departmentId,
+        impact: decision.source.impact,
+        status: nextStatus,
+      }),
+    })
+
+    if (!response.ok) {
+      toast.error(shouldUnarchive ? 'Não foi possível desarquivar a decisão.' : 'Não foi possível arquivar a decisão.')
+      return
+    }
+
+    const archivedDecision = (await response.json()) as ApiDecision
+    setDecisions((current) => current.map((item) => (item.id === archivedDecision.id ? archivedDecision : item)))
+    toast.success(shouldUnarchive ? 'Decisão desarquivada.' : 'Decisão arquivada.')
+    void refreshAuditLogs()
+  }
+
+  async function handleDeleteUser(userId: string) {
+    const confirmed = window.confirm('Deseja realmente excluir este usuário? A conta será desativada e descaracterizada.')
+    if (!confirmed) return
+
+    const response = await fetch(`${apiUrl}/users/${userId}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    })
+
+    if (!response.ok) {
+      toast.error('Não foi possível excluir o usuário.')
+      return
+    }
+
+    setUsers((current) => current.filter((item) => item.id !== userId))
+    toast.success('Usuário excluído.')
+    void refreshUsers()
+    void refreshAuditLogs()
+  }
+
   async function handleUpdateUser(userId: string, data: Partial<Pick<User, 'role' | 'active' | 'departmentId'>>) {
     const response = await fetch(`${apiUrl}/users/${userId}`, {
       method: 'PATCH',
@@ -631,6 +810,45 @@ function App() {
     void refreshAuditLogs()
   }
 
+  async function handleUpdateDepartment(department: Department, name: string) {
+    const response = await fetch(`${apiUrl}/departments/${department.id}`, {
+      method: 'PATCH',
+      headers: {
+        ...authHeaders(token),
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name }),
+    })
+
+    if (!response.ok) {
+      toast.error('Não foi possível renomear o departamento.')
+      return
+    }
+
+    toast.success('Departamento renomeado.')
+    void refreshDepartments()
+    void refreshAuditLogs()
+  }
+
+  async function handleDeleteDepartment(department: Department) {
+    const confirmed = window.confirm('Deseja realmente excluir este departamento? Ele será removido da gestão ativa.')
+    if (!confirmed) return
+
+    const response = await fetch(`${apiUrl}/departments/${department.id}`, {
+      method: 'DELETE',
+      headers: authHeaders(token),
+    })
+
+    if (!response.ok) {
+      toast.error('Não foi possível excluir o departamento.')
+      return
+    }
+
+    toast.success('Departamento excluído.')
+    void refreshDepartments()
+    void refreshAuditLogs()
+  }
+
   async function handleUpdateProfile(data: ProfileFormData) {
     setIsSubmitting(true)
 
@@ -683,12 +901,15 @@ function App() {
       return
     }
 
-    if ((page === 'users' || page === 'departments') && !isAdmin) {
+    if ((page === 'users' || page === 'departments' || page === 'monitoring') && !isAdmin) {
       toast.error('Apenas administradores acessam esta área.')
       return
     }
 
-    setCurrentPage(page)
+    if (page !== currentPage) {
+      setPageHistory((current) => [...current, currentPage])
+      setCurrentPage(page)
+    }
     setIsSidebarOpen(false)
     setIsProfileMenuOpen(false)
   }
@@ -699,7 +920,25 @@ function App() {
   }
 
   function openProfile() {
+    setPageHistory((current) => [...current, currentPage])
     setCurrentPage('profile')
+    setIsProfileMenuOpen(false)
+    setIsSidebarOpen(false)
+  }
+
+  function goBack() {
+    if (editingDecision) {
+      setEditingDecision(null)
+      setCurrentPage('history')
+      return
+    }
+
+    setPageHistory((current) => {
+      const nextHistory = [...current]
+      const previousPage = nextHistory.pop()
+      setCurrentPage(previousPage || 'dashboard')
+      return nextHistory
+    })
     setIsProfileMenuOpen(false)
     setIsSidebarOpen(false)
   }
@@ -715,7 +954,10 @@ function App() {
             departments={departments}
             editingDecision={editingDecision}
             isSubmitting={isSubmitting}
-            onCancelEdit={() => setEditingDecision(null)}
+            onCancelEdit={() => {
+              setEditingDecision(null)
+              setCurrentPage('history')
+            }}
             onSave={handleSaveDecision}
             userRole={userProfile.role}
           />
@@ -727,9 +969,11 @@ function App() {
             userRole={userProfile.role}
             onEdit={(decision) => {
               setEditingDecision(decision)
+              setPageHistory((current) => [...current, currentPage])
               setCurrentPage('new-decision')
             }}
             onDelete={handleDeleteDecision}
+            onArchive={handleArchiveDecision}
             onView={openDecision}
             currentUserId={user?.id}
           />
@@ -741,6 +985,7 @@ function App() {
           <UsersPage
             currentUserId={user?.id}
             departments={departments}
+            onDelete={handleDeleteUser}
             onUpdate={handleUpdateUser}
             users={users}
           />
@@ -750,6 +995,8 @@ function App() {
           <DepartmentsPage
             departments={departments}
             onCreate={handleCreateDepartment}
+            onDelete={handleDeleteDepartment}
+            onRename={handleUpdateDepartment}
             onToggle={handleToggleDepartment}
           />
         )
@@ -759,6 +1006,8 @@ function App() {
         ) : null
       case 'help':
         return <HelpPage userRole={userProfile.role} />
+      case 'monitoring':
+        return <MonitoringPage auditLogs={auditLogs} health={health} token={token} />
       default:
         return <Dashboard decisions={decisionViews} health={health} isAdmin={isAdmin} isLoading={isLoading} usersCount={users.filter((item) => item.active).length} />
     }
@@ -775,7 +1024,9 @@ function App() {
           onChange={setAuthForm}
           onOpenLegal={setLegalModal}
           onModeChange={setAuthMode}
+          onOidcLogin={handleOidcLogin}
           onSubmit={handleAuthSubmit}
+          oidcConfig={oidcConfig}
         />
         <LegalModal type={legalModal} onClose={() => setLegalModal(null)} />
       </>
@@ -794,6 +1045,11 @@ function App() {
         >
           <Menu />
         </button>
+        {canGoBack && (
+          <button className="back-button" type="button" onClick={goBack}>
+            <ArrowLeft />
+          </button>
+        )}
         <div className="topbar-brand">
           <img src={logo} alt="DecisionLog" />
           <button className="brand-button" type="button" onClick={() => navigateTo('dashboard')}>
@@ -801,7 +1057,7 @@ function App() {
             <span>Governança de decisões</span>
           </button>
         </div>
-        <div className="profile-menu-wrap">
+        <div className="profile-menu-wrap" ref={profileMenuRef}>
           <button
             className="profile-floating"
             type="button"
@@ -849,7 +1105,10 @@ function App() {
           aria-label="Fechar menu"
         />
       )}
-      <main className="content-area">{renderContent()}</main>
+      <main className="content-area">
+        {renderContent()}
+        <AppFooter health={health} />
+      </main>
       <ViewDecisionModal
         auditLogs={decisionAuditLogs}
         canAccessAudit={canAccessAudit}
@@ -868,7 +1127,9 @@ function Login({
   onChange,
   onOpenLegal,
   onModeChange,
+  onOidcLogin,
   onSubmit,
+  oidcConfig,
 }: {
   authForm: AuthForm
   authMode: AuthMode
@@ -876,16 +1137,179 @@ function Login({
   onChange: (form: AuthForm) => void
   onOpenLegal: (type: 'terms' | 'privacy') => void
   onModeChange: (mode: AuthMode) => void
+  onOidcLogin: () => void
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  oidcConfig: OidcConfig
 }) {
+  const [showLoginPanel, setShowLoginPanel] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const authTitle =
+    authMode === 'register'
+      ? 'Criar acesso'
+      : authMode === 'forgot'
+        ? 'Recuperar senha'
+        : authMode === 'reset'
+          ? 'Redefinir senha'
+          : 'Entrar na plataforma'
+  const authDescription =
+    authMode === 'register'
+      ? 'Solicite seu acesso com aceite dos termos e política de privacidade.'
+      : authMode === 'forgot'
+        ? 'Informe seu e-mail corporativo para receber as instruções de recuperação.'
+        : authMode === 'reset'
+          ? 'Digite o código recebido e cadastre uma nova senha segura.'
+          : 'Use suas credenciais para acessar decisões, auditoria e indicadores.'
+
+  if (!showLoginPanel) {
+    return (
+      <div className="presentation-page">
+        <header className="presentation-topbar">
+          <div>
+            <img src={logo} alt="DecisionLog" />
+            <div>
+              <strong>DecisionLog</strong>
+              <span>Governança de decisões</span>
+            </div>
+          </div>
+          <button type="button" onClick={() => setShowLoginPanel(true)}>
+            Entrar
+          </button>
+        </header>
+        <main className="presentation-main">
+          <section className="presentation-shell">
+            <div className="presentation-copy">
+              <span>Decisões com contexto e confiança</span>
+              <h1>Transforme decisões importantes em registros claros, seguros e fáceis de acompanhar.</h1>
+              <p>
+                O DecisionLog centraliza decisões corporativas, responsáveis, justificativas e histórico
+                para que a equipe saiba exatamente o que foi decidido e por quê.
+              </p>
+              <div className="presentation-actions">
+                <button type="button" onClick={() => setShowLoginPanel(true)}>
+                  Acessar plataforma
+                </button>
+                <span>Área interna protegida por login e permissões por perfil.</span>
+              </div>
+            </div>
+            <div className="presentation-preview">
+              <div className="preview-window">
+                <div className="preview-heading">
+                  <span>Prévia ilustrativa</span>
+                  <strong>Painel de decisões</strong>
+                </div>
+                <div className="preview-kpis">
+                  <article>
+                    <span>Decisões registradas</span>
+                    <strong>128</strong>
+                  </article>
+                  <article>
+                    <span>Pendentes</span>
+                    <strong>14</strong>
+                  </article>
+                  <article>
+                    <span>Alto impacto</span>
+                    <strong>9</strong>
+                  </article>
+                </div>
+                <div className="preview-note">
+                  <strong>Hoje</strong>
+                  <span>3 decisões concluídas, 2 revisões abertas e 1 item arquivado para consulta futura.</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section className="presentation-section">
+            <div className="presentation-section-heading">
+              <span>Como funciona</span>
+              <h2>Um fluxo simples para decisões que precisam deixar rastro.</h2>
+            </div>
+            <div className="presentation-process" aria-label="Ciclo de uso do DecisionLog">
+              <article>
+                <strong>1</strong>
+                <span>Registre a decisão</span>
+                <p>Informe contexto, área, impacto e responsável em um registro padronizado.</p>
+              </article>
+              <article>
+                <strong>2</strong>
+                <span>Acompanhe o status</span>
+                <p>Visualize pendências, decisões concluídas e itens arquivados para consulta.</p>
+              </article>
+              <article>
+                <strong>3</strong>
+                <span>Consulte o histórico</span>
+                <p>Recupere alterações e evidências quando houver auditoria ou prestação de contas.</p>
+              </article>
+            </div>
+          </section>
+
+          <section className="presentation-section presentation-benefits">
+            <div>
+              <span>Menos ruído</span>
+              <strong>Informações importantes ficam organizadas em um único lugar.</strong>
+            </div>
+            <div>
+              <span>Mais responsabilidade</span>
+              <strong>Cada decisão mantém responsável, área, impacto e justificativa.</strong>
+            </div>
+            <div>
+              <span>Mais confiança</span>
+              <strong>A equipe consulta dados e histórico sem depender de memória individual.</strong>
+            </div>
+          </section>
+        </main>
+
+        <footer className="presentation-footer">
+          <div>
+            <strong>DecisionLog</strong>
+            <span>Plataforma corporativa para governança de decisões.</span>
+          </div>
+          <span>© 2026 DecisionLog. Todos os direitos reservados.</span>
+        </footer>
+      </div>
+    )
+  }
+
   return (
     <div className="login-page">
-      <div className="login-card">
-        <div className="logo-wrap">
-          <img src={logo} alt="DecisionLog" />
-        </div>
-        <h2>Sistema de Gestão de Capital Intelectual</h2>
-        <form onSubmit={onSubmit} className="login-form">
+      <div className="login-shell">
+        <section className="login-intro-panel">
+          <button className="mode-button" type="button" onClick={() => setShowLoginPanel(false)}>
+            Voltar à apresentação
+          </button>
+          <div className="login-brand-block">
+            <img src={logo} alt="DecisionLog" />
+            <div>
+              <span>Acesso corporativo</span>
+              <h1>Entre para acompanhar decisões com clareza.</h1>
+              <p>Use sua conta para registrar, consultar e auditar decisões conforme seu perfil de acesso.</p>
+            </div>
+          </div>
+          <div className="login-assurance-list">
+            <div>
+              <strong>Permissões por perfil</strong>
+              <span>Administrador, gestor e auditor veem apenas o que faz sentido para sua função.</span>
+            </div>
+            <div>
+              <strong>Rastreabilidade</strong>
+              <span>Alterações importantes ficam registradas para consulta e prestação de contas.</span>
+            </div>
+            <div>
+              <strong>Privacidade</strong>
+              <span>Cadastro com aceite de termos e tratamento de dados conforme LGPD.</span>
+            </div>
+          </div>
+        </section>
+        <div className="login-card">
+          <div className="login-card-header">
+            <img src={logo} alt="DecisionLog" />
+            <div>
+              <span>DecisionLog</span>
+              <h2>{authTitle}</h2>
+              <p>{authDescription}</p>
+            </div>
+          </div>
+          <form onSubmit={onSubmit} className="login-form">
           {authMode === 'register' && (
             <div>
               <label htmlFor="name">Nome</label>
@@ -924,18 +1348,34 @@ function Login({
           {authMode !== 'forgot' && (
             <div>
               <label htmlFor="password">{authMode === 'reset' ? 'Nova senha' : 'Senha'}</label>
-              <input
-                id="password"
-                type="password"
-                value={authForm.password}
-                onChange={(event) => onChange({ ...authForm, password: event.target.value })}
-                placeholder="********"
-                required
-              />
+              <div className="password-field">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  minLength={authMode === 'login' ? undefined : 8}
+                  pattern={authMode === 'login' ? undefined : '^(?!.*(012|123|234|345|456|567|678|789|987|876|765|654|543|432|321|210))(?=.*[A-Za-zÀ-ÿ])(?=.*\\d)(?=.*[^A-Za-zÀ-ÿ0-9]).{8,}$'}
+                  title="Use 8 caracteres ou mais, com letra, número, caractere especial e sem sequência numérica."
+                  value={authForm.password}
+                  onChange={(event) => onChange({ ...authForm, password: event.target.value })}
+                  placeholder={authMode === 'login' ? '********' : 'Ex: Decisao@26'}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </button>
+              </div>
+              {authMode !== 'login' && (
+                <small className="field-hint">Mínimo 8 caracteres, com letra, número, caractere especial e sem sequência numérica.</small>
+              )}
             </div>
           )}
           {authMode === 'register' && (
             <div className="consent-box">
+              <strong>Consentimento e privacidade</strong>
               <div className="legal-actions">
                 <button type="button" onClick={() => onOpenLegal('terms')}>
                   Ler Termos de Uso
@@ -981,20 +1421,28 @@ function Login({
                     ? 'Enviar instruções'
                     : 'Redefinir senha'}
           </button>
-        </form>
-        {authMode === 'login' && (
-          <button className="mode-button subtle" type="button" onClick={() => onModeChange('forgot')}>
-            Esqueci minha senha
-          </button>
-        )}
-        <button
-          className="mode-button"
-          type="button"
-          onClick={() => onModeChange(authMode === 'login' ? 'register' : 'login')}
-        >
-          {authMode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
-        </button>
-        <p>Plataforma de Governança Corporativa</p>
+          </form>
+          {authMode === 'login' && oidcConfig.enabled && (
+            <button className="oidc-button" type="button" onClick={onOidcLogin}>
+              {oidcConfig.providerName}
+            </button>
+          )}
+          <div className="auth-switcher">
+            {authMode === 'login' && (
+              <button className="mode-button subtle" type="button" onClick={() => onModeChange('forgot')}>
+                Esqueci minha senha
+              </button>
+            )}
+            <button
+              className="mode-button"
+              type="button"
+              onClick={() => onModeChange(authMode === 'login' ? 'register' : 'login')}
+            >
+              {authMode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
+            </button>
+          </div>
+          <p className="login-footnote">Plataforma de Governança Corporativa</p>
+      </div>
       </div>
     </div>
   )
@@ -1070,6 +1518,10 @@ function ProfilePage({
     currentPassword: '',
     newPassword: '',
   })
+  const [visiblePasswords, setVisiblePasswords] = useState({
+    current: false,
+    next: false,
+  })
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1081,12 +1533,18 @@ function ProfilePage({
     }))
   }
 
+  function updatePreferredTheme(preferredTheme: ProfileFormData['preferredTheme']) {
+    document.body.dataset.theme = preferredTheme
+    setFormData((current) => ({ ...current, preferredTheme }))
+  }
+
   return (
     <section className="page-section">
-      <div className="page-title-row">
-        <h1>Meu Perfil</h1>
-        <span className="profile-role">{roleLabels[user.role]}</span>
-      </div>
+      <PageHeader
+        badge={roleLabels[user.role]}
+        subtitle="Atualize seus dados de contato, e-mail, senha e preferências de visualização."
+        title="Meu Perfil"
+      />
       <form className="profile-settings-layout" onSubmit={handleSubmit}>
         <aside className="profile-overview">
           <div className="profile-avatar large">{getInitials(user.name)}</div>
@@ -1121,8 +1579,10 @@ function ProfilePage({
                 <input
                   id="profilePhone"
                   value={formData.phone}
-                  onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
-                  placeholder="Telefone ou WhatsApp"
+                  onChange={(event) => setFormData({ ...formData, phone: formatPhone(event.target.value) })}
+                  inputMode="tel"
+                  maxLength={15}
+                  placeholder="(00) 00000-0000"
                 />
               </div>
               <div>
@@ -1157,23 +1617,45 @@ function ProfilePage({
             <div className="form-grid">
               <div>
                 <label htmlFor="currentPassword">Senha atual</label>
-                <input
-                  id="currentPassword"
-                  type="password"
-                  value={formData.currentPassword}
-                  onChange={(event) => setFormData({ ...formData, currentPassword: event.target.value })}
-                  placeholder="Senha usada atualmente"
-                />
+                <div className="password-field">
+                  <input
+                    id="currentPassword"
+                    type={visiblePasswords.current ? 'text' : 'password'}
+                    value={formData.currentPassword}
+                    onChange={(event) => setFormData({ ...formData, currentPassword: event.target.value })}
+                    placeholder="Senha usada atualmente"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePasswords((current) => ({ ...current, current: !current.current }))}
+                    aria-label={visiblePasswords.current ? 'Ocultar senha atual' : 'Mostrar senha atual'}
+                  >
+                    {visiblePasswords.current ? <EyeOff /> : <Eye />}
+                  </button>
+                </div>
               </div>
               <div>
                 <label htmlFor="newPassword">Nova senha</label>
-                <input
-                  id="newPassword"
-                  type="password"
-                  value={formData.newPassword}
-                  onChange={(event) => setFormData({ ...formData, newPassword: event.target.value })}
-                  placeholder="Mínimo de 6 caracteres"
-                />
+                <div className="password-field">
+                  <input
+                    id="newPassword"
+                    type={visiblePasswords.next ? 'text' : 'password'}
+                    minLength={8}
+                    pattern="^(?!.*(012|123|234|345|456|567|678|789|987|876|765|654|543|432|321|210))(?=.*[A-Za-zÀ-ÿ])(?=.*\d)(?=.*[^A-Za-zÀ-ÿ0-9]).{8,}$"
+                    title="Use 8 caracteres ou mais, com letra, número, caractere especial e sem sequência numérica."
+                    value={formData.newPassword}
+                    onChange={(event) => setFormData({ ...formData, newPassword: event.target.value })}
+                    placeholder="Ex: Decisao@26"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setVisiblePasswords((current) => ({ ...current, next: !current.next }))}
+                    aria-label={visiblePasswords.next ? 'Ocultar nova senha' : 'Mostrar nova senha'}
+                  >
+                    {visiblePasswords.next ? <EyeOff /> : <Eye />}
+                  </button>
+                </div>
+                <small className="field-hint">Mínimo 8 caracteres, com letra, número, caractere especial e sem sequência numérica.</small>
               </div>
             </div>
           </section>
@@ -1187,7 +1669,7 @@ function ProfilePage({
               <button
                 className={formData.preferredTheme === 'light' ? 'active' : ''}
                 type="button"
-                onClick={() => setFormData({ ...formData, preferredTheme: 'light' })}
+                onClick={() => updatePreferredTheme('light')}
               >
                 <Sun />
                 Claro
@@ -1195,7 +1677,7 @@ function ProfilePage({
               <button
                 className={formData.preferredTheme === 'dark' ? 'active' : ''}
                 type="button"
-                onClick={() => setFormData({ ...formData, preferredTheme: 'dark' })}
+                onClick={() => updatePreferredTheme('dark')}
               >
                 <Moon />
                 Escuro
@@ -1208,6 +1690,9 @@ function ProfilePage({
               <span>Termos aceitos no cadastro</span>
               <span>Política de privacidade aceita no cadastro</span>
             </div>
+          </section>
+
+          <section className="profile-save-panel">
             <button type="submit" disabled={isSubmitting}>
               {isSubmitting ? 'Salvando...' : 'Salvar alterações'}
             </button>
@@ -1221,9 +1706,27 @@ function ProfilePage({
 function HelpPage({ userRole }: { userRole: RoleLabel }) {
   return (
     <section className="page-section">
-      <div className="page-title-row">
-        <h1>Ajuda e Sobre o Sistema</h1>
-        <span className="profile-role">{userRole}</span>
+      <PageHeader
+        badge={userRole}
+        subtitle="Entenda a proposta do DecisionLog, os perfis de acesso e os caminhos mais importantes."
+        title="Ajuda e Sobre o Sistema"
+      />
+      <div className="about-panel">
+        <div>
+          <span className="section-eyebrow">DecisionLog</span>
+          <h2>Plataforma corporativa para registrar, acompanhar e auditar decisões</h2>
+          <p>
+            O sistema centraliza decisões organizacionais com responsáveis, departamentos,
+            impacto, status e histórico de alterações. A proposta é reduzir perda de contexto,
+            melhorar a prestação de contas e apoiar auditorias internas.
+          </p>
+        </div>
+        <div className="about-metrics">
+          <span>MySQL para dados estruturados</span>
+          <span>MongoDB para auditoria</span>
+          <span>RabbitMQ para eventos</span>
+          <span>JWT, permissões e LGPD</span>
+        </div>
       </div>
       <div className="help-grid">
         <article className="help-card">
@@ -1240,7 +1743,17 @@ function HelpPage({ userRole }: { userRole: RoleLabel }) {
         </article>
         <article className="help-card">
           <h2>Problemas comuns</h2>
-          <p>Se a API parecer indisponível, um administrador pode verificar MySQL, MongoDB e eventos no painel da visão geral. Se esquecer a senha, use a recuperação na tela de login.</p>
+          <p>Se a API parecer indisponível, um administrador pode verificar MySQL, MongoDB e eventos na tela de monitoramento. Se esquecer a senha, use a recuperação na tela de login.</p>
+        </article>
+      </div>
+      <div className="help-grid compact">
+        <article className="help-card">
+          <h2>Exemplo de uso</h2>
+          <p>Um gestor registra a aprovação de uma política, informa o impacto e vincula ao departamento. Depois, edições e inativações ficam rastreadas para auditoria.</p>
+        </article>
+        <article className="help-card">
+          <h2>Perfis de acesso</h2>
+          <p>Administrador gerencia usuários, departamentos e monitoramento. Gestor cria e acompanha decisões. Auditor consulta histórico e alterações sem modificar registros.</p>
         </article>
       </div>
     </section>
@@ -1276,6 +1789,7 @@ function Sidebar({
       : []),
     ...(canAccessAdmin
       ? [
+          { id: 'monitoring' as const, label: 'Monitoramento', icon: Activity },
           { id: 'users' as const, label: 'Usuários e Permissões', icon: Users },
           { id: 'departments' as const, label: 'Departamentos', icon: Building2 },
         ]
@@ -1287,6 +1801,7 @@ function Sidebar({
     history: 'Decisões',
     'new-decision': 'Nova decisão',
     audit: 'Alterações de decisões',
+    monitoring: 'Monitoramento',
     departments: 'Departamentos',
     users: 'Usuários e permissões',
   }
@@ -1295,7 +1810,7 @@ function Sidebar({
     'history',
     ...(userProfile.role !== 'Auditor' ? (['new-decision'] as Page[]) : []),
     ...(canAccessAudit ? (['audit'] as Page[]) : []),
-    ...(canAccessAdmin ? (['departments', 'users'] as Page[]) : []),
+    ...(canAccessAdmin ? (['monitoring', 'departments', 'users'] as Page[]) : []),
   ]
   const visibleMenuItems = navOrder
     .map((id) => menuItems.find((item) => item.id === id))
@@ -1305,7 +1820,10 @@ function Sidebar({
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-logo">
-        <img src={logo} alt="DecisionLog" />
+        <div className="sidebar-brand">
+          <img src={logo} alt="DecisionLog" />
+          <span>DecisionLog</span>
+        </div>
         <button type="button" onClick={onClose} aria-label="Fechar menu">
           <X />
         </button>
@@ -1345,9 +1863,35 @@ function Sidebar({
   )
 }
 
+function PageHeader({
+  actions,
+  badge,
+  subtitle,
+  title,
+}: {
+  actions?: ReactNode
+  badge?: string
+  subtitle?: string
+  title: string
+}) {
+  return (
+    <div className="page-title-row page-header">
+      <div className="page-heading">
+        <h1>{title}</h1>
+        {subtitle && <p className="page-subtitle">{subtitle}</p>}
+      </div>
+      {(actions || badge) && (
+        <div className="page-header-actions">
+          {badge && <span className="profile-role">{badge}</span>}
+          {actions}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Dashboard({
   decisions,
-  health,
   isAdmin,
   isLoading,
   usersCount,
@@ -1361,6 +1905,9 @@ function Dashboard({
   const totalDecisions = decisions.length
   const pendingDecisions = decisions.filter((decision) => decision.status === 'Pendente').length
   const completedDecisions = decisions.filter((decision) => decision.status === 'Concluída').length
+  const archivedDecisions = decisions.filter((decision) => decision.status === 'Arquivada').length
+  const highImpactDecisions = decisions.filter((decision) => decision.impacto === 'Alto').length
+  const completionRate = totalDecisions > 0 ? Math.round((completedDecisions / totalDecisions) * 100) : 0
   const departmentData = Object.values(
     decisions.reduce<Record<string, { name: string; decisoes: number }>>((summary, decision) => {
       summary[decision.departamento] ||= { name: decision.departamento, decisoes: 0 }
@@ -1380,28 +1927,41 @@ function Dashboard({
 
   return (
     <section className="page-section">
-      <div className="page-title-row">
-        <h1>Visão Geral Estratégica</h1>
-        {isAdmin && health && (
-          <div className={`health-pill ${health.status}`}>
-            <Activity />
-            API {health.status === 'ok' ? 'saudável' : 'degradada'}
-          </div>
-        )}
+      <PageHeader
+        badge="Indicadores executivos"
+        subtitle="Acompanhe volume, andamento, impacto e distribuição das decisões registradas."
+        title="Visão Geral Estratégica"
+      />
+      <div className="dashboard-guidance">
+        <article>
+          <span>Prioridade do dia</span>
+          <strong>{pendingDecisions > 0 ? 'Resolver decisões pendentes' : 'Manter acompanhamento'}</strong>
+          <p>
+            {pendingDecisions > 0
+              ? `${pendingDecisions} registro(s) ainda exigem análise, validação ou encaminhamento.`
+              : 'Não há pendências abertas no momento. Use os gráficos para observar tendências.'}
+          </p>
+        </article>
+        <article>
+          <span>Controle executivo</span>
+          <strong>{completionRate}% de conclusão</strong>
+          <p>Indicador rápido para medir andamento e maturidade do processo decisório.</p>
+        </article>
+        <article>
+          <span>Auditoria preparada</span>
+          <strong>{archivedDecisions} registro(s) arquivado(s)</strong>
+          <p>Decisões arquivadas continuam disponíveis para consulta e prestação de contas.</p>
+        </article>
       </div>
       <div className="kpi-grid">
         <KpiCard icon={FileText} label="Total de Decisões" value={totalDecisions} tone="primary" />
         <KpiCard icon={Clock} label="Decisões Pendentes" value={pendingDecisions} tone="warning" />
         <KpiCard icon={CheckCircle2} label="Decisões Concluídas" value={completedDecisions} tone="success" />
+        <KpiCard icon={AlertTriangle} label="Impacto Alto" value={highImpactDecisions} tone="danger" />
+        <KpiCard icon={Building2} label="Departamentos" value={departmentData.length} tone="neutral" />
+        <KpiCard icon={FolderOpen} label="Arquivadas" value={archivedDecisions} tone="neutral" />
         {isAdmin && <KpiCard icon={Users} label="Usuários Ativos" value={usersCount} tone="primary" />}
       </div>
-      {isAdmin && health && (
-        <div className="health-grid">
-          <span>MySQL: {health.checks.mysql}</span>
-          <span>MongoDB: {health.checks.mongodb}</span>
-          <span>Eventos: {health.checks.events.state}</span>
-        </div>
-      )}
       {isLoading && <LoadingState label="Carregando indicadores..." />}
       <div className="chart-grid">
         <article className="chart-card">
@@ -1452,7 +2012,7 @@ function KpiCard({
   icon: typeof FileText
   label: string
   value: number
-  tone: 'primary' | 'warning' | 'success'
+  tone: 'primary' | 'warning' | 'success' | 'danger' | 'neutral'
 }) {
   return (
     <article className="kpi-card">
@@ -1532,9 +2092,34 @@ function NewDecision({
 
   return (
     <section className="page-section">
-      <h1>{editingDecision ? 'Editar Decisão' : 'Registrar Nova Decisão'}</h1>
-      <div className="form-card">
+      <PageHeader
+        badge={editingDecision ? 'Edição controlada' : 'Novo registro'}
+        subtitle="Preencha somente o necessário para que a decisão fique clara, rastreável e fácil de consultar."
+        title={editingDecision ? 'Editar Decisão' : 'Registrar Nova Decisão'}
+      />
+      <div className="process-strip">
+        <article className="active">
+          <strong>1</strong>
+          <span>Contextualizar</span>
+          <p>Explique o cenário e a decisão tomada.</p>
+        </article>
+        <article>
+          <strong>2</strong>
+          <span>Classificar</span>
+          <p>Defina área, impacto e status atual.</p>
+        </article>
+        <article>
+          <strong>3</strong>
+          <span>Registrar evidência</span>
+          <p>Salve para histórico e auditoria.</p>
+        </article>
+      </div>
+      <div className="form-card decision-editor-card">
         <form onSubmit={handleSubmit} className="decision-form">
+          <div className="form-section-heading">
+            <h2>Dados principais</h2>
+            <p>Informe o contexto necessário para que a decisão seja compreendida e auditada futuramente.</p>
+          </div>
           <div className="form-grid">
             <div className="full-field">
               <label htmlFor="titulo">Título da Decisão</label>
@@ -1593,6 +2178,10 @@ function NewDecision({
               </select>
             </div>
             <div className="full-field">
+              <div className="form-section-heading compact">
+                <h2>Contexto e justificativa</h2>
+                <p>Descreva motivo, impacto esperado e ações relacionadas à decisão.</p>
+              </div>
               <label htmlFor="descricao">Descrição Detalhada</label>
               <textarea
                 id="descricao"
@@ -1623,6 +2212,7 @@ function DecisionHistory({
   decisions,
   currentUserId,
   userRole,
+  onArchive,
   onEdit,
   onDelete,
   onView,
@@ -1630,6 +2220,7 @@ function DecisionHistory({
   decisions: DecisionView[]
   currentUserId?: string
   userRole: RoleLabel
+  onArchive: (decision: DecisionView) => void
   onEdit: (decision: DecisionView) => void
   onDelete: (id: string) => void
   onView: (decision: DecisionView) => void
@@ -1638,52 +2229,199 @@ function DecisionHistory({
   const [statusFilter, setStatusFilter] = useState('')
   const [impactFilter, setImpactFilter] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
+  const [dateFromFilter, setDateFromFilter] = useState('')
+  const [dateToFilter, setDateToFilter] = useState('')
+  const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false)
+  const downloadMenuRef = useRef<HTMLDivElement | null>(null)
   const canCreateOrEdit = userRole === 'Administrador' || userRole === 'Gestor'
   const departments = Array.from(new Set(decisions.map((decision) => decision.departamento))).sort()
+  const hasFilters = Boolean(searchTerm || statusFilter || impactFilter || departmentFilter || dateFromFilter || dateToFilter)
   const filteredDecisions = decisions.filter(
-    (decision) =>
-      (decision.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        decision.departamento.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      (!statusFilter || decision.status === statusFilter) &&
-      (!impactFilter || decision.impacto === impactFilter) &&
-      (!departmentFilter || decision.departamento === departmentFilter) &&
-      (!dateFilter || decision.data === new Intl.DateTimeFormat('pt-BR').format(new Date(`${dateFilter}T00:00:00`))),
+    (decision) => {
+      const decisionDate = toIsoDateFromBrazilianDate(decision.data)
+
+      return (
+        (decision.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          decision.departamento.toLowerCase().includes(searchTerm.toLowerCase())) &&
+        (!statusFilter || decision.status === statusFilter) &&
+        (!impactFilter || decision.impacto === impactFilter) &&
+        (!departmentFilter || decision.departamento === departmentFilter) &&
+        (!dateFromFilter || decisionDate >= dateFromFilter) &&
+        (!dateToFilter || decisionDate <= dateToFilter)
+      )
+    },
   )
+
+  function clearFilters() {
+    setSearchTerm('')
+    setStatusFilter('')
+    setImpactFilter('')
+    setDepartmentFilter('')
+    setDateFromFilter('')
+    setDateToFilter('')
+  }
+
+  useEffect(() => {
+    if (!isDownloadMenuOpen) return
+
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        downloadMenuRef.current &&
+        !downloadMenuRef.current.contains(event.target as Node)
+      ) {
+        setIsDownloadMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isDownloadMenuOpen])
+
+  function exportCsv() {
+    const headers = ['ID', 'Título', 'Departamento', 'Impacto', 'Status', 'Data', 'Autor']
+    const rows = filteredDecisions.map((decision) => [
+      decision.id,
+      decision.titulo,
+      decision.departamento,
+      decision.impacto,
+      decision.status,
+      decision.data,
+      decision.autor,
+    ])
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(';'))
+      .join('\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'historico-decisoes.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function exportPdf() {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      toast.error('Não foi possível abrir a janela de impressão.')
+      return
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Histórico de Decisões</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #183354; padding: 24px; }
+            h1 { font-size: 22px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 12px; }
+            th { background: #183354; color: #fff; }
+          </style>
+        </head>
+        <body>
+          <h1>Histórico de Decisões</h1>
+          <p>Exportado em ${formatDateTime(new Date().toISOString())}</p>
+          <table>
+            <thead><tr><th>ID</th><th>Título</th><th>Departamento</th><th>Impacto</th><th>Status</th><th>Data</th><th>Autor</th></tr></thead>
+            <tbody>
+              ${filteredDecisions.map((decision) => `
+                <tr>
+                  <td>${decision.id}</td>
+                  <td>${decision.titulo}</td>
+                  <td>${decision.departamento}</td>
+                  <td>${decision.impacto}</td>
+                  <td>${decision.status}</td>
+                  <td>${decision.data}</td>
+                  <td>${decision.autor}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.print()
+  }
 
   return (
     <section className="page-section">
-      <h1>Histórico de Decisões</h1>
-      <div className="search-wrap">
-        <Search />
-        <input
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Buscar decisão..."
-          type="text"
-        />
-      </div>
-      <div className="filter-grid">
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-          <option value="">Todos os status</option>
-          <option value="Pendente">Pendente</option>
-          <option value="Concluída">Concluída</option>
-          <option value="Arquivada">Arquivada</option>
-          <option value="Inativa">Inativa</option>
-        </select>
-        <select value={impactFilter} onChange={(event) => setImpactFilter(event.target.value)}>
-          <option value="">Todos os impactos</option>
-          <option value="Baixo">Baixo</option>
-          <option value="Médio">Médio</option>
-          <option value="Alto">Alto</option>
-        </select>
-        <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
-          <option value="">Todos os departamentos</option>
-          {departments.map((department) => (
-            <option key={department} value={department}>{department}</option>
-          ))}
-        </select>
-        <input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
+      <PageHeader
+        actions={(
+          <div className="toolbar-actions download-menu-wrap" ref={downloadMenuRef}>
+            <button type="button" onClick={() => setIsDownloadMenuOpen((current) => !current)}>
+              <Download />
+              Exportar
+            </button>
+            {isDownloadMenuOpen && (
+              <div className="download-menu">
+                <button type="button" onClick={() => { exportCsv(); setIsDownloadMenuOpen(false) }}>
+                  Arquivo CSV
+                </button>
+                <button type="button" onClick={() => { exportPdf(); setIsDownloadMenuOpen(false) }}>
+                  Relatório PDF
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        subtitle="Consulte, filtre, visualize detalhes e exporte registros para análise ou prestação de contas."
+        title="Histórico de Decisões"
+      />
+      <div className="filters-card">
+        <div className="filters-card-header">
+          <div>
+            <strong>Localizar registros</strong>
+            <span>{filteredDecisions.length} de {decisions.length} decisões exibidas</span>
+          </div>
+          {hasFilters && <span className="filter-status">Filtros aplicados</span>}
+        </div>
+        <div className="search-wrap">
+          <Search />
+          <input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Buscar decisão..."
+            type="text"
+          />
+        </div>
+        <div className="filter-grid">
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="">Todos os status</option>
+            <option value="Pendente">Pendente</option>
+            <option value="Concluída">Concluída</option>
+            <option value="Arquivada">Arquivada</option>
+            <option value="Inativa">Inativa</option>
+          </select>
+          <select value={impactFilter} onChange={(event) => setImpactFilter(event.target.value)}>
+            <option value="">Todos os impactos</option>
+            <option value="Baixo">Baixo</option>
+            <option value="Médio">Médio</option>
+            <option value="Alto">Alto</option>
+          </select>
+          <select value={departmentFilter} onChange={(event) => setDepartmentFilter(event.target.value)}>
+            <option value="">Todos os departamentos</option>
+            {departments.map((department) => (
+              <option key={department} value={department}>{department}</option>
+            ))}
+          </select>
+          <label className="date-filter">
+            <span>De</span>
+            <input type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} />
+          </label>
+          <label className="date-filter">
+            <span>Até</span>
+            <input type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} />
+          </label>
+        </div>
+        {hasFilters && (
+          <button className="clear-filters" type="button" onClick={clearFilters}>
+            <RotateCcw />
+            Limpar filtros
+          </button>
+        )}
       </div>
       <DataTable>
         <thead>
@@ -1727,6 +2465,16 @@ function DecisionHistory({
                             <Edit2 />
                           </button>
                         )}
+                        {decision.status !== 'Inativa' && (
+                          <button
+                            className="gold"
+                            type="button"
+                            onClick={() => onArchive(decision)}
+                            title={decision.status === 'Arquivada' ? 'Desarquivar decisão' : 'Arquivar decisão'}
+                          >
+                            <FolderOpen />
+                          </button>
+                        )}
                         {(userRole === 'Administrador' || decision.source.user?.id === currentUserId) && (
                           <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Inativar">
                             <Trash2 />
@@ -1748,26 +2496,49 @@ function DecisionHistory({
 function UsersPage({
   currentUserId,
   departments,
+  onDelete,
   onUpdate,
   users,
 }: {
   currentUserId?: string
   departments: Department[]
+  onDelete: (userId: string) => void
   onUpdate: (userId: string, data: Partial<Pick<User, 'role' | 'active' | 'departmentId'>>) => void
   users: User[]
 }) {
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const activeUsers = users.filter((item) => item.active).length
+  const admins = users.filter((item) => item.role === 'admin').length
+  const unassignedUsers = users.filter((item) => !item.departmentId).length
+
   return (
     <section className="page-section">
-      <h1>Usuários e Permissões</h1>
+      <PageHeader
+        badge="Administração"
+        subtitle="Gerencie perfis, departamentos, status de acesso e dados de contato dos colaboradores."
+        title="Usuários e Permissões"
+      />
+      <div className="admin-summary-grid">
+        <article>
+          <span>Usuários ativos</span>
+          <strong>{activeUsers}</strong>
+        </article>
+        <article>
+          <span>Administradores</span>
+          <strong>{admins}</strong>
+        </article>
+        <article>
+          <span>Sem departamento</span>
+          <strong>{unassignedUsers}</strong>
+        </article>
+      </div>
       <DataTable>
         <thead>
           <tr>
             <th>Nome</th>
-            <th>E-mail</th>
-            <th>Contato</th>
-            <th>Departamento</th>
             <th>Perfil</th>
             <th>Status</th>
+            <th>Entrada</th>
             <th>Ações</th>
           </tr>
         </thead>
@@ -1775,70 +2546,144 @@ function UsersPage({
           {users.map((item) => (
             <tr key={item.id}>
               <td>{item.name}</td>
-              <td>{item.email}</td>
-              <td>{item.phone || 'Não informado'}</td>
               <td>
-                <select
-                  className="table-select"
-                  value={item.departmentId || ''}
-                  onChange={(event) =>
-                    onUpdate(item.id, { departmentId: event.target.value || null })
-                  }
-                >
-                  <option value="">Não vinculado</option>
-                  {departments.map((department) => (
-                    <option key={department.id} value={department.id}>
-                      {department.name}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td>
-                <select
-                  className="table-select"
-                  value={roleLabels[item.role]}
-                  onChange={(event) =>
-                    onUpdate(item.id, { role: labelToRole[event.target.value as RoleLabel] })
-                  }
-                >
-                  <option>Administrador</option>
-                  <option>Gestor</option>
-                  <option>Auditor</option>
-                </select>
+                <span className="tag status-pendente">{roleLabels[item.role]}</span>
               </td>
               <td>
                 <span className={`tag ${item.active ? 'status-concluída' : 'status-inativa'}`}>
                   {item.active ? 'Ativo' : 'Inativo'}
                 </span>
               </td>
+              <td>{formatDateTime(item.createdAt)}</td>
               <td>
-                <button
-                  className="inline-action"
-                  disabled={item.id === currentUserId}
-                  type="button"
-                  onClick={() => onUpdate(item.id, { active: !item.active })}
-                >
-                  {item.active ? 'Inativar' : 'Ativar'}
-                </button>
+                <div className="action-row">
+                  <button type="button" onClick={() => setSelectedUser(item)} title="Ver detalhes">
+                    <Eye />
+                  </button>
+                  <button
+                    className={item.active ? 'danger' : 'gold'}
+                    disabled={item.id === currentUserId}
+                    type="button"
+                    onClick={() => onUpdate(item.id, { active: !item.active })}
+                    title={item.active ? 'Desativar' : 'Ativar'}
+                  >
+                    <UserIcon />
+                  </button>
+                  <button
+                    className="danger"
+                    disabled={item.id === currentUserId}
+                    type="button"
+                    onClick={() => onDelete(item.id)}
+                    title="Excluir"
+                  >
+                    <Trash2 />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
         </tbody>
       </DataTable>
+      {selectedUser && (
+        <UserDetailsModal
+          departments={departments}
+          onClose={() => setSelectedUser(null)}
+          onUpdate={onUpdate}
+          user={selectedUser}
+        />
+      )}
     </section>
+  )
+}
+
+function UserDetailsModal({
+  departments,
+  onClose,
+  onUpdate,
+  user,
+}: {
+  departments: Department[]
+  onClose: () => void
+  onUpdate: (userId: string, data: Partial<Pick<User, 'role' | 'active' | 'departmentId'>>) => void
+  user: User
+}) {
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-card user-modal">
+        <div className="modal-header">
+          <h2>Detalhes do funcionário</h2>
+          <button type="button" onClick={onClose}>
+            <X />
+          </button>
+        </div>
+        <div className="modal-content">
+          <div className="user-detail-header">
+            <div className="profile-avatar large">{getInitials(user.name)}</div>
+            <div>
+              <h3>{user.name}</h3>
+              <p>{user.email}</p>
+            </div>
+          </div>
+          <div className="detail-grid">
+            <Detail label="Contato" value={user.phone || 'Não informado'} />
+            <Detail label="Departamento" value={user.department?.name || 'Não vinculado'} />
+            <Detail label="Data de entrada" value={formatDateTime(user.createdAt)} />
+            <Detail label="Status" value={user.active ? 'Ativo' : 'Inativo'} />
+          </div>
+          <div className="form-grid user-admin-grid">
+            <div>
+              <label>Perfil</label>
+              <select
+                className="table-select"
+                value={roleLabels[user.role]}
+                onChange={(event) => onUpdate(user.id, { role: labelToRole[event.target.value as RoleLabel] })}
+              >
+                <option>Administrador</option>
+                <option>Gestor</option>
+                <option>Auditor</option>
+              </select>
+            </div>
+            <div>
+              <label>Departamento</label>
+              <select
+                className="table-select"
+                value={user.departmentId || ''}
+                onChange={(event) => onUpdate(user.id, { departmentId: event.target.value || null })}
+              >
+                <option value="">Não vinculado</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.id}>
+                    {department.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 
 function DepartmentsPage({
   departments,
   onCreate,
+  onDelete,
+  onRename,
   onToggle,
 }: {
   departments: Department[]
   onCreate: (name: string) => void
+  onDelete: (department: Department) => void
+  onRename: (department: Department, name: string) => void
   onToggle: (department: Department) => void
 }) {
   const [name, setName] = useState('')
+  const [editingId, setEditingId] = useState('')
+  const [editingName, setEditingName] = useState('')
+  const activeDepartments = departments.filter((department) => department.active).length
+  const inactiveDepartments = departments.length - activeDepartments
+  const linkedUsers = departments.reduce((total, department) => total + (department.userCount ?? department._count?.users ?? 0), 0)
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1848,20 +2693,42 @@ function DepartmentsPage({
 
   return (
     <section className="page-section">
-      <h1>Departamentos</h1>
-      <form className="compact-form" onSubmit={handleSubmit}>
-        <input
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Novo departamento"
-          required
-        />
-        <button type="submit">Adicionar</button>
-      </form>
+      <PageHeader
+        badge="Estrutura organizacional"
+        subtitle="Organize áreas internas e acompanhe quantos usuários e decisões pertencem a cada departamento."
+        title="Departamentos"
+      />
+      <div className="admin-summary-grid">
+        <article>
+          <span>Departamentos ativos</span>
+          <strong>{activeDepartments}</strong>
+        </article>
+        <article>
+          <span>Inativos</span>
+          <strong>{inactiveDepartments}</strong>
+        </article>
+        <article>
+          <span>Usuários vinculados</span>
+          <strong>{linkedUsers}</strong>
+        </article>
+      </div>
+      <div className="filters-card">
+        <form className="compact-form" onSubmit={handleSubmit}>
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Novo departamento"
+            required
+          />
+          <button type="submit">Adicionar</button>
+        </form>
+      </div>
       <DataTable>
         <thead>
           <tr>
             <th>Nome</th>
+            <th>Usuários</th>
+            <th>Decisões</th>
             <th>Status</th>
             <th>Ações</th>
           </tr>
@@ -1869,16 +2736,63 @@ function DepartmentsPage({
         <tbody>
           {departments.map((department) => (
             <tr key={department.id}>
-              <td>{department.name}</td>
+              <td>
+                {editingId === department.id ? (
+                  <input
+                    className="table-input"
+                    value={editingName}
+                    onChange={(event) => setEditingName(event.target.value)}
+                  />
+                ) : (
+                  department.name
+                )}
+              </td>
+              <td>{department.userCount ?? department._count?.users ?? 0}</td>
+              <td>{department.decisionCount ?? department._count?.decisions ?? 0}</td>
               <td>
                 <span className={`tag ${department.active ? 'status-concluída' : 'status-inativa'}`}>
                   {department.active ? 'Ativo' : 'Inativo'}
                 </span>
               </td>
               <td>
-                <button className="inline-action" type="button" onClick={() => onToggle(department)}>
-                  {department.active ? 'Inativar' : 'Ativar'}
-                </button>
+                <div className="action-row">
+                  {editingId === department.id ? (
+                    <>
+                      <button
+                        className="gold"
+                        type="button"
+                        onClick={() => {
+                          onRename(department, editingName)
+                          setEditingId('')
+                        }}
+                        title="Salvar nome"
+                      >
+                        <CheckCircle2 />
+                      </button>
+                      <button type="button" onClick={() => setEditingId('')} title="Cancelar edição">
+                        <X />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="gold"
+                      type="button"
+                      onClick={() => {
+                        setEditingId(department.id)
+                        setEditingName(department.name)
+                      }}
+                      title="Renomear"
+                    >
+                      <Edit2 />
+                    </button>
+                  )}
+                  <button className={department.active ? 'danger' : 'gold'} type="button" onClick={() => onToggle(department)} title={department.active ? 'Inativar' : 'Ativar'}>
+                    <UserIcon />
+                  </button>
+                  <button className="danger" type="button" onClick={() => onDelete(department)} title="Excluir">
+                    <Trash2 />
+                  </button>
+                </div>
               </td>
             </tr>
           ))}
@@ -1890,27 +2804,210 @@ function DepartmentsPage({
 
 function AuditTrail({ events }: { events: AuditLog[] }) {
   const [actionFilter, setActionFilter] = useState('')
-  const [dateFilter, setDateFilter] = useState('')
+  const [dateFromFilter, setDateFromFilter] = useState('')
+  const [dateToFilter, setDateToFilter] = useState('')
   const decisionEvents = events.filter((event) => {
     if (!event.action.startsWith('DECISION_')) return false
     if (actionFilter && event.action !== actionFilter) return false
-    if (dateFilter && new Date(event.timestamp).toISOString().slice(0, 10) !== dateFilter) return false
+    const eventDate = new Date(event.timestamp).toISOString().slice(0, 10)
+    if (dateFromFilter && eventDate < dateFromFilter) return false
+    if (dateToFilter && eventDate > dateToFilter) return false
     return true
   })
+  const hasFilters = Boolean(actionFilter || dateFromFilter || dateToFilter)
+  const createdEvents = decisionEvents.filter((event) => event.action === 'DECISION_CREATED').length
+  const updatedEvents = decisionEvents.filter((event) => event.action === 'DECISION_UPDATED').length
+  const archivedEvents = decisionEvents.filter((event) => event.action === 'DECISION_ARCHIVED' || event.action === 'DECISION_UNARCHIVED').length
+
+  function clearFilters() {
+    setActionFilter('')
+    setDateFromFilter('')
+    setDateToFilter('')
+  }
+
   return (
     <section className="page-section">
-      <h1>Histórico de alterações nas decisões</h1>
-      <div className="filter-grid">
-        <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
+      <PageHeader
+        badge="Auditoria"
+        subtitle="Eventos relacionados a criação, edição, arquivamento e inativação de decisões."
+        title="Histórico de Alterações nas Decisões"
+      />
+      <div className="admin-summary-grid">
+        <article>
+          <span>Criações</span>
+          <strong>{createdEvents}</strong>
+        </article>
+        <article>
+          <span>Edições</span>
+          <strong>{updatedEvents}</strong>
+        </article>
+        <article>
+          <span>Arquivamentos</span>
+          <strong>{archivedEvents}</strong>
+        </article>
+      </div>
+      <div className="audit-filter-panel">
+        <div className="filter-grid">
+          <select value={actionFilter} onChange={(event) => setActionFilter(event.target.value)}>
           <option value="">Todas as alterações</option>
-          <option value="DECISION_CREATED">Criação</option>
-          <option value="DECISION_UPDATED">Edição</option>
-          <option value="DECISION_DELETED">Inativação</option>
-        </select>
-        <input type="date" value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} />
+            <option value="DECISION_CREATED">Criação</option>
+            <option value="DECISION_UPDATED">Edição</option>
+            <option value="DECISION_ARCHIVED">Arquivamento</option>
+            <option value="DECISION_UNARCHIVED">Desarquivamento</option>
+            <option value="DECISION_DELETED">Inativação</option>
+          </select>
+          <label className="date-filter">
+            <span>De</span>
+            <input type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} />
+          </label>
+          <label className="date-filter">
+            <span>Até</span>
+            <input type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} />
+          </label>
+        </div>
+        {hasFilters && (
+          <button className="clear-filters" type="button" onClick={clearFilters}>
+            <RotateCcw />
+            Limpar filtros
+          </button>
+        )}
       </div>
       <AuditList events={decisionEvents} emptyMessage="Nenhuma alteração de decisão registrada" />
     </section>
+  )
+}
+
+function MonitoringPage({
+  auditLogs,
+  health,
+  token,
+}: {
+  auditLogs: AuditLog[]
+  health: Health | null
+  token: string
+}) {
+  const [liveHealth, setLiveHealth] = useState<Health | null>(health)
+  const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const recentLogs = auditLogs.slice(0, 8)
+  const currentHealth = liveHealth || health
+
+  const refreshHealth = useCallback(async () => {
+    setIsRefreshing(true)
+    try {
+      const response = await fetch(`${apiUrl}/health`, {
+        headers: token ? authHeaders(token) : undefined,
+      })
+
+      if (!response.ok) {
+        throw new Error('Falha no health check.')
+      }
+
+      setLiveHealth((await response.json()) as Health)
+      setLastCheckedAt(new Date())
+    } catch {
+      toast.error('Não foi possível atualizar o monitoramento.')
+    } finally {
+      setIsRefreshing(false)
+    }
+  }, [token])
+
+  useEffect(() => {
+    window.setTimeout(() => {
+      void refreshHealth()
+    }, 0)
+    const interval = window.setInterval(() => {
+      void refreshHealth()
+    }, 15_000)
+
+    return () => window.clearInterval(interval)
+  }, [refreshHealth])
+
+  return (
+    <section className="page-section">
+      <PageHeader
+        actions={(
+          <div className="toolbar-actions">
+            <span className={`health-pill ${currentHealth?.status === 'ok' ? 'ok' : 'degraded'}`}>
+              <Activity />
+              API {currentHealth?.status === 'ok' ? 'saudável' : 'com atenção'}
+            </span>
+            <button type="button" onClick={refreshHealth} disabled={isRefreshing}>
+              <RotateCcw />
+              {isRefreshing ? 'Atualizando...' : 'Atualizar'}
+            </button>
+          </div>
+        )}
+        subtitle="Painel técnico para administradores acompanharem API, bancos, mensageria e logs recentes."
+        title="Monitoramento do Sistema"
+      />
+      <div className="monitor-summary">
+        <p>Health check ao vivo do backend. Atualização automática a cada 15 segundos.</p>
+        <span>Última verificação: {lastCheckedAt ? formatDateTime(lastCheckedAt.toISOString()) : 'aguardando primeira leitura'}</span>
+      </div>
+      <div className="monitor-grid">
+        <article className="monitor-card">
+          <span>Banco relacional</span>
+          <strong>MySQL: {currentHealth?.checks.mysql || 'unknown'}</strong>
+          <p>Armazena usuários, departamentos, decisões e vínculos relacionais.</p>
+        </article>
+        <article className="monitor-card">
+          <span>Auditoria NoSQL</span>
+          <strong>MongoDB: {currentHealth?.checks.mongodb || 'unknown'}</strong>
+          <p>Armazena logs flexíveis de alterações e eventos importantes.</p>
+        </article>
+        <article className="monitor-card">
+          <span>Mensageria</span>
+          <strong>{currentHealth?.checks.events.mode || 'memory'} / {currentHealth?.checks.events.state || 'unknown'}</strong>
+          <p>Publica eventos corporativos e protege falhas com circuit breaker.</p>
+        </article>
+        <article className="monitor-card">
+          <span>Falhas do circuito</span>
+          <strong>{currentHealth?.checks.events.failureCount ?? 0}</strong>
+          <p>Quantidade de falhas consecutivas antes de abrir o circuito.</p>
+        </article>
+        <article className="monitor-card">
+          <span>Eventos publicados nesta sessão</span>
+          <strong>{currentHealth?.checks.events.publishedEvents || 0}</strong>
+          <p>Total em memória informado pela camada de eventos.</p>
+        </article>
+      </div>
+      <div className="technical-grid">
+        <article>
+          <h3>Leitura bruta do /health</h3>
+          <pre>{JSON.stringify(currentHealth, null, 2)}</pre>
+        </article>
+        <article>
+          <h3>Interpretação operacional</h3>
+          <ul>
+            <li>API responde quando o endpoint retorna status `ok`.</li>
+            <li>MySQL precisa estar `ok` para autenticação, usuários, departamentos e decisões.</li>
+            <li>MongoDB precisa estar `ok` para trilhas de auditoria.</li>
+            <li>Circuit breaker `closed` indica que a mensageria está liberada.</li>
+            <li>Falhas consecutivas aumentam `failureCount`; em limite crítico, o circuito abre.</li>
+          </ul>
+        </article>
+      </div>
+      <div className="chart-card">
+        <h3>Logs recentes do sistema</h3>
+        <AuditList events={recentLogs} emptyMessage="Nenhum log recente registrado" />
+      </div>
+    </section>
+  )
+}
+
+function AppFooter({ health }: { health: Health | null }) {
+  return (
+    <footer className="app-footer">
+      <div>
+        <strong>DecisionLog</strong>
+        <span>Ambiente local de desenvolvimento</span>
+      </div>
+      <div>
+        <span>API {health?.status === 'ok' ? 'operacional' : 'verificando'}</span>
+        <span>v0.1 MVP acadêmico</span>
+      </div>
+    </footer>
   )
 }
 

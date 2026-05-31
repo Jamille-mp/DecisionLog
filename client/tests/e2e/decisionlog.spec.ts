@@ -30,7 +30,14 @@ async function mockApi(page: Page) {
     })
   })
 
-  await page.route(`${apiBase}/decisions`, async (route) => {
+  await page.route(`${apiBase}/auth/oidc/config`, async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ enabled: false, providerName: 'Login institucional' }),
+    })
+  })
+
+  await page.route(`${apiBase}/decisions**`, async (route) => {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
@@ -76,7 +83,7 @@ async function mockApi(page: Page) {
     })
   })
 
-  await page.route(`${apiBase}/departments`, async (route) => {
+  await page.route(`${apiBase}/departments**`, async (route) => {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
@@ -120,7 +127,7 @@ async function mockApi(page: Page) {
     })
   })
 
-  await page.route(`${apiBase}/audit-logs`, async (route) => {
+  await page.route(`${apiBase}/audit-logs**`, async (route) => {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
@@ -139,7 +146,7 @@ async function mockApi(page: Page) {
     })
   })
 
-  await page.route(`${apiBase}/users`, async (route) => {
+  await page.route(`${apiBase}/users**`, async (route) => {
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify([
@@ -163,26 +170,39 @@ async function mockApi(page: Page) {
 async function login(page: Page) {
   await mockApi(page)
   await page.goto('/')
+  await expect(page.getByRole('heading', { name: /Transforme decisões importantes/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Acessar plataforma' }).click()
   await page.getByLabel('E-mail').fill('admin@decisionlog.local')
-  await page.getByLabel('Senha').fill('123456')
+  await page.getByRole('textbox', { name: 'Senha' }).fill('DecisionLog@26')
   await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page.getByRole('heading', { name: 'Visão Geral Estratégica' })).toBeVisible()
 }
 
-test('mostra dashboard corporativo com RabbitMQ e usuários ativos', async ({ page }) => {
+test('mostra dashboard corporativo com indicadores executivos', async ({ page }) => {
   await login(page)
 
-  await expect(page.getByRole('heading', { name: 'Visão Geral Estratégica' })).toBeVisible()
-  await expect(page.getByText('API saudável')).toBeVisible()
   await expect(page.getByText('Usuários Ativos')).toBeVisible()
-  await expect(page.getByText('Eventos: closed')).toBeVisible()
+  await expect(page.getByText('Controle executivo')).toBeVisible()
+  await expect(page.getByText('Volume de Decisões por Departamento')).toBeVisible()
   await expect(page.getByText('Adotar RabbitMQ para eventos')).not.toBeVisible()
+})
+
+test('landing pública mostra proposta corporativa sem detalhes internos sensíveis', async ({ page }) => {
+  await mockApi(page)
+  await page.goto('/')
+
+  await expect(page.getByText('Área interna protegida por login e permissões por perfil.')).toBeVisible()
+  await expect(page.getByText('Registre a decisão')).toBeVisible()
+  await expect(page.getByText('Prévia ilustrativa')).toBeVisible()
+  await expect(page.getByText('MySQL')).toHaveCount(0)
+  await expect(page.getByText('RabbitMQ')).toHaveCount(0)
 })
 
 test('mostra ajuda e sair somente no menu da bolinha de perfil', async ({ page }) => {
   await login(page)
 
   await expect(page.getByRole('button', { name: 'Ajuda e sobre o sistema' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Abrir ajustes de perfil' }).click()
+  await page.getByRole('button', { name: 'Abrir ajustes de perfil' }).click({ force: true })
 
   await expect(page.getByRole('button', { name: 'Ajuda e sobre o sistema' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sair' })).toBeVisible()
@@ -194,7 +214,7 @@ test('mostra ajuda e sair somente no menu da bolinha de perfil', async ({ page }
 test('organiza meu perfil em blocos e separa preferências de visualização', async ({ page }) => {
   await login(page)
 
-  await page.getByRole('button', { name: 'Abrir ajustes de perfil' }).click()
+  await page.getByRole('button', { name: 'Abrir ajustes de perfil' }).click({ force: true })
   await page.getByRole('button', { name: 'Ajustes de perfil', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: 'Meu Perfil' })).toBeVisible()
