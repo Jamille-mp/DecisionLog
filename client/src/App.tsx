@@ -77,6 +77,7 @@ type Department = {
 
 type Health = {
   status: string
+  service?: string
   checks: {
     mysql: string
     mongodb: string
@@ -1207,12 +1208,12 @@ function Login({
               <span>Governança de decisões</span>
             </div>
           </div>
-          <button type="button" onClick={() => setShowLoginPanel(true)}>
+          <button className="presentation-login-button" type="button" onClick={() => setShowLoginPanel(true)}>
             Entrar
           </button>
         </header>
-        <main className="presentation-main">
-          <section className="presentation-shell">
+        <main className="presentation-main" id="inicio">
+          <section className="presentation-shell reveal-block">
             <div className="presentation-copy">
               <span>Decisões com contexto e confiança</span>
               <h1>Transforme decisões importantes em registros claros, seguros e fáceis de acompanhar.</h1>
@@ -1224,7 +1225,6 @@ function Login({
                 <button type="button" onClick={() => setShowLoginPanel(true)}>
                   Acessar plataforma
                 </button>
-                <span>Área interna protegida por login e permissões por perfil.</span>
               </div>
             </div>
             <div className="presentation-preview">
@@ -1255,10 +1255,14 @@ function Login({
             </div>
           </section>
 
-          <section className="presentation-section">
+          <section className="presentation-section reveal-block" id="sobre">
             <div className="presentation-section-heading">
-              <span>Como funciona</span>
+              <span>Sobre</span>
               <h2>Um fluxo simples para decisões que precisam deixar rastro.</h2>
+              <p>
+                A plataforma foi pensada para ambientes corporativos em que decisões precisam ter contexto,
+                responsável, histórico e evidências consultáveis sem depender de conversas soltas.
+              </p>
             </div>
             <div className="presentation-process" aria-label="Ciclo de uso do DecisionLog">
               <article>
@@ -1279,7 +1283,7 @@ function Login({
             </div>
           </section>
 
-          <section className="presentation-section presentation-benefits">
+          <section className="presentation-section presentation-benefits reveal-block" id="servicos">
             <div>
               <span>Menos ruído</span>
               <strong>Informações importantes ficam organizadas em um único lugar.</strong>
@@ -1293,13 +1297,31 @@ function Login({
               <strong>A equipe consulta dados e histórico sem depender de memória individual.</strong>
             </div>
           </section>
+
+          <section className="presentation-section presentation-contact reveal-block" id="contato">
+            <div>
+              <span>Contato</span>
+              <h2>Precisa falar com suporte ou com a equipe responsável?</h2>
+              <div className="presentation-contact-list">
+                <span>suporte@decisionlog.com</span>
+                <span>(11) 4002-8922</span>
+                <span>Atendimento em dias úteis, das 8h às 18h</span>
+              </div>
+            </div>
+            <button type="button" onClick={() => setShowLoginPanel(true)}>
+              Acessar área do cliente
+            </button>
+          </section>
         </main>
 
         <footer className="presentation-footer">
           <div>
             <strong>DecisionLog</strong>
-            <span>Plataforma corporativa para governança de decisões.</span>
+            <span>Governança de decisões com rastreabilidade e segurança.</span>
           </div>
+          <nav aria-label="Links institucionais">
+            <span>Ambiente interno protegido por autenticação</span>
+          </nav>
           <span>© 2026 DecisionLog. Todos os direitos reservados.</span>
         </footer>
       </div>
@@ -2137,9 +2159,14 @@ function NewDecision({
       : emptyDecisionForm,
   )
   const isReadOnly = userRole === 'Auditor'
-  const hasContext = Boolean(formData.titulo.trim() && formData.descricao.trim())
-  const hasClassification = Boolean(formData.departamentoId && formData.impacto && formData.status)
-  const isReadyToSave = hasContext && hasClassification
+  const completionItems = [
+    { label: 'Título preenchido', done: Boolean(formData.titulo.trim()) },
+    { label: 'Contexto descrito', done: Boolean(formData.descricao.trim()) },
+    { label: 'Departamento definido', done: Boolean(formData.departamentoId) },
+    { label: 'Impacto classificado', done: Boolean(formData.impacto) },
+    { label: 'Status informado', done: Boolean(formData.status) },
+  ]
+  const completedItems = completionItems.filter((item) => item.done).length
 
   function handleDepartmentChange(departmentId: string) {
     const department = departments.find((item) => item.id === departmentId)
@@ -2173,23 +2200,6 @@ function NewDecision({
         subtitle="Preencha somente o necessário para que a decisão fique clara, rastreável e fácil de consultar."
         title={editingDecision ? 'Editar Decisão' : 'Registrar Nova Decisão'}
       />
-      <div className="process-strip">
-        <article className={hasContext ? 'completed' : 'active'}>
-          <strong>1</strong>
-          <span>Contextualizar</span>
-          <p>Explique o cenário e a decisão tomada.</p>
-        </article>
-        <article className={hasClassification ? 'completed' : hasContext ? 'active' : ''}>
-          <strong>2</strong>
-          <span>Classificar</span>
-          <p>Defina área, impacto e status atual.</p>
-        </article>
-        <article className={isReadyToSave ? 'active completed' : hasClassification ? 'active' : ''}>
-          <strong>3</strong>
-          <span>Registrar evidência</span>
-          <p>Salve para histórico e auditoria.</p>
-        </article>
-      </div>
       <div className="form-card decision-editor-card">
         <form onSubmit={handleSubmit} className="decision-form">
           <div className="form-section-heading">
@@ -2268,6 +2278,23 @@ function NewDecision({
               />
             </div>
           </div>
+          <div className="decision-progress-card">
+            <div>
+              <strong>Revisão antes de salvar</strong>
+              <span>{completedItems} de {completionItems.length} campos obrigatórios preenchidos</span>
+            </div>
+            <div className="decision-progress-bar" aria-hidden="true">
+              <span style={{ width: `${(completedItems / completionItems.length) * 100}%` }} />
+            </div>
+            <div className="decision-checklist">
+              {completionItems.map((item) => (
+                <span className={item.done ? 'done' : ''} key={item.label}>
+                  <CheckCircle2 />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </div>
           <div className="form-actions">
             {editingDecision && (
               <button className="secondary-action" type="button" onClick={onCancelEdit}>
@@ -2307,8 +2334,7 @@ function DecisionHistory({
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [dateFromFilter, setDateFromFilter] = useState('')
   const [dateToFilter, setDateToFilter] = useState('')
-  const [isDownloadMenuOpen, setIsDownloadMenuOpen] = useState(false)
-  const downloadMenuRef = useRef<HTMLDivElement | null>(null)
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const canCreateOrEdit = userRole === 'Administrador' || userRole === 'Gestor'
   const departments = Array.from(new Set(decisions.map((decision) => decision.departamento))).sort()
   const hasFilters = Boolean(searchTerm || statusFilter || impactFilter || departmentFilter || dateFromFilter || dateToFilter)
@@ -2336,23 +2362,6 @@ function DecisionHistory({
     setDateFromFilter('')
     setDateToFilter('')
   }
-
-  useEffect(() => {
-    if (!isDownloadMenuOpen) return
-
-    function handleClickOutside(event: MouseEvent) {
-      if (
-        downloadMenuRef.current &&
-        !downloadMenuRef.current.contains(event.target as Node)
-      ) {
-        setIsDownloadMenuOpen(false)
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isDownloadMenuOpen])
 
   function exportCsv() {
     const headers = ['ID', 'Título', 'Departamento', 'Impacto', 'Status', 'Data', 'Autor']
@@ -2426,26 +2435,49 @@ function DecisionHistory({
     <section className="page-section">
       <PageHeader
         actions={(
-          <div className="toolbar-actions download-menu-wrap" ref={downloadMenuRef}>
-            <button type="button" onClick={() => setIsDownloadMenuOpen((current) => !current)}>
+          <div className="toolbar-actions">
+            <button type="button" onClick={() => setIsExportModalOpen(true)}>
               <Download />
               Exportar
             </button>
-            {isDownloadMenuOpen && (
-              <div className="download-menu">
-                <button type="button" onClick={() => { exportCsv(); setIsDownloadMenuOpen(false) }}>
-                  Arquivo CSV
-                </button>
-                <button type="button" onClick={() => { exportPdf(); setIsDownloadMenuOpen(false) }}>
-                  Relatório PDF
-                </button>
-              </div>
-            )}
           </div>
         )}
         subtitle="Consulte, filtre, visualize detalhes e exporte registros para análise ou prestação de contas."
         title="Histórico de Decisões"
       />
+      {isExportModalOpen && (
+        <div className="modal-backdrop">
+          <div className="modal-card export-modal">
+            <div className="modal-header">
+              <h2>Exportar histórico</h2>
+              <button type="button" onClick={() => setIsExportModalOpen(false)}>
+                <X />
+              </button>
+            </div>
+            <div className="export-options">
+              <button type="button" onClick={() => { exportCsv(); setIsExportModalOpen(false) }}>
+                <FileText />
+                <span>
+                  <strong>Arquivo CSV</strong>
+                  <small>Planilha com os registros filtrados para análise externa.</small>
+                </span>
+              </button>
+              <button type="button" onClick={() => { exportPdf(); setIsExportModalOpen(false) }}>
+                <Download />
+                <span>
+                  <strong>Relatório PDF</strong>
+                  <small>Abre a impressão do navegador com a tabela atual.</small>
+                </span>
+              </button>
+            </div>
+            <div className="modal-footer">
+              <button type="button" onClick={() => setIsExportModalOpen(false)}>
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="filters-card">
         <div className="filters-card-header">
           <div>
@@ -2973,7 +3005,8 @@ function MonitoringPage({
   const [liveHealth, setLiveHealth] = useState<Health | null>(health)
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const recentLogs = auditLogs.slice(0, 8)
+  const [responseMs, setResponseMs] = useState<number | null>(null)
+  const recentEventCount = auditLogs.length
   const currentHealth = liveHealth || health
   const checks = currentHealth?.checks
   const unhealthyServices = [
@@ -2992,16 +3025,17 @@ function MonitoringPage({
   const refreshHealth = useCallback(async () => {
     setIsRefreshing(true)
     try {
+      const startedAt = performance.now()
       const response = await fetch(`${apiUrl}/health`, {
         headers: token ? authHeaders(token) : undefined,
       })
-
-      if (!response.ok) {
-        throw new Error('Falha no health check.')
-      }
-
-      setLiveHealth((await response.json()) as Health)
+      const payload = (await response.json()) as Health
+      setResponseMs(Math.round(performance.now() - startedAt))
+      setLiveHealth(payload)
       setLastCheckedAt(new Date())
+      if (!response.ok) {
+        toast.warning('Health check respondeu com alerta. Veja os detalhes do monitoramento.')
+      }
     } catch {
       toast.error('Não foi possível atualizar o monitoramento.')
     } finally {
@@ -3039,51 +3073,54 @@ function MonitoringPage({
         title="Monitoramento do Sistema"
       />
       <div className="monitor-summary">
-        <p>{operationalMessage}</p>
-        <span>Última verificação: {lastCheckedAt ? formatDateTime(lastCheckedAt.toISOString()) : 'aguardando primeira leitura'}</span>
+        <div>
+          <strong>Estado atual</strong>
+          <p>{operationalMessage}</p>
+        </div>
+        <div>
+          <span>Última leitura: {lastCheckedAt ? formatDateTime(lastCheckedAt.toISOString()) : 'aguardando primeira leitura'}</span>
+          <span>Tempo de resposta: {responseMs !== null ? `${responseMs} ms` : 'não medido'}</span>
+          <span>Atualização automática: 15s</span>
+        </div>
       </div>
-      <div className="monitor-grid">
-        <article className="monitor-card">
+      <div className="monitor-grid monitor-grid-operational">
+        <article className={`monitor-card ${currentHealth?.status === 'ok' ? 'ok' : 'attention'}`}>
+          <span>API REST</span>
+          <strong>{currentHealth?.service || 'DecisionLog API'}</strong>
+          <p>Status HTTP: {currentHealth?.status || 'sem leitura'} | Endpoint: /health</p>
+        </article>
+        <article className={`monitor-card ${checks?.mysql === 'ok' ? 'ok' : 'attention'}`}>
           <span>Banco relacional</span>
-          <strong>MySQL: {currentHealth?.checks.mysql || 'unknown'}</strong>
-          <p>Armazena usuários, departamentos, decisões e vínculos relacionais.</p>
+          <strong>MySQL {checks?.mysql || 'unknown'}</strong>
+          <p>Login, usuários, departamentos, decisões e permissões dependem deste serviço.</p>
         </article>
-        <article className="monitor-card">
+        <article className={`monitor-card ${checks?.mongodb === 'ok' ? 'ok' : 'attention'}`}>
           <span>Auditoria NoSQL</span>
-          <strong>MongoDB: {currentHealth?.checks.mongodb || 'unknown'}</strong>
-          <p>Armazena logs flexíveis de alterações e eventos importantes.</p>
+          <strong>MongoDB {checks?.mongodb || 'unknown'}</strong>
+          <p>Responsável pelos logs flexíveis de auditoria e alterações importantes.</p>
         </article>
-        <article className="monitor-card">
-          <span>Mensageria</span>
-          <strong>{currentHealth?.checks.events.mode || 'memory'} / {currentHealth?.checks.events.state || 'unknown'}</strong>
-          <p>Publica eventos corporativos e protege falhas com circuit breaker.</p>
-        </article>
-        <article className="monitor-card">
-          <span>Falhas do circuito</span>
-          <strong>{currentHealth?.checks.events.failureCount ?? 0}</strong>
-          <p>Quantidade de falhas consecutivas antes de abrir o circuito.</p>
-        </article>
-        <article className="monitor-card">
-          <span>Eventos publicados nesta sessão</span>
-          <strong>{currentHealth?.checks.events.publishedEvents || 0}</strong>
-          <p>Total em memória informado pela camada de eventos.</p>
+        <article className={`monitor-card ${eventState === 'closed' ? 'ok' : 'attention'}`}>
+          <span>Mensageria e circuit breaker</span>
+          <strong>{checks?.events.mode || 'memory'} / {eventState}</strong>
+          <p>{eventFailureCount} falha(s) consecutiva(s) | {checks?.events.publishedEvents || 0} evento(s) publicados.</p>
         </article>
       </div>
       <div className="monitor-operations">
         <article>
-          <h3>Diagnóstico rápido</h3>
+          <h3>Checklist operacional</h3>
           <div className="operation-list">
-            <span className={checks?.mysql === 'ok' ? 'ok' : 'attention'}>MySQL: {checks?.mysql === 'ok' ? 'autenticação e decisões disponíveis' : 'verificar serviço, credenciais ou DATABASE_URL'}</span>
+            <span className={currentHealth?.status === 'ok' ? 'ok' : 'attention'}>API: {currentHealth ? 'endpoint respondeu' : 'sem resposta registrada'}</span>
+            <span className={checks?.mysql === 'ok' ? 'ok' : 'attention'}>MySQL: {checks?.mysql === 'ok' ? 'persistência principal disponível' : 'verificar serviço, credenciais ou DATABASE_URL'}</span>
             <span className={checks?.mongodb === 'ok' ? 'ok' : 'attention'}>MongoDB: {checks?.mongodb === 'ok' ? 'auditoria disponível' : 'logs podem não ser gravados'}</span>
-            <span className={eventState === 'closed' ? 'ok' : 'attention'}>Mensageria: {eventState === 'closed' ? 'circuit breaker fechado' : `estado ${eventState}`}</span>
+            <span className={eventState === 'closed' ? 'ok' : 'attention'}>Eventos: {eventState === 'closed' ? 'circuit breaker fechado' : `circuit breaker em estado ${eventState}`}</span>
           </div>
         </article>
         <article>
-          <h3>Ações recomendadas</h3>
+          <h3>Ações para apresentação</h3>
           <ul>
-            <li>Se MySQL falhar, teste login e listagem de decisões antes de apresentar.</li>
-            <li>Se MongoDB falhar, a aplicação continua, mas a trilha de auditoria fica limitada.</li>
-            <li>Se a mensageria acumular {eventFailureCount} falha(s), reinicie RabbitMQ ou use o modo em memória para demonstração.</li>
+            <li>Antes de demonstrar, clique em Atualizar e confirme se API e MySQL responderam.</li>
+            <li>Se MongoDB estiver em alerta, explique que o sistema principal continua e a auditoria fica limitada.</li>
+            <li>Se eventos estiverem em alerta, valide o RabbitMQ ou use o modo em memória para demonstração local.</li>
           </ul>
         </article>
       </div>
@@ -3100,12 +3137,9 @@ function MonitoringPage({
             <li>MongoDB precisa estar `ok` para trilhas de auditoria.</li>
             <li>Circuit breaker `closed` indica que a mensageria está liberada.</li>
             <li>Falhas consecutivas aumentam `failureCount`; em limite crítico, o circuito abre.</li>
+            <li>Eventos de auditoria carregados no painel: {recentEventCount}.</li>
           </ul>
         </article>
-      </div>
-      <div className="chart-card">
-        <h3>Logs recentes do sistema</h3>
-        <AuditList events={recentLogs} emptyMessage="Nenhum log recente registrado" />
       </div>
     </section>
   )
