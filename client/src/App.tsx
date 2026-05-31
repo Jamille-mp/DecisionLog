@@ -253,6 +253,42 @@ const actionLabels: Record<string, string> = {
   DECISION_DELETED: 'Decisão inativada',
 }
 
+function buildDemoDecisionAuditEvents(): AuditLog[] {
+  const now = Date.now()
+
+  return [
+    {
+      id: 'demo-audit-1',
+      action: 'DECISION_UPDATED',
+      userId: 'gestor.demo',
+      details: {
+        title: 'Revisão do fluxo de aprovação',
+        previousStatus: 'Pendente',
+        nextStatus: 'Concluída',
+      },
+      timestamp: new Date(now - 1000 * 60 * 18).toISOString(),
+    },
+    {
+      id: 'demo-audit-2',
+      action: 'DECISION_ARCHIVED',
+      userId: 'admin.demo',
+      details: {
+        title: 'Política de acesso aos relatórios',
+      },
+      timestamp: new Date(now - 1000 * 60 * 55).toISOString(),
+    },
+    {
+      id: 'demo-audit-3',
+      action: 'DECISION_CREATED',
+      userId: 'analista.demo',
+      details: {
+        title: 'Priorização de indicadores executivos',
+      },
+      timestamp: new Date(now - 1000 * 60 * 130).toISOString(),
+    },
+  ]
+}
+
 const impactToApi: Record<Exclude<DecisionFormData['impacto'], ''>, ApiImpact> = {
   Baixo: 'low',
   Médio: 'medium',
@@ -1357,7 +1393,7 @@ function Login({
                   title="Use 8 caracteres ou mais, com letra, número, caractere especial e sem sequência numérica."
                   value={authForm.password}
                   onChange={(event) => onChange({ ...authForm, password: event.target.value })}
-                  placeholder={authMode === 'login' ? '********' : 'Ex: Decisao@26'}
+                  placeholder={authMode === 'login' ? '********' : 'Ex: Decisão@26'}
                   required
                 />
                 <button
@@ -1427,12 +1463,14 @@ function Login({
               {oidcConfig.providerName}
             </button>
           )}
-          <div className="auth-switcher">
-            {authMode === 'login' && (
+          {authMode === 'login' && (
+            <div className="password-recovery-row">
               <button className="mode-button subtle" type="button" onClick={() => onModeChange('forgot')}>
                 Esqueci minha senha
               </button>
-            )}
+            </div>
+          )}
+          <div className="auth-switcher">
             <button
               className="mode-button"
               type="button"
@@ -1441,9 +1479,12 @@ function Login({
               {authMode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
             </button>
           </div>
-          <p className="login-footnote">Plataforma de Governança Corporativa</p>
+        </div>
       </div>
-      </div>
+      <footer className="login-footer">
+        <strong>DecisionLog</strong>
+        <span>© 2026 DecisionLog. Todos os direitos reservados.</span>
+      </footer>
     </div>
   )
 }
@@ -1645,7 +1686,7 @@ function ProfilePage({
                     title="Use 8 caracteres ou mais, com letra, número, caractere especial e sem sequência numérica."
                     value={formData.newPassword}
                     onChange={(event) => setFormData({ ...formData, newPassword: event.target.value })}
-                    placeholder="Ex: Decisao@26"
+                    placeholder="Ex: Decisão@26"
                   />
                   <button
                     type="button"
@@ -1755,6 +1796,38 @@ function HelpPage({ userRole }: { userRole: RoleLabel }) {
           <h2>Perfis de acesso</h2>
           <p>Administrador gerencia usuários, departamentos e monitoramento. Gestor cria e acompanha decisões. Auditor consulta histórico e alterações sem modificar registros.</p>
         </article>
+      </div>
+      <div className="faq-panel">
+        <div className="profile-panel-header">
+          <h2>Perguntas frequentes</h2>
+          <p>Situações comuns em operações reais e como agir dentro da plataforma.</p>
+        </div>
+        <div className="faq-grid">
+          <article>
+            <h3>Registrei uma decisão com informação errada. O que faço?</h3>
+            <p>Use a ação de editar no histórico. A alteração fica registrada na trilha de auditoria para manter transparência.</p>
+          </article>
+          <article>
+            <h3>Uma decisão foi concluída, mas ainda precisa ficar visível.</h3>
+            <p>Altere o status para concluída. Arquive somente quando ela não exigir acompanhamento ativo, mas ainda precisar ser consultada.</p>
+          </article>
+          <article>
+            <h3>Não encontro uma decisão antiga.</h3>
+            <p>Use filtros por departamento, impacto, status e período. Decisões arquivadas continuam aparecendo no histórico.</p>
+          </article>
+          <article>
+            <h3>O sistema mostra API com atenção.</h3>
+            <p>Um administrador deve abrir Monitoramento e verificar MySQL, MongoDB e mensageria para identificar qual componente precisa de ação.</p>
+          </article>
+          <article>
+            <h3>Um colaborador mudou de area.</h3>
+            <p>O administrador deve abrir Usuários e Permissões, ver os detalhes do funcionário e atualizar o departamento vinculado.</p>
+          </article>
+          <article>
+            <h3>Esqueci minha senha.</h3>
+            <p>Na tela de login, use Esqueci minha senha. Depois informe o código recebido para cadastrar uma nova senha segura.</p>
+          </article>
+        </div>
       </div>
     </section>
   )
@@ -2064,6 +2137,9 @@ function NewDecision({
       : emptyDecisionForm,
   )
   const isReadOnly = userRole === 'Auditor'
+  const hasContext = Boolean(formData.titulo.trim() && formData.descricao.trim())
+  const hasClassification = Boolean(formData.departamentoId && formData.impacto && formData.status)
+  const isReadyToSave = hasContext && hasClassification
 
   function handleDepartmentChange(departmentId: string) {
     const department = departments.find((item) => item.id === departmentId)
@@ -2098,17 +2174,17 @@ function NewDecision({
         title={editingDecision ? 'Editar Decisão' : 'Registrar Nova Decisão'}
       />
       <div className="process-strip">
-        <article className="active">
+        <article className={hasContext ? 'completed' : 'active'}>
           <strong>1</strong>
           <span>Contextualizar</span>
           <p>Explique o cenário e a decisão tomada.</p>
         </article>
-        <article>
+        <article className={hasClassification ? 'completed' : hasContext ? 'active' : ''}>
           <strong>2</strong>
           <span>Classificar</span>
           <p>Defina área, impacto e status atual.</p>
         </article>
-        <article>
+        <article className={isReadyToSave ? 'active completed' : hasClassification ? 'active' : ''}>
           <strong>3</strong>
           <span>Registrar evidência</span>
           <p>Salve para histórico e auditoria.</p>
@@ -2806,7 +2882,9 @@ function AuditTrail({ events }: { events: AuditLog[] }) {
   const [actionFilter, setActionFilter] = useState('')
   const [dateFromFilter, setDateFromFilter] = useState('')
   const [dateToFilter, setDateToFilter] = useState('')
-  const decisionEvents = events.filter((event) => {
+  const hasRealDecisionEvents = events.some((event) => event.action.startsWith('DECISION_'))
+  const sourceEvents = hasRealDecisionEvents ? events : buildDemoDecisionAuditEvents()
+  const decisionEvents = sourceEvents.filter((event) => {
     if (!event.action.startsWith('DECISION_')) return false
     if (actionFilter && event.action !== actionFilter) return false
     const eventDate = new Date(event.timestamp).toISOString().slice(0, 10)
@@ -2832,6 +2910,12 @@ function AuditTrail({ events }: { events: AuditLog[] }) {
         subtitle="Eventos relacionados a criação, edição, arquivamento e inativação de decisões."
         title="Histórico de Alterações nas Decisões"
       />
+      {!hasRealDecisionEvents && (
+        <div className="demo-notice">
+          <strong>Exemplos de atividade</strong>
+          <span>O MongoDB ainda não retornou logs reais nesta sessão; os eventos abaixo simulam como a auditoria aparece quando decisões são criadas, editadas ou arquivadas.</span>
+        </div>
+      )}
       <div className="admin-summary-grid">
         <article>
           <span>Criações</span>
@@ -2891,6 +2975,19 @@ function MonitoringPage({
   const [isRefreshing, setIsRefreshing] = useState(false)
   const recentLogs = auditLogs.slice(0, 8)
   const currentHealth = liveHealth || health
+  const checks = currentHealth?.checks
+  const unhealthyServices = [
+    checks?.mysql !== 'ok' ? 'MySQL' : '',
+    checks?.mongodb !== 'ok' ? 'MongoDB' : '',
+    checks?.events.state && checks.events.state !== 'closed' ? 'Mensageria' : '',
+  ].filter(Boolean)
+  const operationalMessage = !currentHealth
+    ? 'Aguardando leitura do health check.'
+    : unhealthyServices.length === 0
+      ? 'Todos os componentes essenciais responderam sem alerta.'
+      : `Atenção em: ${unhealthyServices.join(', ')}.`
+  const eventState = checks?.events.state || 'unknown'
+  const eventFailureCount = checks?.events.failureCount ?? 0
 
   const refreshHealth = useCallback(async () => {
     setIsRefreshing(true)
@@ -2942,7 +3039,7 @@ function MonitoringPage({
         title="Monitoramento do Sistema"
       />
       <div className="monitor-summary">
-        <p>Health check ao vivo do backend. Atualização automática a cada 15 segundos.</p>
+        <p>{operationalMessage}</p>
         <span>Última verificação: {lastCheckedAt ? formatDateTime(lastCheckedAt.toISOString()) : 'aguardando primeira leitura'}</span>
       </div>
       <div className="monitor-grid">
@@ -2970,6 +3067,24 @@ function MonitoringPage({
           <span>Eventos publicados nesta sessão</span>
           <strong>{currentHealth?.checks.events.publishedEvents || 0}</strong>
           <p>Total em memória informado pela camada de eventos.</p>
+        </article>
+      </div>
+      <div className="monitor-operations">
+        <article>
+          <h3>Diagnóstico rápido</h3>
+          <div className="operation-list">
+            <span className={checks?.mysql === 'ok' ? 'ok' : 'attention'}>MySQL: {checks?.mysql === 'ok' ? 'autenticação e decisões disponíveis' : 'verificar serviço, credenciais ou DATABASE_URL'}</span>
+            <span className={checks?.mongodb === 'ok' ? 'ok' : 'attention'}>MongoDB: {checks?.mongodb === 'ok' ? 'auditoria disponível' : 'logs podem não ser gravados'}</span>
+            <span className={eventState === 'closed' ? 'ok' : 'attention'}>Mensageria: {eventState === 'closed' ? 'circuit breaker fechado' : `estado ${eventState}`}</span>
+          </div>
+        </article>
+        <article>
+          <h3>Ações recomendadas</h3>
+          <ul>
+            <li>Se MySQL falhar, teste login e listagem de decisões antes de apresentar.</li>
+            <li>Se MongoDB falhar, a aplicação continua, mas a trilha de auditoria fica limitada.</li>
+            <li>Se a mensageria acumular {eventFailureCount} falha(s), reinicie RabbitMQ ou use o modo em memória para demonstração.</li>
+          </ul>
         </article>
       </div>
       <div className="technical-grid">
