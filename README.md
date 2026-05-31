@@ -8,7 +8,7 @@ Sistema web para registrar, acompanhar e auditar decisões corporativas.
 - Backend: Node.js, Express e TypeScript
 - Banco relacional: MySQL com Prisma
 - Auditoria: MongoDB com driver nativo
-- Autenticação: JWT
+- Autenticação: JWT local e OpenID Connect/OAuth2 opcional
 - Validação: Zod
 - Testes: Vitest e Supertest
 - Infraestrutura opcional: Docker Compose com MySQL, MongoDB e RabbitMQ
@@ -38,6 +38,20 @@ JWT_SECRET="change-this-secret"
 PORT=3333
 ```
 
+Para habilitar login institucional via OAuth2/OpenID Connect, preencha também:
+
+```env
+OIDC_PROVIDER_NAME="Login institucional"
+OIDC_ISSUER_URL="https://seu-provedor.com"
+OIDC_CLIENT_ID="decisionlog-client-id"
+OIDC_CLIENT_SECRET="decisionlog-client-secret"
+OIDC_REDIRECT_URI="http://localhost:3333/auth/oidc/callback"
+OIDC_FRONTEND_REDIRECT_URL="http://localhost:5173"
+OIDC_STATE_SECRET="change-this-oidc-state-secret"
+```
+
+Sem essas variáveis, o botão de SSO fica oculto e o login por e-mail/senha continua funcionando normalmente.
+
 ## Como Rodar
 
 Infraestrutura opcional com Docker:
@@ -45,8 +59,6 @@ Infraestrutura opcional com Docker:
 ```powershell
 docker compose up -d
 ```
-
-Guia detalhado: `docs/DOCKER_INFRA.md`.
 
 Backend:
 
@@ -76,14 +88,15 @@ Backend:  http://localhost:3333
 ## Usuários de Demonstração
 
 ```text
-Administrador: admin@decisionlog.local / 123456
-Gestor:        analista@decisionlog.local / 123456
-Auditor:       auditor@decisionlog.local / 123456
+Administrador: admin@decisionlog.local / DecisionLog@26
+Gestor:        analista@decisionlog.local / DecisionLog@26
+Auditor:       auditor@decisionlog.local / DecisionLog@26
 ```
 
 ## Funcionalidades
 
 - Cadastro e login de usuários
+- Login institucional opcional com OAuth2/OpenID Connect
 - Perfis de acesso: Administrador, Gestor e Auditor
 - Gestão administrativa de usuários e permissões
 - Cadastro e ativação/inativação de departamentos
@@ -98,13 +111,18 @@ Auditor:       auditor@decisionlog.local / 123456
 - Health check com MySQL, MongoDB e circuito de eventos
 - Publicação interna de eventos de domínio com circuit breaker simples
 - Tratamento global de erros
-- Testes automatizados mínimos da API
+- Testes automatizados de API e interface
+- Exportação de histórico em CSV/PDF
+- Arquivamento e desarquivamento de decisões
 
 ## Rotas Principais
 
 ```text
 POST /auth/register
 POST /auth/login
+GET  /auth/oidc/config
+GET  /auth/oidc/start
+GET  /auth/oidc/callback
 GET  /decisions
 POST /decisions
 PUT  /decisions/:id
@@ -144,4 +162,5 @@ Frontend:
 cd client
 npm.cmd run lint
 npm.cmd run build
+npm.cmd run test:e2e
 ```
