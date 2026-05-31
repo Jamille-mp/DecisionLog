@@ -1,139 +1,207 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
 
-const seedUsers = [
-  {
-    name: "Jamille Admin",
-    email: "admin@decisionlog.local",
-    password: "123456",
-    role: "admin",
-  },
-  {
-    name: "Analista DecisionLog",
-    email: "analista@decisionlog.local",
-    password: "123456",
-    role: "manager",
-  },
-  {
-    name: "Auditor DecisionLog",
-    email: "auditor@decisionlog.local",
-    password: "123456",
-    role: "auditor",
-  },
-];
-
 const seedDepartments = [
+  "Diretoria",
   "Financeiro",
-  "RH",
+  "Recursos Humanos",
   "Operações",
-  "TI",
+  "Tecnologia",
   "Comercial",
   "Jurídico",
   "Compliance",
-  "Gestão",
-  "Segurança",
+  "Segurança da Informação",
+];
+
+const seedUsers = [
+  {
+    name: "Marina Costa",
+    email: "admin@decisionlog.local",
+    password: "DecisionLog@26",
+    phone: "(11) 98888-1001",
+    role: "admin",
+    department: "Diretoria",
+  },
+  {
+    name: "Rafael Almeida",
+    email: "analista@decisionlog.local",
+    password: "DecisionLog@26",
+    phone: "(11) 97777-2202",
+    role: "manager",
+    department: "Operações",
+  },
+  {
+    name: "Beatriz Nogueira",
+    email: "auditor@decisionlog.local",
+    password: "DecisionLog@26",
+    phone: "(11) 96666-3303",
+    role: "auditor",
+    department: "Compliance",
+  },
 ];
 
 const seedDecisions = [
   {
-    title: "Adotar MySQL para dados principais",
+    title: "Padronizar aprovação de contratos acima de R$ 50 mil",
     context:
-      "O sistema precisa manter usuários, decisões e status com integridade relacional.",
+      "A organização precisa reduzir decisões informais em contratações de maior impacto financeiro.",
     decision:
-      "Usar MySQL como banco principal e Prisma como camada de acesso aos dados.",
+      "Toda contratação acima de R$ 50 mil passará por aprovação da Diretoria e validação do Jurídico.",
     reason:
-      "Relacionamentos, migrations e consistência são essenciais para auditoria das decisões.",
-    department: "TI",
+      "A medida aumenta controle, rastreabilidade e governança sobre compromissos financeiros relevantes.",
+    department: "Financeiro",
     impact: "high",
     status: "approved",
     userEmail: "admin@decisionlog.local",
   },
   {
-    title: "Registrar auditoria em MongoDB",
+    title: "Implantar revisão trimestral de acessos",
     context:
-      "Os eventos de auditoria possuem estrutura flexível e podem crescer rapidamente.",
+      "Usuários mudam de função e alguns acessos permanecem ativos sem necessidade operacional.",
     decision:
-      "Usar MongoDB para armazenar logs de criação, consulta, atualização e inativação.",
+      "Realizar revisão trimestral de permissões com validação de gestores e auditoria posterior.",
     reason:
-      "Separar trilhas de auditoria do banco relacional reduz acoplamento e facilita consulta histórica.",
-    department: "Compliance",
+      "A revisão reduz risco de acesso indevido e melhora conformidade com boas práticas de segurança.",
+    department: "Segurança da Informação",
     impact: "high",
     status: "approved",
     userEmail: "admin@decisionlog.local",
   },
   {
-    title: "Criar dashboard de indicadores",
+    title: "Criar fluxo único para decisões de operação",
     context:
-      "A demonstração do projeto precisa mostrar rapidamente a situação das decisões.",
+      "As decisões operacionais estavam distribuídas em reuniões, mensagens e planilhas isoladas.",
     decision:
-      "Exibir totais por status e indicadores por departamento e impacto na tela principal.",
+      "Centralizar decisões operacionais no DecisionLog com responsável, impacto e status definidos.",
     reason:
-      "Indicadores ajudam o usuário a entender o estado do sistema sem ler todos os registros.",
-    department: "Gestão",
+      "A centralização facilita acompanhamento, auditoria e comunicação entre áreas.",
+    department: "Operações",
     impact: "medium",
     status: "pending",
     userEmail: "analista@decisionlog.local",
   },
   {
-    title: "Arquivar proposta de planilha manual",
+    title: "Arquivar política antiga de aprovações por e-mail",
     context:
-      "No início foi considerada uma planilha para registrar as decisões do projeto.",
+      "A política anterior permitia aprovações por e-mail sem trilha padronizada de auditoria.",
     decision:
-      "Arquivar a proposta e manter o registro em uma aplicação web autenticada.",
+      "Arquivar a política antiga e manter aprovações críticas registradas em sistema autenticado.",
     reason:
-      "Planilhas dificultam rastreabilidade, controle de acesso e auditoria futura.",
+      "A prática antiga dificultava consulta histórica e identificação de responsáveis.",
+    department: "Compliance",
+    impact: "medium",
+    status: "archived",
+    userEmail: "admin@decisionlog.local",
+  },
+  {
+    title: "Definir indicadores mínimos do dashboard executivo",
+    context:
+      "A diretoria precisa visualizar rapidamente volume, pendências e impactos das decisões.",
+    decision:
+      "Exibir total de decisões, pendências, concluídas, arquivadas, alto impacto e distribuição por área.",
+    reason:
+      "Indicadores objetivos permitem acompanhamento gerencial sem exposição excessiva de detalhes.",
+    department: "Diretoria",
+    impact: "medium",
+    status: "approved",
+    userEmail: "admin@decisionlog.local",
+  },
+  {
+    title: "Revisar processo de onboarding de colaboradores",
+    context:
+      "Novos colaboradores recebem orientações diferentes dependendo da área responsável.",
+    decision:
+      "Criar checklist único de onboarding com aceite de políticas internas e validação de acesso.",
+    reason:
+      "Padronização reduz falhas de entrada, melhora segurança e acelera integração.",
+    department: "Recursos Humanos",
+    impact: "medium",
+    status: "pending",
+    userEmail: "analista@decisionlog.local",
+  },
+  {
+    title: "Aprovar política de retenção de logs",
+    context:
+      "A auditoria precisa manter histórico suficiente sem armazenar dados além do necessário.",
+    decision:
+      "Manter logs de auditoria pelo período definido no relatório técnico e revisar retenção anualmente.",
+    reason:
+      "A decisão equilibra rastreabilidade, finalidade e minimização de dados.",
+    department: "Compliance",
+    impact: "high",
+    status: "approved",
+    userEmail: "auditor@decisionlog.local",
+  },
+  {
+    title: "Avaliar integração com provedor institucional de identidade",
+    context:
+      "A aplicação já possui autenticação local e suporte opcional a OpenID Connect.",
+    decision:
+      "Preparar ativação do login institucional após definição da URL final de deploy.",
+    reason:
+      "O callback do provedor depende da URL real da API em homologação.",
+    department: "Tecnologia",
+    impact: "medium",
+    status: "pending",
+    userEmail: "admin@decisionlog.local",
+  },
+  {
+    title: "Consolidar exportação de histórico para auditoria",
+    context:
+      "Auditores precisam extrair evidências de decisões para anexar ao relatório de acompanhamento.",
+    decision:
+      "Disponibilizar exportação do histórico em CSV e PDF em um único controle de download.",
+    reason:
+      "A exportação facilita análise externa sem dar acesso administrativo ao banco de dados.",
+    department: "Compliance",
+    impact: "low",
+    status: "approved",
+    userEmail: "auditor@decisionlog.local",
+  },
+  {
+    title: "Suspender uso de planilha paralela de decisões",
+    context:
+      "Algumas áreas mantinham planilhas locais sem controle de versão e sem responsáveis formais.",
+    decision:
+      "Encerrar novas inclusões em planilhas paralelas e migrar registros relevantes para o sistema.",
+    reason:
+      "A medida reduz duplicidade e aumenta confiança no histórico oficial.",
     department: "Operações",
     impact: "medium",
     status: "archived",
     userEmail: "analista@decisionlog.local",
   },
   {
-    title: "Proteger rotas com JWT",
+    title: "Priorizar melhorias de responsividade antes da homologação",
     context:
-      "As decisões precisam ser associadas ao usuário que executou cada ação.",
+      "A apresentação será visualizada em diferentes resoluções e pode ser avaliada em notebook ou projetor.",
     decision:
-      "Exigir token JWT para listar, criar, atualizar e inativar decisões.",
+      "Revisar telas críticas em desktop e mobile antes de publicar a versão de homologação.",
     reason:
-      "Autenticação permite vincular userId no MySQL e nos logs de auditoria.",
-    department: "Segurança",
-    impact: "high",
+      "Boa responsividade melhora a experiência e atende aos critérios de avaliação da disciplina.",
+    department: "Tecnologia",
+    impact: "medium",
     status: "approved",
+    userEmail: "admin@decisionlog.local",
+  },
+  {
+    title: "Definir política de revisão de departamentos inativos",
+    context:
+      "Departamentos podem ser inativados temporariamente sem perder o histórico relacionado.",
+    decision:
+      "Permitir ativação, inativação e exclusão lógica controlada pelo administrador.",
+    reason:
+      "A abordagem preserva histórico e evita recriação inconsistente de áreas.",
+    department: "Diretoria",
+    impact: "low",
+    status: "pending",
     userEmail: "admin@decisionlog.local",
   },
 ];
 
 async function main() {
-  const passwordHash = await bcrypt.hash("123456", 10);
   const consentAcceptedAt = new Date();
 
-  const users = await Promise.all(
-    seedUsers.map((user) =>
-      prisma.user.upsert({
-        where: {
-          email: user.email,
-        },
-        update: {
-          name: user.name,
-          passwordHash,
-          role: user.role,
-          preferredTheme: "light",
-          termsAcceptedAt: consentAcceptedAt,
-          privacyAcceptedAt: consentAcceptedAt,
-        },
-        create: {
-          name: user.name,
-          email: user.email,
-          passwordHash,
-          role: user.role,
-          preferredTheme: "light",
-          termsAcceptedAt: consentAcceptedAt,
-          privacyAcceptedAt: consentAcceptedAt,
-        },
-      }),
-    ),
-  );
-
-  const userByEmail = new Map(users.map((user) => [user.email, user]));
   const departments = await Promise.all(
     seedDepartments.map((name) =>
       prisma.department.upsert({
@@ -142,6 +210,7 @@ async function main() {
         },
         update: {
           active: true,
+          deletedAt: null,
         },
         create: {
           name,
@@ -152,6 +221,43 @@ async function main() {
   const departmentByName = new Map(
     departments.map((department) => [department.name, department]),
   );
+
+  const users = await Promise.all(
+    seedUsers.map(async (user) => {
+      const passwordHash = await bcrypt.hash(user.password, 10);
+
+      return prisma.user.upsert({
+        where: {
+          email: user.email,
+        },
+        update: {
+          name: user.name,
+          phone: user.phone,
+          passwordHash,
+          role: user.role,
+          active: true,
+          departmentId: departmentByName.get(user.department)?.id,
+          preferredTheme: "light",
+          termsAcceptedAt: consentAcceptedAt,
+          privacyAcceptedAt: consentAcceptedAt,
+        },
+        create: {
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          passwordHash,
+          role: user.role,
+          active: true,
+          departmentId: departmentByName.get(user.department)?.id,
+          preferredTheme: "light",
+          termsAcceptedAt: consentAcceptedAt,
+          privacyAcceptedAt: consentAcceptedAt,
+        },
+      });
+    }),
+  );
+
+  const userByEmail = new Map(users.map((user) => [user.email, user]));
 
   await prisma.decision.deleteMany({
     where: {
@@ -176,9 +282,10 @@ async function main() {
     })),
   });
 
-  console.log("Seed concluído com usuários e decisões de demonstração.");
-  console.log("Login admin: admin@decisionlog.local / 123456");
-  console.log("Login auditor: auditor@decisionlog.local / 123456");
+  console.log("Seed concluído com ambiente corporativo de demonstração.");
+  console.log("Administrador: admin@decisionlog.local / DecisionLog@26");
+  console.log("Gestor: analista@decisionlog.local / DecisionLog@26");
+  console.log("Auditor: auditor@decisionlog.local / DecisionLog@26");
 }
 
 main()

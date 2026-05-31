@@ -123,12 +123,88 @@ userRoutes.patch(
   }),
 );
 
+userRoutes.delete(
+  "/:id",
+  asyncHandler(async (request, response) => {
+    const userId = getParamId(request.params.id);
+
+    if (!userId) {
+      throw new AppError("ID do usuário ausente.", 400);
+    }
+
+    if (userId === request.user?.id) {
+      throw new AppError("Você não pode excluir a própria conta.", 400);
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+    });
+
+    if (!currentUser) {
+      throw new AppError("Usuário não encontrado.", 404);
+    }
+
+    const deletedUser = await prisma.user.update({
+      where: {
+        id: userId,
+      },
+      data: {
+        active: false,
+        name: `Usuário excluído ${currentUser.id.slice(0, 8)}`,
+        email: `deleted-${currentUser.id}@decisionlog.local`,
+        phone: null,
+        departmentId: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        createdAt: true,
+      },
+    });
+
+    void logActivity(
+      "USER_DELETED",
+      {
+        userId,
+        estadoAnterior: {
+          id: currentUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          role: currentUser.role,
+          active: currentUser.active,
+        },
+        estadoNovo: deletedUser,
+      },
+      request.user?.id,
+    );
+
+    response.json(deletedUser);
+  }),
+);
+
 userRoutes.use(requireRole(["admin"]));
 
 userRoutes.get(
   "/",
-  asyncHandler(async (_request, response) => {
+  asyncHandler(async (request, response) => {
+    const includeDeleted = request.query.includeDeleted === "true";
     const users = await prisma.user.findMany({
+      where: {
+        ...(includeDeleted
+          ? {}
+          : {
+              email: {
+                not: {
+                  startsWith: "deleted-",
+                },
+              },
+            }),
+      },
       orderBy: {
         createdAt: "desc",
       },

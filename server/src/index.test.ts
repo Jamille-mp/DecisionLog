@@ -75,14 +75,14 @@ describe("DecisionLog API", () => {
       id: "user-1",
       name: "Jamille Admin",
       email: "admin@decisionlog.local",
-      passwordHash: await bcrypt.hash("123456", 10),
+      passwordHash: await bcrypt.hash("DecisionLog@26", 10),
       role: "admin",
       active: true,
     });
 
     const response = await request(app).post("/auth/login").send({
       email: "admin@decisionlog.local",
-      password: "123456",
+      password: "DecisionLog@26",
     });
 
     expect(response.status).toBe(200);
@@ -97,6 +97,16 @@ describe("DecisionLog API", () => {
       expect.objectContaining({ role: "admin" }),
       "user-1",
     );
+  });
+
+  it("mantém OpenID Connect desativado quando não há provedor configurado", async () => {
+    const response = await request(app).get("/auth/oidc/config");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({
+      enabled: false,
+      providerName: expect.any(String),
+    });
   });
 
   it("impede auditor de criar decisões", async () => {
@@ -114,6 +124,71 @@ describe("DecisionLog API", () => {
 
     expect(response.status).toBe(403);
     expect(mocks.prisma.decision.create).not.toHaveBeenCalled();
+  });
+
+  it("permite gestor criar decisão e registra auditoria e evento", async () => {
+    const createdDecision = {
+      id: "decision-created",
+      title: "Nova política de segurança",
+      context: "Contexto",
+      decision: "Escolha",
+      reason: "Motivo",
+      department: "TI",
+      impact: "high",
+      status: "pending",
+      active: true,
+      userId: "user-1",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    mocks.prisma.decision.create.mockResolvedValue(createdDecision);
+
+    const response = await request(app)
+      .post("/decisions")
+      .set("Authorization", `Bearer ${makeToken("manager")}`)
+      .send({
+        title: "Nova política de segurança",
+        context: "Contexto",
+        decision: "Escolha",
+        reason: "Motivo",
+        department: "TI",
+        impact: "high",
+      });
+
+    expect(response.status).toBe(201);
+    expect(mocks.prisma.decision.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          title: "Nova política de segurança",
+          userId: "user-1",
+        }),
+      }),
+    );
+    expect(mocks.logActivity).toHaveBeenCalledWith(
+      "DECISION_CREATED",
+      expect.objectContaining({ estadoNovo: createdDecision }),
+      "user-1",
+    );
+  });
+
+  it("lista decisões com filtros de status e busca", async () => {
+    mocks.prisma.decision.findMany.mockResolvedValue([]);
+
+    const response = await request(app)
+      .get("/decisions?status=approved&search=segurança")
+      .set("Authorization", `Bearer ${makeToken("admin")}`);
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.decision.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          active: true,
+          status: "approved",
+          OR: expect.any(Array),
+        }),
+      }),
+    );
   });
 
   it("impede gestor de editar decisão concluída", async () => {
@@ -134,6 +209,38 @@ describe("DecisionLog API", () => {
 
     expect(response.status).toBe(403);
     expect(mocks.prisma.decision.update).not.toHaveBeenCalled();
+  });
+
+  it("desarquiva decisão e registra ação específica de auditoria", async () => {
+    const currentDecision = {
+      id: "decision-archived",
+      title: "Decisão arquivada",
+      status: "archived",
+      active: true,
+      userId: "user-1",
+    };
+    const updatedDecision = {
+      ...currentDecision,
+      status: "pending",
+    };
+
+    mocks.prisma.decision.findUnique.mockResolvedValue(currentDecision);
+    mocks.prisma.decision.update.mockResolvedValue(updatedDecision);
+
+    const response = await request(app)
+      .put("/decisions/decision-archived")
+      .set("Authorization", `Bearer ${makeToken("manager")}`)
+      .send({ status: "pending" });
+
+    expect(response.status).toBe(200);
+    expect(mocks.logActivity).toHaveBeenCalledWith(
+      "DECISION_UNARCHIVED",
+      expect.objectContaining({
+        estadoAnterior: currentDecision,
+        estadoNovo: updatedDecision,
+      }),
+      "user-1",
+    );
   });
 
   it("inativa decisão por soft delete e registra estado anterior e novo", async () => {
@@ -236,6 +343,27 @@ describe("DecisionLog API", () => {
     expect(response.body.role).toBe("manager");
   });
 
+  it("oculta usuários excluídos da listagem administrativa por padrão", async () => {
+    mocks.prisma.user.findMany.mockResolvedValue([]);
+
+    const response = await request(app)
+      .get("/users")
+      .set("Authorization", `Bearer ${makeToken("admin")}`);
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.user.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          email: expect.objectContaining({
+            not: expect.objectContaining({
+              startsWith: "deleted-",
+            }),
+          }),
+        }),
+      }),
+    );
+  });
+
   it("cria departamento ativo", async () => {
     mocks.prisma.department.create.mockResolvedValue({
       id: "department-1",
@@ -272,7 +400,20 @@ describe("DecisionLog API", () => {
     const response = await request(app).post("/auth/register").send({
       name: "Nova Usuaria",
       email: "nova@decisionlog.local",
-      password: "123456",
+      password: "DecisionLog@26",
+    });
+
+    expect(response.status).toBe(400);
+    expect(mocks.prisma.user.create).not.toHaveBeenCalled();
+  });
+
+  it("rejeita cadastro com senha fraca", async () => {
+    const response = await request(app).post("/auth/register").send({
+      name: "Nova Usuaria",
+      email: "fraca@decisionlog.local",
+      password: "12345678",
+      acceptedTerms: true,
+      acceptedPrivacy: true,
     });
 
     expect(response.status).toBe(400);
@@ -294,7 +435,7 @@ describe("DecisionLog API", () => {
     const response = await request(app).post("/auth/register").send({
       name: "Nova Usuaria",
       email: "nova@decisionlog.local",
-      password: "123456",
+      password: "DecisionLog@26",
       acceptedTerms: true,
       acceptedPrivacy: true,
     });
@@ -353,7 +494,7 @@ describe("DecisionLog API", () => {
 
     const response = await request(app).post("/auth/reset-password").send({
       token: resetToken,
-      password: "nova123",
+      password: "NovaSenha@26",
     });
 
     expect(response.status).toBe(200);

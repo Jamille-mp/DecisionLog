@@ -23,13 +23,30 @@ departmentRoutes.get(
   asyncHandler(async (request, response) => {
     const includeInactive = request.query.includeInactive === "true";
     const departments = await prisma.department.findMany({
-      where: includeInactive ? {} : { active: true },
+      where: {
+        deletedAt: null,
+        ...(includeInactive ? {} : { active: true }),
+      },
+      include: {
+        _count: {
+          select: {
+            users: true,
+            decisions: true,
+          },
+        },
+      },
       orderBy: {
         name: "asc",
       },
     });
 
-    response.json(departments);
+    response.json(
+      departments.map((department) => ({
+        ...department,
+        userCount: department._count.users,
+        decisionCount: department._count.decisions,
+      })),
+    );
   }),
 );
 
@@ -38,8 +55,48 @@ departmentRoutes.post(
   requireRole(["admin"]),
   asyncHandler(async (request, response) => {
     const data = createDepartmentSchema.parse(request.body);
+    const existingDepartment = await prisma.department.findUnique({
+      where: {
+        name: data.name,
+      },
+    });
+
+    if (existingDepartment && !existingDepartment.deletedAt) {
+      if (!existingDepartment.active) {
+        const department = await prisma.department.update({
+          where: {
+            id: existingDepartment.id,
+          },
+          data: {
+            active: true,
+          },
+          include: {
+            _count: {
+              select: {
+                users: true,
+                decisions: true,
+              },
+            },
+          },
+        });
+
+        response.status(200).json(department);
+        return;
+      }
+
+      throw new AppError("Departamento já cadastrado.", 409);
+    }
+
     const department = await prisma.department.create({
       data,
+      include: {
+        _count: {
+          select: {
+            users: true,
+            decisions: true,
+          },
+        },
+      },
     });
 
     void logActivity(
@@ -78,12 +135,65 @@ departmentRoutes.patch(
         id: departmentId,
       },
       data,
+      include: {
+        _count: {
+          select: {
+            users: true,
+            decisions: true,
+          },
+        },
+      },
     });
 
     void logActivity(
       "DEPARTMENT_UPDATED",
       {
         departmentId: department.id,
+        estadoAnterior: currentDepartment,
+        estadoNovo: department,
+      },
+      request.user?.id,
+    );
+
+    response.json(department);
+  }),
+);
+
+departmentRoutes.delete(
+  "/:id",
+  requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const departmentId = getParamId(request.params.id);
+
+    if (!departmentId) {
+      throw new AppError("ID do departamento ausente.", 400);
+    }
+
+    const currentDepartment = await prisma.department.findUnique({
+      where: {
+        id: departmentId,
+      },
+    });
+
+    if (!currentDepartment || currentDepartment.deletedAt) {
+      throw new AppError("Departamento não encontrado.", 404);
+    }
+
+    const department = await prisma.department.update({
+      where: {
+        id: departmentId,
+      },
+      data: {
+        active: false,
+        deletedAt: new Date(),
+        name: `excluido-${departmentId.slice(0, 8)}-${currentDepartment.name}`,
+      },
+    });
+
+    void logActivity(
+      "DEPARTMENT_DELETED",
+      {
+        departmentId,
         estadoAnterior: currentDepartment,
         estadoNovo: department,
       },

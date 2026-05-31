@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { userRoleSchema } from "./auth";
+import { passwordSchema, userRoleSchema } from "./auth";
 
 export const updateUserSchema = z
   .object({
@@ -18,7 +18,7 @@ export const updateProfileSchema = z
     phone: z.string().trim().max(30).nullable().optional(),
     preferredTheme: z.enum(["light", "dark"]).optional(),
     currentPassword: z.string().min(1).optional(),
-    newPassword: z.string().min(6).optional(),
+    newPassword: passwordSchema.optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
     message: "Informe ao menos um campo para atualizar.",

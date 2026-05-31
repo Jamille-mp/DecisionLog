@@ -207,8 +207,21 @@ decisionRoutes.put(
       include: decisionInclude,
     });
 
+    const isArchiving = currentDecision.status !== "archived" && updateData.status === "archived";
+    const isUnarchiving = currentDecision.status === "archived" && updateData.status !== "archived";
+    const auditAction = isArchiving
+      ? "DECISION_ARCHIVED"
+      : isUnarchiving
+        ? "DECISION_UNARCHIVED"
+        : "DECISION_UPDATED";
+    const eventName = isArchiving
+      ? "decision.archived"
+      : isUnarchiving
+        ? "decision.unarchived"
+        : "decision.updated";
+
     void logActivity(
-      "DECISION_UPDATED",
+      auditAction,
       {
         decisionId: updatedDecision.id,
         title: updatedDecision.title,
@@ -218,7 +231,7 @@ decisionRoutes.put(
       },
       request.user?.id,
     );
-    void publishDomainEvent("decision.updated", {
+    void publishDomainEvent(eventName, {
       decisionId: updatedDecision.id,
       title: updatedDecision.title,
       updatedFields: Object.keys(updateData),
