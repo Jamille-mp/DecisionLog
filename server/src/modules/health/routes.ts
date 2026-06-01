@@ -11,6 +11,7 @@ async function getHealthChecks() {
     api: "ok",
     mysql: "unknown",
     mongodb: "unknown",
+    mongodbError: null as string | null,
     events: getEventBusHealth(),
   };
 
@@ -24,8 +25,10 @@ async function getHealthChecks() {
   try {
     await checkMongoHealth();
     checks.mongodb = "ok";
-  } catch {
+  } catch (error) {
     checks.mongodb = "error";
+    checks.mongodbError =
+      error instanceof Error ? error.message : "Erro desconhecido no MongoDB.";
   }
 
   const status =
