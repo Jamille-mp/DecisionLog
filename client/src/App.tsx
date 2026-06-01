@@ -1208,9 +1208,15 @@ function Login({
               <span>Governança de decisões</span>
             </div>
           </div>
-          <button className="presentation-login-button" type="button" onClick={() => setShowLoginPanel(true)}>
-            Entrar
-          </button>
+          <div className="presentation-topbar-actions">
+            <button className="presentation-back-button" type="button" onClick={() => window.history.back()}>
+              <ArrowLeft />
+              Voltar
+            </button>
+            <button className="presentation-login-button" type="button" onClick={() => setShowLoginPanel(true)}>
+              Entrar
+            </button>
+          </div>
         </header>
         <main className="presentation-main" id="inicio">
           <section className="presentation-shell reveal-block">
@@ -1359,6 +1365,21 @@ function Login({
           </div>
         </section>
         <div className="login-card">
+          <button
+            className="auth-back-button"
+            type="button"
+            onClick={() => {
+              if (authMode === 'login') {
+                setShowLoginPanel(false)
+                return
+              }
+
+              onModeChange('login')
+            }}
+          >
+            <ArrowLeft />
+            {authMode === 'login' ? 'Voltar' : 'Voltar ao login'}
+          </button>
           <div className="login-card-header">
             <img src={logo} alt="DecisionLog" />
             <div>
