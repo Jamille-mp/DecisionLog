@@ -306,25 +306,23 @@ body[data-theme='dark'] .app-footer {
   gap: 10px;
 }
 
-.presentation-back-button,
 .auth-back-button {
   display: inline-flex;
   width: auto;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  border: 1px solid rgba(24, 51, 84, 0.12);
+  gap: 6px;
+  border: 0;
   border-radius: 8px;
-  background: #ffffff;
-  color: #183354;
+  background: transparent;
+  color: #48617c;
   font-weight: 800;
-  padding: 10px 12px;
+  padding: 0;
 }
 
-.presentation-back-button svg,
 .auth-back-button svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .presentation-topbar > div > div {
@@ -3006,7 +3004,6 @@ body[data-theme='dark'] .monitor-summary,
 body[data-theme='dark'] .technical-grid article,
 body[data-theme='dark'] .presentation-page,
 body[data-theme='dark'] .presentation-topbar,
-body[data-theme='dark'] .presentation-back-button,
 body[data-theme='dark'] .auth-back-button,
 body[data-theme='dark'] .presentation-contact,
 body[data-theme='dark'] .presentation-contact-list span,
@@ -3366,11 +3363,7 @@ body[data-theme='dark'] .modal-header {
   }
 
   .presentation-login-button {
-    flex: 1 1 0;
-  }
-
-  .presentation-back-button {
-    flex: 1 1 0;
+    flex: 0 0 auto;
   }
 
   .presentation-actions button,
@@ -3469,7 +3462,7 @@ body[data-theme='dark'] .modal-header {
   }
 
   .auth-back-button {
-    width: 100%;
+    width: fit-content;
   }
 
   .legal-actions {

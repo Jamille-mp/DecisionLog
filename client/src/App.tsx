@@ -1209,10 +1209,6 @@ function Login({
             </div>
           </div>
           <div className="presentation-topbar-actions">
-            <button className="presentation-back-button" type="button" onClick={() => window.history.back()}>
-              <ArrowLeft />
-              Voltar
-            </button>
             <button className="presentation-login-button" type="button" onClick={() => setShowLoginPanel(true)}>
               Entrar
             </button>
@@ -1338,9 +1334,6 @@ function Login({
     <div className="login-page">
       <div className="login-shell">
         <section className="login-intro-panel">
-          <button className="mode-button" type="button" onClick={() => setShowLoginPanel(false)}>
-            Voltar à apresentação
-          </button>
           <div className="login-brand-block">
             <img src={logo} alt="DecisionLog" />
             <div>
@@ -1378,7 +1371,7 @@ function Login({
             }}
           >
             <ArrowLeft />
-            {authMode === 'login' ? 'Voltar' : 'Voltar ao login'}
+            {authMode === 'login' ? 'Apresentação' : 'Login'}
           </button>
           <div className="login-card-header">
             <img src={logo} alt="DecisionLog" />
