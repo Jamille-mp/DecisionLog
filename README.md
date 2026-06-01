@@ -8,7 +8,7 @@ Sistema web para registrar, acompanhar e auditar decisões corporativas.
 - Backend: Node.js, Express e TypeScript
 - Banco relacional: MySQL com Prisma
 - Auditoria: MongoDB com driver nativo
-- Autenticação: JWT local e OpenID Connect/OAuth2 opcional
+- Autenticação: JWT local e OpenID Connect/OAuth2 com Google
 - Validação: Zod
 - Testes: Vitest e Supertest
 - Infraestrutura opcional: Docker Compose com MySQL, MongoDB e RabbitMQ
@@ -43,8 +43,8 @@ PORT=3333
 Para habilitar login institucional via OAuth2/OpenID Connect, preencha também:
 
 ```env
-OIDC_PROVIDER_NAME="Login institucional"
-OIDC_ISSUER_URL="https://seu-provedor.com"
+OIDC_PROVIDER_NAME="Entrar com Google"
+OIDC_ISSUER_URL="https://accounts.google.com"
 OIDC_CLIENT_ID="decisionlog-client-id"
 OIDC_CLIENT_SECRET="decisionlog-client-secret"
 OIDC_REDIRECT_URI="http://localhost:3333/auth/oidc/callback"
@@ -52,7 +52,21 @@ OIDC_FRONTEND_REDIRECT_URL="http://localhost:5173"
 OIDC_STATE_SECRET="change-this-oidc-state-secret"
 ```
 
+Em homologação, o provedor configurado é o Google. As variáveis sensíveis (`OIDC_CLIENT_SECRET`,
+`JWT_SECRET`, senhas de banco e strings de conexão) devem ficar somente nas variáveis de ambiente
+do Render/Vercel e nunca devem ser enviadas ao GitHub.
+
 Sem essas variáveis, o botão de SSO fica oculto e o login por e-mail/senha continua funcionando normalmente.
+
+## Ambiente de Homologação
+
+```text
+Frontend: https://decision-log-rouge.vercel.app
+Backend:  https://decisionlog-api.onrender.com
+Health:   https://decisionlog-api.onrender.com/health
+```
+
+O login com Google fica disponível quando `GET /auth/oidc/config` retorna `enabled: true`.
 
 ## Como Rodar
 
@@ -98,7 +112,7 @@ Auditor:       auditor@decisionlog.local / DecisionLog@26
 ## Funcionalidades
 
 - Cadastro e login de usuários
-- Login institucional opcional com OAuth2/OpenID Connect
+- Login institucional com Google via OAuth2/OpenID Connect
 - Perfis de acesso: Administrador, Gestor e Auditor
 - Gestão administrativa de usuários e permissões
 - Cadastro e ativação/inativação de departamentos

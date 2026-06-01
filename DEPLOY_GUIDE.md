@@ -96,6 +96,12 @@ MONGODB_URL="mongodb+srv://..."
 EVENT_BROKER_MODE="memory"
 ```
 
+Na homologação atual do DecisionLog:
+
+```env
+CLIENT_URL="https://decision-log-rouge.vercel.app"
+```
+
 Use `EVENT_BROKER_MODE="memory"` se ainda não tiver RabbitMQ externo. Para usar RabbitMQ real:
 
 ```env
@@ -129,6 +135,12 @@ Output Directory: dist
 VITE_API_URL="https://URL-DO-BACKEND"
 ```
 
+Na homologação atual do DecisionLog:
+
+```env
+VITE_API_URL="https://decisionlog-api.onrender.com"
+```
+
 4. Publique e teste o login.
 
 ## 7. OAuth2/OpenID com Google
@@ -148,6 +160,12 @@ No Google Cloud Console:
 https://URL-DO-BACKEND/auth/oidc/callback
 ```
 
+Na homologação atual:
+
+```text
+https://decisionlog-api.onrender.com/auth/oidc/callback
+```
+
 No backend, configure:
 
 ```env
@@ -155,18 +173,31 @@ OIDC_PROVIDER_NAME="Entrar com Google"
 OIDC_ISSUER_URL="https://accounts.google.com"
 OIDC_CLIENT_ID="CLIENT_ID_DO_GOOGLE"
 OIDC_CLIENT_SECRET="CLIENT_SECRET_DO_GOOGLE"
-OIDC_REDIRECT_URI="https://URL-DO-BACKEND/auth/oidc/callback"
-OIDC_FRONTEND_REDIRECT_URL="https://URL-DO-FRONTEND"
+OIDC_REDIRECT_URI="https://decisionlog-api.onrender.com/auth/oidc/callback"
+OIDC_FRONTEND_REDIRECT_URL="https://decision-log-rouge.vercel.app"
 OIDC_STATE_SECRET="outra-chave-grande-e-segura"
 ```
 
 Depois reinicie o backend. O botão de login institucional aparece automaticamente.
+
+Para validar:
+
+```text
+https://decisionlog-api.onrender.com/auth/oidc/config
+```
+
+Resposta esperada:
+
+```json
+{"enabled":true,"providerName":"Entrar com Google"}
+```
 
 ## 8. Checklist Final
 
 - Frontend abre por HTTPS.
 - Backend `/health` retorna resposta pública.
 - Login local funciona.
+- Login com Google funciona via OAuth2/OpenID Connect.
 - Usuários de seed funcionam.
 - Dashboard carrega indicadores.
 - Cadastro de decisão exige departamento e impacto.
