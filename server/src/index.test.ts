@@ -127,6 +127,7 @@ describe("DecisionLog API", () => {
   });
 
   it("permite gestor criar decisão e registra auditoria e evento", async () => {
+    const departmentId = "11111111-1111-4111-8111-111111111111";
     const createdDecision = {
       id: "decision-created",
       title: "Nova política de segurança",
@@ -134,6 +135,7 @@ describe("DecisionLog API", () => {
       decision: "Escolha",
       reason: "Motivo",
       department: "TI",
+      departmentId,
       impact: "high",
       status: "pending",
       active: true,
@@ -142,6 +144,11 @@ describe("DecisionLog API", () => {
       updatedAt: new Date(),
     };
 
+    mocks.prisma.department.findUnique.mockResolvedValueOnce({
+      id: departmentId,
+      name: "TI",
+      active: true,
+    });
     mocks.prisma.decision.create.mockResolvedValue(createdDecision);
 
     const response = await request(app)
@@ -153,6 +160,7 @@ describe("DecisionLog API", () => {
         decision: "Escolha",
         reason: "Motivo",
         department: "TI",
+        departmentId,
         impact: "high",
       });
 
@@ -161,6 +169,7 @@ describe("DecisionLog API", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           title: "Nova política de segurança",
+          departmentId,
           userId: "user-1",
         }),
       }),
@@ -185,7 +194,7 @@ describe("DecisionLog API", () => {
         where: expect.objectContaining({
           active: true,
           status: "approved",
-          OR: expect.any(Array),
+          AND: expect.any(Array),
         }),
       }),
     );

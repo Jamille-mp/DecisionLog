@@ -191,9 +191,10 @@ test('landing pública mostra proposta corporativa sem detalhes internos sensív
   await mockApi(page)
   await page.goto('/')
 
-  await expect(page.getByText('Área interna protegida por login e permissões por perfil.')).toBeVisible()
+  await expect(page.getByText('Transforme decisões importantes em registros claros, seguros e fáceis de acompanhar.')).toBeVisible()
   await expect(page.getByText('Registre a decisão')).toBeVisible()
   await expect(page.getByText('Prévia ilustrativa')).toBeVisible()
+  await expect(page.getByText('suporte@decisionlog.com')).toBeVisible()
   await expect(page.getByText('MySQL')).toHaveCount(0)
   await expect(page.getByText('RabbitMQ')).toHaveCount(0)
 })

@@ -2020,9 +2020,69 @@ function Dashboard({
     ? impactData
     : [{ id: 'empty', name: 'Sem dados', value: 1, color: '#E5E7EB' }]
 
+  function exportDashboardReport() {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      toast.error('Não foi possível abrir a janela de impressão.')
+      return
+    }
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Indicadores do DecisionLog</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #183354; padding: 24px; }
+            h1 { font-size: 22px; margin-bottom: 4px; }
+            p { color: #4b5563; }
+            .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+            .card { border: 1px solid #d1d5db; border-radius: 8px; padding: 14px; }
+            .card span { display: block; color: #6b7280; font-size: 12px; margin-bottom: 6px; }
+            .card strong { font-size: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 18px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; font-size: 12px; }
+            th { background: #183354; color: #fff; }
+          </style>
+        </head>
+        <body>
+          <h1>Indicadores executivos do DecisionLog</h1>
+          <p>Exportado em ${formatDateTime(new Date().toISOString())}</p>
+          <div class="grid">
+            <div class="card"><span>Total de decisões</span><strong>${totalDecisions}</strong></div>
+            <div class="card"><span>Pendentes</span><strong>${pendingDecisions}</strong></div>
+            <div class="card"><span>Concluídas</span><strong>${completedDecisions}</strong></div>
+            <div class="card"><span>Arquivadas</span><strong>${archivedDecisions}</strong></div>
+            <div class="card"><span>Impacto alto</span><strong>${highImpactDecisions}</strong></div>
+            <div class="card"><span>Taxa de conclusão</span><strong>${completionRate}%</strong></div>
+          </div>
+          <h2>Volume por departamento</h2>
+          <table>
+            <thead><tr><th>Departamento</th><th>Decisões</th></tr></thead>
+            <tbody>${departmentData.map((item) => `<tr><td>${item.name}</td><td>${item.decisoes}</td></tr>`).join('')}</tbody>
+          </table>
+          <h2>Distribuição por impacto</h2>
+          <table>
+            <thead><tr><th>Impacto</th><th>Total</th></tr></thead>
+            <tbody>${impactData.map((item) => `<tr><td>${item.name}</td><td>${item.value}</td></tr>`).join('')}</tbody>
+          </table>
+        </body>
+      </html>
+    `)
+    printWindow.document.close()
+    printWindow.print()
+  }
+
   return (
     <section className="page-section">
       <PageHeader
+        actions={(
+          <div className="toolbar-actions">
+            <button type="button" onClick={exportDashboardReport}>
+              <Download />
+              Exportar
+            </button>
+          </div>
+        )}
         badge="Indicadores executivos"
         subtitle="Acompanhe volume, andamento, impacto e distribuição das decisões registradas."
         title="Visão Geral Estratégica"

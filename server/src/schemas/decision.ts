@@ -9,7 +9,7 @@ export const createDecisionSchema = z.object({
   decision: z.string().min(1),
   reason: z.string().min(1),
   department: z.string().min(1),
-  departmentId: z.string().uuid().optional(),
+  departmentId: z.string().uuid(),
   impact: decisionImpactSchema,
 });
 

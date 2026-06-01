@@ -33,12 +33,18 @@ function canManageDecision(
   role: string | undefined,
   currentUserId: string | undefined,
   decisionUserId: string | null,
+  currentUserDepartmentId?: string | null,
+  decisionDepartmentId?: string | null,
 ) {
   if (role === "admin") {
     return true;
   }
 
-  return role === "manager" && decisionUserId === currentUserId;
+  return (
+    role === "manager" &&
+    (decisionUserId === currentUserId ||
+      Boolean(currentUserDepartmentId && currentUserDepartmentId === decisionDepartmentId))
+  );
 }
 
 decisionRoutes.use(isAuthenticated);
@@ -49,18 +55,49 @@ decisionRoutes.get(
     const { status, search, includeInactive } = listDecisionQuerySchema.parse(
       request.query,
     );
+    const currentUser =
+      request.user?.role === "manager"
+        ? await prisma.user.findUnique({
+            where: {
+              id: request.user.id,
+            },
+            select: {
+              departmentId: true,
+            },
+          })
+        : null;
     const decisions = await prisma.decision.findMany({
       where: {
         ...(includeInactive ? {} : { active: true }),
         ...(status ? { status } : {}),
-        ...(search
+        ...(request.user?.role === "manager" || search
           ? {
-              OR: [
-                { title: { contains: search } },
-                { context: { contains: search } },
-                { decision: { contains: search } },
-                { reason: { contains: search } },
-                { department: { contains: search } },
+              AND: [
+                ...(request.user?.role === "manager"
+                  ? [
+                      {
+                        OR: [
+                          { userId: request.user.id },
+                          ...(currentUser?.departmentId
+                            ? [{ departmentId: currentUser.departmentId }]
+                            : []),
+                        ],
+                      },
+                    ]
+                  : []),
+                ...(search
+                  ? [
+                      {
+                        OR: [
+                          { title: { contains: search } },
+                          { context: { contains: search } },
+                          { decision: { contains: search } },
+                          { reason: { contains: search } },
+                          { department: { contains: search } },
+                        ],
+                      },
+                    ]
+                  : []),
               ],
             }
           : {}),
@@ -94,20 +131,14 @@ decisionRoutes.post(
   asyncHandler(async (request, response) => {
     const { title, context, decision, reason, department, departmentId, impact } =
       createDecisionSchema.parse(request.body);
-    let departmentName = department;
+    const selectedDepartment = await prisma.department.findUnique({
+      where: {
+        id: departmentId,
+      },
+    });
 
-    if (departmentId) {
-      const selectedDepartment = await prisma.department.findUnique({
-        where: {
-          id: departmentId,
-        },
-      });
-
-      if (!selectedDepartment || !selectedDepartment.active) {
-        throw new AppError("Departamento não encontrado ou inativo.", 400);
-      }
-
-      departmentName = selectedDepartment.name;
+    if (!selectedDepartment || !selectedDepartment.active) {
+      throw new AppError("Departamento não encontrado ou inativo.", 400);
     }
 
     const newDecision = await prisma.decision.create({
@@ -116,7 +147,7 @@ decisionRoutes.post(
         context,
         decision,
         reason,
-        department: departmentName,
+        department: selectedDepartment.name || department,
         departmentId,
         impact,
         userId: request.user?.id,
@@ -165,11 +196,25 @@ decisionRoutes.put(
       throw new AppError("Decisão não encontrada.", 404);
     }
 
+    const currentUser =
+      request.user?.role === "manager"
+        ? await prisma.user.findUnique({
+            where: {
+              id: request.user.id,
+            },
+            select: {
+              departmentId: true,
+            },
+          })
+        : null;
+
     if (
       !canManageDecision(
         request.user?.role,
         request.user?.id,
         currentDecision.userId,
+        currentUser?.departmentId,
+        currentDecision.departmentId,
       )
     ) {
       throw new AppError("Você não pode alterar esta decisão.", 403);
@@ -262,11 +307,25 @@ decisionRoutes.delete(
       throw new AppError("Decisão não encontrada.", 404);
     }
 
+    const currentUser =
+      request.user?.role === "manager"
+        ? await prisma.user.findUnique({
+            where: {
+              id: request.user.id,
+            },
+            select: {
+              departmentId: true,
+            },
+          })
+        : null;
+
     if (
       !canManageDecision(
         request.user?.role,
         request.user?.id,
         currentDecision.userId,
+        currentUser?.departmentId,
+        currentDecision.departmentId,
       )
     ) {
       throw new AppError("Você não pode inativar esta decisão.", 403);

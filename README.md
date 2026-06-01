@@ -24,6 +24,8 @@ server/  API Express, Prisma, autenticação, RBAC e auditoria
 
 Crie o arquivo `server/.env` com base em `server/.env.example`.
 
+Crie também o arquivo `client/.env` com base em `client/.env.example` e ajuste `VITE_API_URL` para a URL do backend.
+
 Exemplo:
 
 ```env
@@ -164,3 +166,7 @@ npm.cmd run lint
 npm.cmd run build
 npm.cmd run test:e2e
 ```
+
+## Deploy
+
+O passo a passo recomendado para homologação está em `DEPLOY_GUIDE.md`.
