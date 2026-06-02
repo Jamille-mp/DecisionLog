@@ -187,6 +187,28 @@ body[data-theme='dark'] .app-footer {
   font-size: 13px;
 }
 
+.profile-popover-header .company-badge {
+  margin-top: 6px;
+}
+
+.company-badge-light {
+  border-color: #e5e7eb;
+  background: #f8fafc;
+}
+
+.company-badge-light svg {
+  background: #183354;
+  color: #ffffff;
+}
+
+.company-badge-light .company-label {
+  color: #6b7280;
+}
+
+.company-badge-light strong {
+  color: #183354;
+}
+
 .profile-popover button {
   display: flex;
   align-items: center;
@@ -1306,7 +1328,7 @@ body[data-theme='dark'] .app-footer {
 
 .profile-box {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 24px;
@@ -1325,19 +1347,84 @@ body[data-theme='dark'] .app-footer {
   font-weight: 700;
 }
 
-.profile-box p {
-  margin: 0 0 5px;
-  font-weight: 600;
+.profile-box-content {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+  flex: 1;
 }
 
-.profile-box span {
+.profile-box p {
+  margin: 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-role-badge {
   display: inline-block;
+  justify-self: start;
   border-radius: 4px;
   background: #3b82f6;
   color: #ffffff;
   font-size: 12px;
   line-height: 1;
   padding: 6px 8px;
+}
+
+.company-badge {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 2px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 8px;
+}
+
+.company-mark,
+.company-badge svg {
+  box-sizing: border-box;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  grid-row: 1 / span 2;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: rgba(212, 176, 98, 0.18);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.company-badge svg {
+  padding: 7px;
+}
+
+.company-label {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.company-badge strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-menu {
@@ -3175,6 +3262,24 @@ body[data-theme='dark'] .profile-summary span,
 body[data-theme='dark'] .profile-overview-meta span {
   border-color: rgba(255, 255, 255, 0.12);
   background: #0f172a;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .company-badge-light {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+}
+
+body[data-theme='dark'] .company-badge-light svg {
+  background: rgba(212, 176, 98, 0.18);
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .company-badge-light .company-label {
+  color: #94a3b8;
+}
+
+body[data-theme='dark'] .company-badge-light strong {
   color: #f8fafc;
 }
 

@@ -1130,7 +1130,12 @@ function App() {
             <div className="profile-popover">
               <div className="profile-popover-header">
                 <strong>{userProfile.name}</strong>
-                <span>{userProfile.role} · {userProfile.company}</span>
+                <span>{userProfile.role}</span>
+                <div className="company-badge company-badge-light" title={`Organização: ${userProfile.company}`}>
+                  <Building2 />
+                  <span className="company-label">Organização</span>
+                  <strong>{userProfile.company}</strong>
+                </div>
               </div>
               <button type="button" onClick={openProfile}>
                 <Settings />
@@ -1980,6 +1985,7 @@ function Sidebar({
     .map((id) => menuItems.find((item) => item.id === id))
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .map((item) => ({ ...item, label: navLabels[item.id] || item.label }))
+  const companyInitials = getInitials(userProfile.company)
 
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
@@ -1994,17 +2000,16 @@ function Sidebar({
       </div>
       <div className="profile-box">
         <div className="profile-avatar">
-          {userProfile.name
-            .split(' ')
-            .map((part) => part[0])
-            .join('')
-            .substring(0, 2)
-            .toUpperCase()}
+          {userProfile.initials}
         </div>
-        <div>
+        <div className="profile-box-content">
           <p>{userProfile.name}</p>
-          <span>{userProfile.role}</span>
-          <small>{userProfile.company}</small>
+          <span className="profile-role-badge">{userProfile.role}</span>
+          <div className="company-badge" title={`Organização: ${userProfile.company}`}>
+            <span className="company-mark">{companyInitials}</span>
+            <span className="company-label">Organização</span>
+            <strong>{userProfile.company}</strong>
+          </div>
         </div>
       </div>
       <nav className="sidebar-menu" aria-label="Navegação principal">
