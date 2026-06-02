@@ -201,6 +201,7 @@ Resposta esperada:
 - Backend `/health` retorna resposta pública.
 - Login local funciona.
 - Login com Google funciona via OAuth2/OpenID Connect.
+- Tela pública de cadastrar empresa cria uma organização e o primeiro administrador.
 - Usuário `2024130015@aesa-cesa.br` acessa a empresa AESA.
 - Usuários `@decisionlog.local` acessam a empresa DecisionLog.
 - Dados de usuários, departamentos, decisões e auditoria ficam isolados por empresa.

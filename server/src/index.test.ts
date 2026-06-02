@@ -10,12 +10,18 @@ const mocks = vi.hoisted(() => ({
     user: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
       create: vi.fn(),
       findMany: vi.fn(),
       update: vi.fn(),
     },
+    company: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
     companyDomain: {
       findUnique: vi.fn(),
+      create: vi.fn(),
     },
     department: {
       findMany: vi.fn(),
@@ -495,6 +501,71 @@ describe("DecisionLog API", () => {
         data: expect.objectContaining({
           termsAcceptedAt: expect.any(Date),
           privacyAcceptedAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it("cadastra empresa e cria primeiro administrador pelo domínio corporativo", async () => {
+    mocks.prisma.companyDomain.findUnique.mockResolvedValueOnce(null);
+    mocks.prisma.company.findUnique.mockResolvedValueOnce(null);
+    mocks.prisma.user.findUnique.mockResolvedValueOnce(null);
+    mocks.prisma.company.create.mockResolvedValue({
+      id: "company-aesa",
+      name: "AESA",
+      slug: "aesa",
+      active: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+    mocks.prisma.companyDomain.create.mockResolvedValue({
+      id: "domain-aesa",
+      companyId: "company-aesa",
+      domain: "aesa-cesa.br",
+      active: true,
+    });
+    mocks.prisma.user.create.mockResolvedValue({
+      id: "admin-aesa",
+      companyId: "company-aesa",
+      company: { id: "company-aesa", name: "AESA", slug: "aesa" },
+      name: "Jamille AESA",
+      email: "2024130015@aesa-cesa.br",
+      role: "admin",
+      termsAcceptedAt: new Date(),
+      privacyAcceptedAt: new Date(),
+      createdAt: new Date(),
+    });
+
+    const response = await request(app).post("/auth/register-company").send({
+      companyName: "AESA",
+      name: "Jamille AESA",
+      email: "2024130015@aesa-cesa.br",
+      password: "DecisionLog@26",
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+    });
+
+    expect(response.status).toBe(201);
+    expect(mocks.prisma.company.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          name: "AESA",
+          slug: "aesa",
+        }),
+      }),
+    );
+    expect(mocks.prisma.companyDomain.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          domain: "aesa-cesa.br",
+        }),
+      }),
+    );
+    expect(mocks.prisma.user.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          role: "admin",
+          email: "2024130015@aesa-cesa.br",
         }),
       }),
     );

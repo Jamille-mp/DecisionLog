@@ -8,6 +8,16 @@ export function getEmailDomain(email: string) {
   return domain || "";
 }
 
+export function createCompanySlug(name: string) {
+  return name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+}
+
 export async function findCompanyByEmail(email: string) {
   const domain = getEmailDomain(email);
 

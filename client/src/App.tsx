@@ -143,6 +143,7 @@ type DecisionFormData = {
 }
 
 type AuthForm = {
+  companyName: string
   name: string
   email: string
   password: string
@@ -151,7 +152,7 @@ type AuthForm = {
   resetToken: string
 }
 
-type AuthMode = 'login' | 'register' | 'forgot' | 'reset'
+type AuthMode = 'login' | 'register' | 'company-register' | 'forgot' | 'reset'
 type OidcConfig = {
   enabled: boolean
   providerName: string
@@ -160,6 +161,7 @@ type OidcConfig = {
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
 
 const emptyAuthForm: AuthForm = {
+  companyName: '',
   name: '',
   email: '',
   password: '',
@@ -568,7 +570,7 @@ function App() {
   async function handleAuthSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if ((authMode === 'register' || authMode === 'reset') && !isStrongPassword(authForm.password)) {
+    if ((authMode === 'register' || authMode === 'company-register' || authMode === 'reset') && !isStrongPassword(authForm.password)) {
       toast.error('A senha deve ter 8 caracteres ou mais, com letra, número, caractere especial e sem sequência numérica.')
       return
     }
@@ -618,10 +620,24 @@ function App() {
         return
       }
 
-      const endpoint = authMode === 'login' ? 'login' : 'register'
+      const endpoint =
+        authMode === 'login'
+          ? 'login'
+          : authMode === 'company-register'
+            ? 'register-company'
+            : 'register'
       const body =
         authMode === 'login'
           ? { email: authForm.email, password: authForm.password }
+          : authMode === 'company-register'
+            ? {
+                companyName: authForm.companyName,
+                name: authForm.name,
+                email: authForm.email,
+                password: authForm.password,
+                acceptedTerms: authForm.acceptedTerms,
+                acceptedPrivacy: authForm.acceptedPrivacy,
+              }
           : {
               name: authForm.name,
               email: authForm.email,
@@ -642,8 +658,8 @@ function App() {
         throw new Error('Falha na autenticação.')
       }
 
-      if (authMode === 'register') {
-        toast.success('Usuário cadastrado. Faça login para continuar.')
+      if (authMode === 'register' || authMode === 'company-register') {
+        toast.success(authMode === 'company-register' ? 'Empresa cadastrada. Faça login como administrador.' : 'Usuário cadastrado. Faça login para continuar.')
         setAuthMode('login')
         setAuthForm(emptyAuthForm)
         return
@@ -1188,7 +1204,9 @@ function Login({
   const [showLoginPanel, setShowLoginPanel] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const authTitle =
-    authMode === 'register'
+    authMode === 'company-register'
+      ? 'Cadastrar empresa'
+      : authMode === 'register'
       ? 'Criar acesso'
       : authMode === 'forgot'
         ? 'Recuperar senha'
@@ -1196,7 +1214,9 @@ function Login({
           ? 'Redefinir senha'
           : 'Entrar na plataforma'
   const authDescription =
-    authMode === 'register'
+    authMode === 'company-register'
+      ? 'Cadastre a empresa e crie o primeiro administrador do ambiente corporativo.'
+      : authMode === 'register'
       ? 'Solicite seu acesso com aceite dos termos e política de privacidade.'
       : authMode === 'forgot'
         ? 'Informe seu e-mail corporativo para receber as instruções de recuperação.'
@@ -1233,6 +1253,12 @@ function Login({
               <div className="presentation-actions">
                 <button type="button" onClick={() => setShowLoginPanel(true)}>
                   Acessar plataforma
+                </button>
+                <button className="secondary" type="button" onClick={() => {
+                  setShowLoginPanel(true)
+                  onModeChange('company-register')
+                }}>
+                  Cadastrar empresa
                 </button>
               </div>
             </div>
@@ -1389,7 +1415,19 @@ function Login({
             </div>
           </div>
           <form onSubmit={onSubmit} className="login-form">
-          {authMode === 'register' && (
+          {authMode === 'company-register' && (
+            <div>
+              <label htmlFor="companyName">Empresa</label>
+              <input
+                id="companyName"
+                value={authForm.companyName}
+                onChange={(event) => onChange({ ...authForm, companyName: event.target.value })}
+                placeholder="Nome da empresa"
+                required
+              />
+            </div>
+          )}
+          {(authMode === 'register' || authMode === 'company-register') && (
             <div>
               <label htmlFor="name">Nome</label>
               <input
@@ -1452,7 +1490,10 @@ function Login({
               )}
             </div>
           )}
-          {authMode === 'register' && (
+          {authMode === 'company-register' && (
+            <small className="field-hint">O domínio do e-mail do administrador será usado como domínio autorizado da empresa.</small>
+          )}
+          {(authMode === 'register' || authMode === 'company-register') && (
             <div className="consent-box">
               <strong>Consentimento e privacidade</strong>
               <div className="legal-actions">
@@ -1496,6 +1537,8 @@ function Login({
                 ? 'Entrar'
                 : authMode === 'register'
                   ? 'Cadastrar'
+                  : authMode === 'company-register'
+                    ? 'Cadastrar empresa'
                   : authMode === 'forgot'
                     ? 'Enviar instruções'
                     : 'Redefinir senha'}
@@ -1521,6 +1564,11 @@ function Login({
             >
               {authMode === 'login' ? 'Criar uma conta' : 'Já tenho uma conta'}
             </button>
+            {authMode === 'login' && (
+              <button className="mode-button subtle" type="button" onClick={() => onModeChange('company-register')}>
+                Cadastrar empresa
+              </button>
+            )}
           </div>
         </div>
       </div>

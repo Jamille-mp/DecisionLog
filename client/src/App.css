@@ -433,6 +433,12 @@ body[data-theme='dark'] .app-footer {
   padding: 13px 18px;
 }
 
+.presentation-actions button.secondary {
+  border: 1px solid rgba(24, 51, 84, 0.16);
+  background: #ffffff;
+  color: #183354;
+}
+
 .presentation-actions a {
   color: #183354;
   font-size: 14px;
@@ -3132,6 +3138,12 @@ body[data-theme='dark'] .export-options svg {
 body[data-theme='dark'] .presentation-actions a,
 body[data-theme='dark'] .presentation-footer a {
   color: #cbd5e1;
+}
+
+body[data-theme='dark'] .presentation-actions button.secondary {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #172033;
+  color: #f8fafc;
 }
 
 body[data-theme='dark'] .page-title-row {

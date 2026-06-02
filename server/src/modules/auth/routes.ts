@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { AppError } from "../../errors/AppError";
-import { findCompanyByEmail } from "../../lib/company";
+import { createCompanySlug, findCompanyByEmail, getEmailDomain } from "../../lib/company";
 import { logActivity } from "../../lib/mongodb";
 import {
   buildAuthorizationUrl,
@@ -17,6 +17,7 @@ import { prisma } from "../../lib/prisma";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import {
   forgotPasswordSchema,
+  registerCompanySchema,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
@@ -151,6 +152,115 @@ authRoutes.get(
     }).toString();
 
     response.redirect(redirectUrl.toString());
+  }),
+);
+
+authRoutes.post(
+  "/register-company",
+  asyncHandler(async (request, response) => {
+    const data = registerCompanySchema.parse(request.body);
+    const domain = getEmailDomain(data.email);
+
+    if (!domain) {
+      throw new AppError("E-mail corporativo inválido.", 400);
+    }
+
+    const existingDomain = await prisma.companyDomain.findUnique({
+      where: {
+        domain,
+      },
+    });
+
+    if (existingDomain) {
+      throw new AppError("Este domínio corporativo já está cadastrado.", 409);
+    }
+
+    const slug = createCompanySlug(data.companyName);
+
+    if (!slug) {
+      throw new AppError("Nome da empresa inválido.", 400);
+    }
+
+    const existingCompany = await prisma.company.findUnique({
+      where: {
+        slug,
+      },
+    });
+
+    if (existingCompany) {
+      throw new AppError("Empresa já cadastrada.", 409);
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        email: data.email,
+      },
+    });
+
+    if (existingUser) {
+      throw new AppError("E-mail já cadastrado.", 409);
+    }
+
+    const acceptedAt = new Date();
+    const passwordHash = await bcrypt.hash(data.password, 10);
+    const company = await prisma.company.create({
+      data: {
+        name: data.companyName,
+        slug,
+        active: true,
+      },
+    });
+
+    await prisma.companyDomain.create({
+      data: {
+        companyId: company.id,
+        domain,
+        active: true,
+      },
+    });
+
+    const user = await prisma.user.create({
+      data: {
+        companyId: company.id,
+        name: data.name,
+        email: data.email,
+        passwordHash,
+        role: "admin",
+        active: true,
+        termsAcceptedAt: acceptedAt,
+        privacyAcceptedAt: acceptedAt,
+      },
+      select: {
+        id: true,
+        companyId: true,
+        company: true,
+        name: true,
+        email: true,
+        role: true,
+        termsAcceptedAt: true,
+        privacyAcceptedAt: true,
+        createdAt: true,
+      },
+    });
+
+    void logActivity(
+      "COMPANY_REGISTERED",
+      {
+        companyId: company.id,
+        companyName: company.name,
+        domain,
+        adminUserId: user.id,
+        adminEmail: user.email,
+      },
+      user.id,
+      company.id,
+    );
+
+    response.status(201).json({
+      company,
+      user,
+      message: "Empresa cadastrada. Faça login com o administrador criado.",
+    });
   }),
 );
 

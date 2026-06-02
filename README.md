@@ -87,6 +87,11 @@ Exemplo de admin AESA:
 2024130015@aesa-cesa.br
 ```
 
+Uma nova organização também pode ser criada pela tela pública **Cadastrar empresa**.
+Nesse fluxo, o primeiro usuário informa nome da empresa, e-mail corporativo e senha.
+O sistema cria a empresa, registra o domínio do e-mail como domínio autorizado e define
+esse usuário como administrador inicial.
+
 No login com Google, o Google autentica a identidade do usuário e o DecisionLog autoriza
 o acesso de acordo com o domínio corporativo. O primeiro usuário de uma empresa pode ser
 provisionado como administrador inicial; os demais entram como gestores para ajuste posterior
@@ -136,6 +141,7 @@ Auditor:       auditor@decisionlog.local / DecisionLog@26
 ## Funcionalidades
 
 - Cadastro e login de usuários
+- Cadastro público de empresa com primeiro administrador
 - Login institucional com Google via OAuth2/OpenID Connect
 - Isolamento multiempresa por domínio corporativo
 - Perfis de acesso: Administrador, Gestor e Auditor

@@ -21,6 +21,15 @@ export const registerSchema = z.object({
   acceptedPrivacy: z.literal(true),
 });
 
+export const registerCompanySchema = z.object({
+  companyName: z.string().min(2),
+  name: z.string().min(2),
+  email: z.email(),
+  password: passwordSchema,
+  acceptedTerms: z.literal(true),
+  acceptedPrivacy: z.literal(true),
+});
+
 export const loginSchema = z.object({
   email: z.email(),
   password: z.string().min(1),
