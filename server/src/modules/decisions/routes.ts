@@ -62,12 +62,14 @@ decisionRoutes.get(
               id: request.user.id,
             },
             select: {
+              companyId: true,
               departmentId: true,
             },
           })
         : null;
     const decisions = await prisma.decision.findMany({
       where: {
+        companyId: request.user?.companyId,
         ...(includeInactive ? {} : { active: true }),
         ...(status ? { status } : {}),
         ...(request.user?.role === "manager" || search
@@ -119,6 +121,7 @@ decisionRoutes.get(
         },
       },
       request.user?.id,
+      request.user?.companyId,
     );
 
     response.json(decisions);
@@ -131,9 +134,10 @@ decisionRoutes.post(
   asyncHandler(async (request, response) => {
     const { title, context, decision, reason, department, departmentId, impact } =
       createDecisionSchema.parse(request.body);
-    const selectedDepartment = await prisma.department.findUnique({
+    const selectedDepartment = await prisma.department.findFirst({
       where: {
         id: departmentId,
+        companyId: request.user?.companyId,
       },
     });
 
@@ -143,6 +147,7 @@ decisionRoutes.post(
 
     const newDecision = await prisma.decision.create({
       data: {
+        companyId: request.user?.companyId || "",
         title,
         context,
         decision,
@@ -159,13 +164,16 @@ decisionRoutes.post(
       "DECISION_CREATED",
       {
         decisionId: newDecision.id,
+        companyId: newDecision.companyId,
         title: newDecision.title,
         estadoNovo: newDecision,
       },
       request.user?.id,
+      request.user?.companyId,
     );
     void publishDomainEvent("decision.created", {
       decisionId: newDecision.id,
+      companyId: newDecision.companyId,
       title: newDecision.title,
       userId: request.user?.id,
     });
@@ -186,9 +194,10 @@ decisionRoutes.put(
       throw new AppError("ID da decisão ausente.", 400);
     }
 
-    const currentDecision = await prisma.decision.findUnique({
+    const currentDecision = await prisma.decision.findFirst({
       where: {
         id: decisionId,
+        companyId: request.user?.companyId,
       },
     });
 
@@ -203,6 +212,7 @@ decisionRoutes.put(
               id: request.user.id,
             },
             select: {
+              companyId: true,
               departmentId: true,
             },
           })
@@ -228,9 +238,10 @@ decisionRoutes.put(
     }
 
     if (data.departmentId) {
-      const selectedDepartment = await prisma.department.findUnique({
+      const selectedDepartment = await prisma.department.findFirst({
         where: {
           id: data.departmentId,
+          companyId: request.user?.companyId,
         },
       });
 
@@ -269,15 +280,18 @@ decisionRoutes.put(
       auditAction,
       {
         decisionId: updatedDecision.id,
+        companyId: updatedDecision.companyId,
         title: updatedDecision.title,
         updatedFields: Object.keys(updateData),
         estadoAnterior: currentDecision,
         estadoNovo: updatedDecision,
       },
       request.user?.id,
+      request.user?.companyId,
     );
     void publishDomainEvent(eventName, {
       decisionId: updatedDecision.id,
+      companyId: updatedDecision.companyId,
       title: updatedDecision.title,
       updatedFields: Object.keys(updateData),
       userId: request.user?.id,
@@ -297,9 +311,10 @@ decisionRoutes.delete(
       throw new AppError("ID da decisão ausente.", 400);
     }
 
-    const currentDecision = await prisma.decision.findUnique({
+    const currentDecision = await prisma.decision.findFirst({
       where: {
         id: decisionId,
+        companyId: request.user?.companyId,
       },
     });
 
@@ -314,6 +329,7 @@ decisionRoutes.delete(
               id: request.user.id,
             },
             select: {
+              companyId: true,
               departmentId: true,
             },
           })
@@ -347,14 +363,17 @@ decisionRoutes.delete(
       "DECISION_DELETED",
       {
         decisionId: currentDecision.id,
+        companyId: currentDecision.companyId,
         title: currentDecision.title,
         estadoAnterior: currentDecision,
         estadoNovo: inactiveDecision,
       },
       request.user?.id,
+      request.user?.companyId,
     );
     void publishDomainEvent("decision.inactivated", {
       decisionId: currentDecision.id,
+      companyId: currentDecision.companyId,
       title: currentDecision.title,
       userId: request.user?.id,
     });

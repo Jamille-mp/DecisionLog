@@ -51,6 +51,12 @@ type ApiImpact = 'low' | 'medium' | 'high'
 
 type User = {
   id: string
+  companyId?: string
+  company?: {
+    id: string
+    name: string
+    slug: string
+  } | null
   name: string
   email: string
   phone?: string | null
@@ -386,6 +392,7 @@ function App() {
       .join('')
       .substring(0, 2)
       .toUpperCase(),
+    company: user?.company?.name || 'Empresa',
   }
 
   const decisionViews = useMemo(() => decisions.map(toDecisionView), [decisions])
@@ -1042,7 +1049,7 @@ function App() {
           <ProfilePage isSubmitting={isSubmitting} onSave={handleUpdateProfile} user={user} />
         ) : null
       case 'help':
-        return <HelpPage userRole={userProfile.role} />
+        return <HelpPage userRole={userProfile.role} companyName={userProfile.company} />
       case 'monitoring':
         return <MonitoringPage auditLogs={auditLogs} health={health} token={token} />
       default:
@@ -1107,7 +1114,7 @@ function App() {
             <div className="profile-popover">
               <div className="profile-popover-header">
                 <strong>{userProfile.name}</strong>
-                <span>{userProfile.role}</span>
+                <span>{userProfile.role} · {userProfile.company}</span>
               </div>
               <button type="button" onClick={openProfile}>
                 <Settings />
@@ -1780,11 +1787,11 @@ function ProfilePage({
   )
 }
 
-function HelpPage({ userRole }: { userRole: RoleLabel }) {
+function HelpPage({ companyName, userRole }: { companyName: string; userRole: RoleLabel }) {
   return (
     <section className="page-section">
       <PageHeader
-        badge={userRole}
+        badge={`${companyName} · ${userRole}`}
         subtitle="Entenda a proposta do DecisionLog, os perfis de acesso e os caminhos mais importantes."
         title="Ajuda e Sobre o Sistema"
       />
@@ -1884,7 +1891,7 @@ function Sidebar({
   isOpen: boolean
   onClose: () => void
   onNavigate: (page: Page) => void
-  userProfile: { name: string; role: RoleLabel; initials: string }
+  userProfile: { name: string; role: RoleLabel; initials: string; company: string }
 }) {
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
@@ -1949,6 +1956,7 @@ function Sidebar({
         <div>
           <p>{userProfile.name}</p>
           <span>{userProfile.role}</span>
+          <small>{userProfile.company}</small>
         </div>
       </div>
       <nav className="sidebar-menu" aria-label="Navegação principal">

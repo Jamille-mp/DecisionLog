@@ -11,6 +11,7 @@ function serializeLog(log: any) {
     id: log._id.toString(),
     action: log.action,
     userId: log.userId,
+    companyId: log.companyId,
     details: log.details,
     timestamp: log.timestamp,
   };
@@ -21,8 +22,8 @@ auditRoutes.use(requireRole(["admin", "auditor"]));
 
 auditRoutes.get(
   "/",
-  asyncHandler(async (_request, response) => {
-    const logs = await listAuditLogs(50);
+  asyncHandler(async (request, response) => {
+    const logs = await listAuditLogs(50, request.user?.companyId);
     response.json(logs.map(serializeLog));
   }),
 );
@@ -33,7 +34,11 @@ auditRoutes.get(
     const decisionId = Array.isArray(request.params.decisionId)
       ? request.params.decisionId[0]
       : request.params.decisionId;
-    const logs = await listAuditLogsByDecision(decisionId, 50);
+    const logs = await listAuditLogsByDecision(
+      decisionId,
+      50,
+      request.user?.companyId,
+    );
     response.json(logs.map(serializeLog));
   }),
 );

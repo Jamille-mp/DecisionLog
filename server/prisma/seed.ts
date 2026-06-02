@@ -1,6 +1,19 @@
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/prisma";
 
+const seedCompanies = [
+  {
+    name: "DecisionLog",
+    slug: "decisionlog",
+    domains: ["decisionlog.local"],
+  },
+  {
+    name: "AESA",
+    slug: "aesa",
+    domains: ["aesa-cesa.br"],
+  },
+];
+
 const seedDepartments = [
   "Diretoria",
   "Financeiro",
@@ -20,6 +33,7 @@ const seedUsers = [
     password: "DecisionLog@26",
     phone: "(11) 98888-1001",
     role: "admin",
+    company: "decisionlog",
     department: "Diretoria",
   },
   {
@@ -28,6 +42,7 @@ const seedUsers = [
     password: "DecisionLog@26",
     phone: "(11) 97777-2202",
     role: "manager",
+    company: "decisionlog",
     department: "Operações",
   },
   {
@@ -36,7 +51,17 @@ const seedUsers = [
     password: "DecisionLog@26",
     phone: "(11) 96666-3303",
     role: "auditor",
+    company: "decisionlog",
     department: "Compliance",
+  },
+  {
+    name: "Jamille AESA",
+    email: "2024130015@aesa-cesa.br",
+    password: "DecisionLog@26",
+    phone: "(82) 98888-2026",
+    role: "admin",
+    company: "aesa",
+    department: "Diretoria",
   },
 ];
 
@@ -52,6 +77,7 @@ const seedDecisions = [
     department: "Financeiro",
     impact: "high",
     status: "approved",
+    company: "decisionlog",
     userEmail: "admin@decisionlog.local",
   },
   {
@@ -65,6 +91,7 @@ const seedDecisions = [
     department: "Segurança da Informação",
     impact: "high",
     status: "approved",
+    company: "decisionlog",
     userEmail: "admin@decisionlog.local",
   },
   {
@@ -78,6 +105,7 @@ const seedDecisions = [
     department: "Operações",
     impact: "medium",
     status: "pending",
+    company: "decisionlog",
     userEmail: "analista@decisionlog.local",
   },
   {
@@ -91,6 +119,7 @@ const seedDecisions = [
     department: "Compliance",
     impact: "medium",
     status: "archived",
+    company: "decisionlog",
     userEmail: "admin@decisionlog.local",
   },
   {
@@ -104,6 +133,7 @@ const seedDecisions = [
     department: "Diretoria",
     impact: "medium",
     status: "approved",
+    company: "decisionlog",
     userEmail: "admin@decisionlog.local",
   },
   {
@@ -117,6 +147,7 @@ const seedDecisions = [
     department: "Recursos Humanos",
     impact: "medium",
     status: "pending",
+    company: "decisionlog",
     userEmail: "analista@decisionlog.local",
   },
   {
@@ -130,6 +161,7 @@ const seedDecisions = [
     department: "Compliance",
     impact: "high",
     status: "approved",
+    company: "decisionlog",
     userEmail: "auditor@decisionlog.local",
   },
   {
@@ -143,6 +175,7 @@ const seedDecisions = [
     department: "Tecnologia",
     impact: "medium",
     status: "pending",
+    company: "decisionlog",
     userEmail: "admin@decisionlog.local",
   },
   {
@@ -156,6 +189,7 @@ const seedDecisions = [
     department: "Compliance",
     impact: "low",
     status: "approved",
+    company: "decisionlog",
     userEmail: "auditor@decisionlog.local",
   },
   {
@@ -169,6 +203,7 @@ const seedDecisions = [
     department: "Operações",
     impact: "medium",
     status: "archived",
+    company: "decisionlog",
     userEmail: "analista@decisionlog.local",
   },
   {
@@ -182,6 +217,7 @@ const seedDecisions = [
     department: "Tecnologia",
     impact: "medium",
     status: "approved",
+    company: "decisionlog",
     userEmail: "admin@decisionlog.local",
   },
   {
@@ -195,31 +231,114 @@ const seedDecisions = [
     department: "Diretoria",
     impact: "low",
     status: "pending",
+    company: "decisionlog",
     userEmail: "admin@decisionlog.local",
+  },
+  {
+    title: "Formalizar comitê acadêmico para decisões estratégicas",
+    context:
+      "A AESA precisa registrar decisões institucionais com responsáveis e justificativas centralizadas.",
+    decision:
+      "Criar um comitê para registrar decisões acadêmicas relevantes no DecisionLog.",
+    reason:
+      "A prática melhora transparência, rastreabilidade e acompanhamento entre departamentos.",
+    department: "Diretoria",
+    impact: "high",
+    status: "pending",
+    company: "aesa",
+    userEmail: "2024130015@aesa-cesa.br",
+  },
+  {
+    title: "Padronizar registro de decisões de tecnologia educacional",
+    context:
+      "Ferramentas acadêmicas são aprovadas em momentos diferentes e precisam de histórico consultável.",
+    decision:
+      "Registrar decisões sobre plataformas educacionais com impacto, contexto e responsável.",
+    reason:
+      "O registro facilita auditoria interna e evita perda de histórico institucional.",
+    department: "Tecnologia",
+    impact: "medium",
+    status: "approved",
+    company: "aesa",
+    userEmail: "2024130015@aesa-cesa.br",
   },
 ];
 
 async function main() {
   const consentAcceptedAt = new Date();
 
-  const departments = await Promise.all(
-    seedDepartments.map((name) =>
-      prisma.department.upsert({
+  const companies = await Promise.all(
+    seedCompanies.map((company) =>
+      prisma.company.upsert({
         where: {
-          name,
+          slug: company.slug,
         },
         update: {
+          name: company.name,
           active: true,
-          deletedAt: null,
         },
         create: {
-          name,
+          name: company.name,
+          slug: company.slug,
+          active: true,
         },
       }),
     ),
   );
+  const companyBySlug = new Map(companies.map((company) => [company.slug, company]));
+
+  await Promise.all(
+    seedCompanies.flatMap((company) => {
+      const savedCompany = companyBySlug.get(company.slug);
+
+      return company.domains.map((domain) =>
+        prisma.companyDomain.upsert({
+          where: {
+            domain,
+          },
+          update: {
+            companyId: savedCompany?.id || "",
+            active: true,
+          },
+          create: {
+            companyId: savedCompany?.id || "",
+            domain,
+            active: true,
+          },
+        }),
+      );
+    }),
+  );
+
+  const departments = await Promise.all(
+    seedCompanies.flatMap((company) =>
+      seedDepartments.map((name) => {
+        const savedCompany = companyBySlug.get(company.slug);
+
+        return prisma.department.upsert({
+          where: {
+            companyId_name: {
+              companyId: savedCompany?.id || "",
+              name,
+            },
+          },
+          update: {
+            active: true,
+            deletedAt: null,
+          },
+          create: {
+            companyId: savedCompany?.id || "",
+            name,
+          },
+        });
+      }),
+    ),
+  );
   const departmentByName = new Map(
-    departments.map((department) => [department.name, department]),
+    departments.map((department) => [
+      `${department.companyId}:${department.name}`,
+      department,
+    ]),
   );
 
   const users = await Promise.all(
@@ -236,7 +355,8 @@ async function main() {
           passwordHash,
           role: user.role,
           active: true,
-          departmentId: departmentByName.get(user.department)?.id,
+          companyId: companyBySlug.get(user.company)?.id || "",
+          departmentId: departmentByName.get(`${companyBySlug.get(user.company)?.id}:${user.department}`)?.id,
           preferredTheme: "light",
           termsAcceptedAt: consentAcceptedAt,
           privacyAcceptedAt: consentAcceptedAt,
@@ -248,7 +368,8 @@ async function main() {
           passwordHash,
           role: user.role,
           active: true,
-          departmentId: departmentByName.get(user.department)?.id,
+          companyId: companyBySlug.get(user.company)?.id || "",
+          departmentId: departmentByName.get(`${companyBySlug.get(user.company)?.id}:${user.department}`)?.id,
           preferredTheme: "light",
           termsAcceptedAt: consentAcceptedAt,
           privacyAcceptedAt: consentAcceptedAt,
@@ -274,7 +395,8 @@ async function main() {
       decision: decision.decision,
       reason: decision.reason,
       department: decision.department,
-      departmentId: departmentByName.get(decision.department)?.id,
+      companyId: companyBySlug.get(decision.company)?.id || "",
+      departmentId: departmentByName.get(`${companyBySlug.get(decision.company)?.id}:${decision.department}`)?.id,
       impact: decision.impact,
       status: decision.status,
       active: true,

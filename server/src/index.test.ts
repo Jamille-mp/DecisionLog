@@ -14,16 +14,21 @@ const mocks = vi.hoisted(() => ({
       findMany: vi.fn(),
       update: vi.fn(),
     },
+    companyDomain: {
+      findUnique: vi.fn(),
+    },
     department: {
       findMany: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
     },
     decision: {
       findMany: vi.fn(),
       create: vi.fn(),
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
       update: vi.fn(),
       deleteMany: vi.fn(),
       createMany: vi.fn(),
@@ -51,10 +56,13 @@ process.env.JWT_SECRET = "test-secret";
 
 import { app } from "./index";
 
+const companyId = "company-decisionlog";
+
 function makeToken(role: "admin" | "manager" | "auditor", userId = "user-1") {
   return jwt.sign(
     {
       email: `${role}@decisionlog.local`,
+      companyId,
       role,
     },
     process.env.JWT_SECRET || "test-secret",
@@ -68,11 +76,23 @@ function makeToken(role: "admin" | "manager" | "auditor", userId = "user-1") {
 describe("DecisionLog API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.prisma.companyDomain.findUnique.mockResolvedValue({
+      id: "domain-1",
+      domain: "decisionlog.local",
+      active: true,
+      company: {
+        id: companyId,
+        name: "DecisionLog",
+        slug: "decisionlog",
+        active: true,
+      },
+    });
   });
 
   it("autentica usuário válido e retorna token com perfil", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue({
       id: "user-1",
+      companyId,
       name: "Jamille Admin",
       email: "admin@decisionlog.local",
       passwordHash: await bcrypt.hash("DecisionLog@26", 10),
@@ -96,6 +116,7 @@ describe("DecisionLog API", () => {
       "USER_LOGGED_IN",
       expect.objectContaining({ role: "admin" }),
       "user-1",
+      companyId,
     );
   });
 
@@ -136,6 +157,7 @@ describe("DecisionLog API", () => {
       reason: "Motivo",
       department: "TI",
       departmentId,
+      companyId,
       impact: "high",
       status: "pending",
       active: true,
@@ -144,8 +166,9 @@ describe("DecisionLog API", () => {
       updatedAt: new Date(),
     };
 
-    mocks.prisma.department.findUnique.mockResolvedValueOnce({
+    mocks.prisma.department.findFirst.mockResolvedValueOnce({
       id: departmentId,
+      companyId,
       name: "TI",
       active: true,
     });
@@ -169,6 +192,7 @@ describe("DecisionLog API", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           title: "Nova política de segurança",
+          companyId,
           departmentId,
           userId: "user-1",
         }),
@@ -178,6 +202,7 @@ describe("DecisionLog API", () => {
       "DECISION_CREATED",
       expect.objectContaining({ estadoNovo: createdDecision }),
       "user-1",
+      companyId,
     );
   });
 
@@ -193,6 +218,7 @@ describe("DecisionLog API", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           active: true,
+          companyId,
           status: "approved",
           AND: expect.any(Array),
         }),
@@ -201,8 +227,9 @@ describe("DecisionLog API", () => {
   });
 
   it("impede gestor de editar decisão concluída", async () => {
-    mocks.prisma.decision.findUnique.mockResolvedValue({
+    mocks.prisma.decision.findFirst.mockResolvedValue({
       id: "decision-1",
+      companyId,
       title: "Decisão concluída",
       status: "approved",
       active: true,
@@ -223,6 +250,7 @@ describe("DecisionLog API", () => {
   it("desarquiva decisão e registra ação específica de auditoria", async () => {
     const currentDecision = {
       id: "decision-archived",
+      companyId,
       title: "Decisão arquivada",
       status: "archived",
       active: true,
@@ -233,7 +261,7 @@ describe("DecisionLog API", () => {
       status: "pending",
     };
 
-    mocks.prisma.decision.findUnique.mockResolvedValue(currentDecision);
+    mocks.prisma.decision.findFirst.mockResolvedValue(currentDecision);
     mocks.prisma.decision.update.mockResolvedValue(updatedDecision);
 
     const response = await request(app)
@@ -249,12 +277,14 @@ describe("DecisionLog API", () => {
         estadoNovo: updatedDecision,
       }),
       "user-1",
+      companyId,
     );
   });
 
   it("inativa decisão por soft delete e registra estado anterior e novo", async () => {
     const currentDecision = {
       id: "decision-1",
+      companyId,
       title: "Decisão antiga",
       status: "pending",
       active: true,
@@ -267,7 +297,7 @@ describe("DecisionLog API", () => {
       deletedAt: new Date(),
     };
 
-    mocks.prisma.decision.findUnique.mockResolvedValue(currentDecision);
+    mocks.prisma.decision.findFirst.mockResolvedValue(currentDecision);
     mocks.prisma.decision.update.mockResolvedValue(inactiveDecision);
 
     const response = await request(app)
@@ -291,6 +321,7 @@ describe("DecisionLog API", () => {
         estadoNovo: inactiveDecision,
       }),
       "user-1",
+      companyId,
     );
   });
 
@@ -320,12 +351,17 @@ describe("DecisionLog API", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toHaveLength(1);
-    expect(mocks.listAuditLogsByDecision).toHaveBeenCalledWith("decision-1", 50);
+    expect(mocks.listAuditLogsByDecision).toHaveBeenCalledWith(
+      "decision-1",
+      50,
+      companyId,
+    );
   });
 
   it("permite administrador alterar perfil de usuário", async () => {
-    mocks.prisma.user.findUnique.mockResolvedValue({
+    mocks.prisma.user.findFirst.mockResolvedValue({
       id: "user-2",
+      companyId,
       name: "Auditor",
       email: "auditor@decisionlog.local",
       role: "auditor",
@@ -336,6 +372,7 @@ describe("DecisionLog API", () => {
     });
     mocks.prisma.user.update.mockResolvedValue({
       id: "user-2",
+      companyId,
       name: "Auditor",
       email: "auditor@decisionlog.local",
       role: "manager",
@@ -374,8 +411,10 @@ describe("DecisionLog API", () => {
   });
 
   it("cria departamento ativo", async () => {
+    mocks.prisma.department.findFirst.mockResolvedValue(null);
     mocks.prisma.department.create.mockResolvedValue({
       id: "department-1",
+      companyId,
       name: "Inovação",
       active: true,
       createdAt: new Date(),
@@ -433,6 +472,7 @@ describe("DecisionLog API", () => {
     mocks.prisma.user.findUnique.mockResolvedValue(null);
     mocks.prisma.user.create.mockResolvedValue({
       id: "user-2",
+      companyId,
       name: "Nova Usuaria",
       email: "nova@decisionlog.local",
       role: "manager",

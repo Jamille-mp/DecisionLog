@@ -2,6 +2,9 @@
 
 Sistema web para registrar, acompanhar e auditar decisões corporativas.
 
+O DecisionLog opera em modelo multiempresa: cada organização possui seus próprios
+usuários, departamentos, decisões, auditorias e domínios autorizados de e-mail.
+
 ## Tecnologias
 
 - Frontend: React, TypeScript e Vite
@@ -9,6 +12,7 @@ Sistema web para registrar, acompanhar e auditar decisões corporativas.
 - Banco relacional: MySQL com Prisma
 - Auditoria: MongoDB com driver nativo
 - Autenticação: JWT local e OpenID Connect/OAuth2 com Google
+- Multiempresa: isolamento por empresa e validação de domínio corporativo
 - Validação: Zod
 - Testes: Vitest e Supertest
 - Infraestrutura opcional: Docker Compose com MySQL, MongoDB e RabbitMQ
@@ -68,6 +72,26 @@ Health:   https://decisionlog-api.onrender.com/health
 
 O login com Google fica disponível quando `GET /auth/oidc/config` retorna `enabled: true`.
 
+## Modelo Multiempresa
+
+Cada usuário pertence a uma empresa. O acesso é definido pelo domínio do e-mail:
+
+```text
+decisionlog.local -> DecisionLog
+aesa-cesa.br      -> AESA
+```
+
+Exemplo de admin AESA:
+
+```text
+2024130015@aesa-cesa.br
+```
+
+No login com Google, o Google autentica a identidade do usuário e o DecisionLog autoriza
+o acesso de acordo com o domínio corporativo. O primeiro usuário de uma empresa pode ser
+provisionado como administrador inicial; os demais entram como gestores para ajuste posterior
+de perfil e departamento pelo administrador da empresa.
+
 ## Como Rodar
 
 Infraestrutura opcional com Docker:
@@ -113,6 +137,7 @@ Auditor:       auditor@decisionlog.local / DecisionLog@26
 
 - Cadastro e login de usuários
 - Login institucional com Google via OAuth2/OpenID Connect
+- Isolamento multiempresa por domínio corporativo
 - Perfis de acesso: Administrador, Gestor e Auditor
 - Gestão administrativa de usuários e permissões
 - Cadastro e ativação/inativação de departamentos

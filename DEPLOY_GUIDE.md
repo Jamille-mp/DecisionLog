@@ -19,6 +19,9 @@ npm.cmd run test:e2e
 
 O projeto está pronto para deploy quando esses comandos passarem.
 
+Depois de alterações de banco, o backend executa `prisma migrate deploy` automaticamente
+antes do `npm start` por meio do script `prestart`.
+
 ## 2. Plataformas Recomendadas
 
 Opção mais simples para apresentação:
@@ -198,6 +201,9 @@ Resposta esperada:
 - Backend `/health` retorna resposta pública.
 - Login local funciona.
 - Login com Google funciona via OAuth2/OpenID Connect.
+- Usuário `2024130015@aesa-cesa.br` acessa a empresa AESA.
+- Usuários `@decisionlog.local` acessam a empresa DecisionLog.
+- Dados de usuários, departamentos, decisões e auditoria ficam isolados por empresa.
 - Usuários de seed funcionam.
 - Dashboard carrega indicadores.
 - Cadastro de decisão exige departamento e impacto.

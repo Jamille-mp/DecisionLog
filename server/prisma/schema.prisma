@@ -9,6 +9,8 @@ datasource db {
 
 model User {
   id           String     @id @default(uuid())
+  companyId    String
+  company      Company    @relation(fields: [companyId], references: [id])
   name         String
   email        String     @unique
   passwordHash String
@@ -26,12 +28,15 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
+  @@index([companyId])
   @@map("users")
 }
 
 model Department {
   id        String     @id @default(uuid())
-  name      String     @unique
+  companyId String
+  company   Company    @relation(fields: [companyId], references: [id])
+  name      String
   active    Boolean    @default(true)
   deletedAt DateTime?
   decisions Decision[]
@@ -39,11 +44,15 @@ model Department {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
+  @@unique([companyId, name])
+  @@index([companyId])
   @@map("departments")
 }
 
 model Decision {
   id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
   title     String
   context   String   @db.Text
   decision  String   @db.Text
@@ -60,5 +69,34 @@ model Decision {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([companyId])
   @@map("decisions")
+}
+
+model Company {
+  id        String          @id @default(uuid())
+  name      String
+  slug      String          @unique
+  active    Boolean         @default(true)
+  domains   CompanyDomain[]
+  users     User[]
+  departments Department[]
+  decisions Decision[]
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  @@map("companies")
+}
+
+model CompanyDomain {
+  id        String   @id @default(uuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  domain    String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@map("company_domains")
 }

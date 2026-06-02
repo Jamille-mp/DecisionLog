@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { AppError } from "../../errors/AppError";
+import { findCompanyByEmail } from "../../lib/company";
 import { logActivity } from "../../lib/mongodb";
 import {
   buildAuthorizationUrl,
@@ -25,6 +26,7 @@ export const authRoutes = Router();
 
 function signAppToken(user: {
   active: boolean;
+  companyId: string;
   email: string;
   id: string;
   role: string;
@@ -32,6 +34,7 @@ function signAppToken(user: {
   return jwt.sign(
     {
       email: user.email,
+      companyId: user.companyId,
       role: user.role,
       active: user.active,
     },
@@ -93,27 +96,41 @@ authRoutes.get(
         email: profile.email,
       },
       include: {
+        company: true,
         department: true,
       },
     });
+    const company = await findCompanyByEmail(profile.email);
 
     if (user && !user.active) {
       throw new AppError("Usuário inativo.", 403);
     }
 
+    if (user && user.companyId !== company.id) {
+      throw new AppError("Usuário não pertence à empresa deste domínio.", 403);
+    }
+
     if (!user) {
       const acceptedAt = new Date();
       const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
+      const companyUsers = await prisma.user.count({
+        where: {
+          companyId: company.id,
+        },
+      });
+
       user = await prisma.user.create({
         data: {
+          companyId: company.id,
           name: profile.name,
           email: profile.email,
           passwordHash,
-          role: "manager",
+          role: companyUsers === 0 ? "admin" : "manager",
           termsAcceptedAt: acceptedAt,
           privacyAcceptedAt: acceptedAt,
         },
         include: {
+          company: true,
           department: true,
         },
       });
@@ -123,8 +140,9 @@ authRoutes.get(
 
     void logActivity(
       "USER_LOGGED_IN_OIDC",
-      { userId: user.id, email: user.email, providerSubject: profile.sub },
+      { userId: user.id, companyId: user.companyId, email: user.email, providerSubject: profile.sub },
       user.id,
+      user.companyId,
     );
 
     const redirectUrl = new URL(getFrontendRedirectUrl());
@@ -140,6 +158,7 @@ authRoutes.post(
   "/register",
   asyncHandler(async (request, response) => {
     const data = registerSchema.parse(request.body);
+    const company = await findCompanyByEmail(data.email);
     const existingUser = await prisma.user.findUnique({
       where: {
         email: data.email,
@@ -154,6 +173,7 @@ authRoutes.post(
     const acceptedAt = new Date();
     const user = await prisma.user.create({
       data: {
+        companyId: company.id,
         name: data.name,
         email: data.email,
         passwordHash,
@@ -163,6 +183,8 @@ authRoutes.post(
       },
       select: {
         id: true,
+        companyId: true,
+        company: true,
         name: true,
         email: true,
         role: true,
@@ -174,8 +196,9 @@ authRoutes.post(
 
     void logActivity(
       "USER_REGISTERED",
-      { userId: user.id, email: user.email, role: user.role },
+      { userId: user.id, companyId: user.companyId, email: user.email, role: user.role },
       user.id,
+      user.companyId,
     );
 
     response.status(201).json(user);
@@ -191,6 +214,7 @@ authRoutes.post(
         email: data.email,
       },
       include: {
+        company: true,
         department: true,
       },
     });
@@ -209,14 +233,17 @@ authRoutes.post(
 
     void logActivity(
       "USER_LOGGED_IN",
-      { userId: user.id, email: user.email, role: user.role },
+      { userId: user.id, companyId: user.companyId, email: user.email, role: user.role },
       user.id,
+      user.companyId,
     );
 
     response.json({
       token,
       user: {
         id: user.id,
+        companyId: user.companyId,
+        company: user.company,
         name: user.name,
         email: user.email,
         phone: user.phone,
@@ -266,8 +293,9 @@ authRoutes.post(
 
     void logActivity(
       "PASSWORD_RESET_REQUESTED",
-      { userId: user.id, email: user.email },
+      { userId: user.id, companyId: user.companyId, email: user.email },
       user.id,
+      user.companyId,
     );
 
     response.json({
@@ -315,8 +343,9 @@ authRoutes.post(
 
     void logActivity(
       "PASSWORD_RESET_COMPLETED",
-      { userId: user.id, email: user.email },
+      { userId: user.id, companyId: user.companyId, email: user.email },
       user.id,
+      user.companyId,
     );
 
     response.json({ message: "Senha atualizada com sucesso." });

@@ -24,6 +24,7 @@ departmentRoutes.get(
     const includeInactive = request.query.includeInactive === "true";
     const departments = await prisma.department.findMany({
       where: {
+        companyId: request.user?.companyId,
         deletedAt: null,
         ...(includeInactive ? {} : { active: true }),
       },
@@ -55,9 +56,10 @@ departmentRoutes.post(
   requireRole(["admin"]),
   asyncHandler(async (request, response) => {
     const data = createDepartmentSchema.parse(request.body);
-    const existingDepartment = await prisma.department.findUnique({
+    const existingDepartment = await prisma.department.findFirst({
       where: {
         name: data.name,
+        companyId: request.user?.companyId,
       },
     });
 
@@ -88,7 +90,10 @@ departmentRoutes.post(
     }
 
     const department = await prisma.department.create({
-      data,
+      data: {
+        ...data,
+        companyId: request.user?.companyId || "",
+      },
       include: {
         _count: {
           select: {
@@ -101,8 +106,9 @@ departmentRoutes.post(
 
     void logActivity(
       "DEPARTMENT_CREATED",
-      { departmentId: department.id, estadoNovo: department },
+      { departmentId: department.id, companyId: department.companyId, estadoNovo: department },
       request.user?.id,
+      request.user?.companyId,
     );
 
     response.status(201).json(department);
@@ -120,9 +126,10 @@ departmentRoutes.patch(
     }
 
     const data = updateDepartmentSchema.parse(request.body);
-    const currentDepartment = await prisma.department.findUnique({
+    const currentDepartment = await prisma.department.findFirst({
       where: {
         id: departmentId,
+        companyId: request.user?.companyId,
       },
     });
 
@@ -149,10 +156,12 @@ departmentRoutes.patch(
       "DEPARTMENT_UPDATED",
       {
         departmentId: department.id,
+        companyId: department.companyId,
         estadoAnterior: currentDepartment,
         estadoNovo: department,
       },
       request.user?.id,
+      request.user?.companyId,
     );
 
     response.json(department);
@@ -169,9 +178,10 @@ departmentRoutes.delete(
       throw new AppError("ID do departamento ausente.", 400);
     }
 
-    const currentDepartment = await prisma.department.findUnique({
+    const currentDepartment = await prisma.department.findFirst({
       where: {
         id: departmentId,
+        companyId: request.user?.companyId,
       },
     });
 
@@ -194,10 +204,12 @@ departmentRoutes.delete(
       "DEPARTMENT_DELETED",
       {
         departmentId,
+        companyId: currentDepartment.companyId,
         estadoAnterior: currentDepartment,
         estadoNovo: department,
       },
       request.user?.id,
+      request.user?.companyId,
     );
 
     response.json(department);

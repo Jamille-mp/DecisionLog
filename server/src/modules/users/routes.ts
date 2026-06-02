@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { Router } from "express";
 import { AppError } from "../../errors/AppError";
+import { findCompanyByEmail } from "../../lib/company";
 import { logActivity } from "../../lib/mongodb";
 import { prisma } from "../../lib/prisma";
 import { asyncHandler } from "../../middlewares/asyncHandler";
@@ -18,6 +19,8 @@ userRoutes.use(isAuthenticated);
 
 const profileSelect = {
   id: true,
+  companyId: true,
+  company: true,
   name: true,
   email: true,
   phone: true,
@@ -73,6 +76,15 @@ userRoutes.patch(
 
     if (data.name) updateData.name = data.name;
     if (data.email && data.email !== currentUser.email) {
+      const emailCompany = await findCompanyByEmail(data.email);
+
+      if (emailCompany.id !== currentUser.companyId) {
+        throw new AppError(
+          "O novo e-mail precisa pertencer ao domínio da sua empresa.",
+          403,
+        );
+      }
+
       const existingEmail = await prisma.user.findUnique({
         where: {
           email: data.email,
@@ -113,10 +125,12 @@ userRoutes.patch(
       "PROFILE_UPDATED",
       {
         userId: currentUser.id,
+        companyId: currentUser.companyId,
         campos: Object.keys(updateData).filter((key) => key !== "passwordHash"),
         senhaAlterada: Boolean(updateData.passwordHash),
       },
       request.user?.id,
+      request.user?.companyId,
     );
 
     response.json(user);
@@ -125,6 +139,7 @@ userRoutes.patch(
 
 userRoutes.delete(
   "/:id",
+  requireRole(["admin"]),
   asyncHandler(async (request, response) => {
     const userId = getParamId(request.params.id);
 
@@ -136,9 +151,10 @@ userRoutes.delete(
       throw new AppError("Você não pode excluir a própria conta.", 400);
     }
 
-    const currentUser = await prisma.user.findUnique({
+    const currentUser = await prisma.user.findFirst({
       where: {
         id: userId,
+        companyId: request.user?.companyId,
       },
     });
 
@@ -171,6 +187,7 @@ userRoutes.delete(
       "USER_DELETED",
       {
         userId,
+        companyId: currentUser.companyId,
         estadoAnterior: {
           id: currentUser.id,
           name: currentUser.name,
@@ -181,6 +198,7 @@ userRoutes.delete(
         estadoNovo: deletedUser,
       },
       request.user?.id,
+      request.user?.companyId,
     );
 
     response.json(deletedUser);
@@ -195,6 +213,7 @@ userRoutes.get(
     const includeDeleted = request.query.includeDeleted === "true";
     const users = await prisma.user.findMany({
       where: {
+        companyId: request.user?.companyId,
         ...(includeDeleted
           ? {}
           : {
@@ -210,6 +229,8 @@ userRoutes.get(
       },
       select: {
         id: true,
+        companyId: true,
+        company: true,
         name: true,
         email: true,
         phone: true,
@@ -240,9 +261,10 @@ userRoutes.patch(
     }
 
     const data = updateUserSchema.parse(request.body);
-    const currentUser = await prisma.user.findUnique({
+    const currentUser = await prisma.user.findFirst({
       where: {
         id: userId,
+        companyId: request.user?.companyId,
       },
     });
 
@@ -251,9 +273,10 @@ userRoutes.patch(
     }
 
     if (data.departmentId) {
-      const department = await prisma.department.findUnique({
+      const department = await prisma.department.findFirst({
         where: {
           id: data.departmentId,
+          companyId: request.user?.companyId,
         },
       });
 
@@ -269,6 +292,8 @@ userRoutes.patch(
       data,
       select: {
         id: true,
+        companyId: true,
+        company: true,
         name: true,
         email: true,
         phone: true,
@@ -285,6 +310,7 @@ userRoutes.patch(
       "USER_UPDATED",
       {
         userId,
+        companyId: currentUser.companyId,
         estadoAnterior: {
           id: currentUser.id,
           name: currentUser.name,
@@ -295,6 +321,7 @@ userRoutes.patch(
         estadoNovo: user,
       },
       request.user?.id,
+      request.user?.companyId,
     );
 
     response.json(user);

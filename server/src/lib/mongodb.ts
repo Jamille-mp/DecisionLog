@@ -18,6 +18,7 @@ export async function logActivity(
   action: string,
   details: Record<string, unknown>,
   userId?: string,
+  companyId?: string,
 ) {
   try {
     const connectedClient = await getClient();
@@ -27,6 +28,7 @@ export async function logActivity(
     await logs.insertOne({
       action,
       userId,
+      companyId,
       details,
       timestamp: new Date(),
     });
@@ -35,19 +37,23 @@ export async function logActivity(
   }
 }
 
-export async function listAuditLogs(limit = 50) {
+export async function listAuditLogs(limit = 50, companyId?: string) {
   const connectedClient = await getClient();
   const database = connectedClient.db("decisionlog_logs");
   const logs = database.collection("audit_logs");
 
   return logs
-    .find({})
+    .find(companyId ? { companyId } : {})
     .sort({ timestamp: -1 })
     .limit(limit)
     .toArray();
 }
 
-export async function listAuditLogsByDecision(decisionId: string, limit = 50) {
+export async function listAuditLogsByDecision(
+  decisionId: string,
+  limit = 50,
+  companyId?: string,
+) {
   const connectedClient = await getClient();
   const database = connectedClient.db("decisionlog_logs");
   const logs = database.collection("audit_logs");
@@ -55,6 +61,7 @@ export async function listAuditLogsByDecision(decisionId: string, limit = 50) {
   return logs
     .find({
       "details.decisionId": decisionId,
+      ...(companyId ? { companyId } : {}),
     })
     .sort({ timestamp: -1 })
     .limit(limit)

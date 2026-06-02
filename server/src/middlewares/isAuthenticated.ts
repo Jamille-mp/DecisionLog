@@ -5,6 +5,7 @@ type UserRole = "admin" | "manager" | "auditor";
 
 type TokenPayload = {
   sub: string;
+  companyId?: string;
   email: string;
   role?: UserRole;
 };
@@ -36,6 +37,7 @@ export function isAuthenticated(
 
     request.user = {
       id: payload.sub,
+      companyId: payload.companyId || "",
       email: payload.email,
       role: payload.role || "manager",
     };
