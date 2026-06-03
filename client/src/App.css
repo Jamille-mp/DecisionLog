@@ -164,6 +164,7 @@ body[data-theme='dark'] .app-footer {
   height: 100%;
   border-radius: inherit;
   object-fit: cover;
+  transform-origin: center;
 }
 
 .profile-popover {
@@ -1356,6 +1357,7 @@ body[data-theme='dark'] .app-footer {
   background: #d4b062;
   color: #183354;
   font-weight: 700;
+  overflow: hidden;
 }
 
 .profile-box-content {
@@ -1407,11 +1409,12 @@ body[data-theme='dark'] .app-footer {
   grid-row: 1 / span 2;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 999px;
   background: rgba(212, 176, 98, 0.18);
   color: #f8fafc;
   font-size: 12px;
   font-weight: 800;
+  overflow: hidden;
 }
 
 .company-badge svg {
@@ -2389,9 +2392,10 @@ body[data-theme='dark'] .app-footer {
   grid-row: 1 / span 2;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  border-radius: 999px;
   background: #183354;
   color: #ffffff;
+  overflow: hidden;
 }
 
 .company-photo-preview svg {
@@ -2420,6 +2424,49 @@ body[data-theme='dark'] .app-footer {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.image-frame-controls {
+  display: grid;
+  grid-column: 2;
+  gap: 8px;
+}
+
+.image-frame-controls label {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+}
+
+.image-frame-controls span {
+  color: #183354;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.profile-panel .image-frame-controls input[type='range'] {
+  width: 100%;
+  border: 0;
+  accent-color: #183354;
+  padding: 0;
+}
+
+.image-frame-controls button {
+  justify-self: start;
+  border: 1px solid rgba(24, 51, 84, 0.16);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #183354;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 10px;
+}
+
+.image-frame-controls :disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
 }
 
 .file-input {
@@ -3437,8 +3484,19 @@ body[data-theme='dark'] .media-upload-note {
 
 body[data-theme='dark'] .profile-company-badge strong,
 body[data-theme='dark'] .media-upload-copy strong,
+body[data-theme='dark'] .image-frame-controls span,
 body[data-theme='dark'] .profile-panel .upload-button {
   color: #f8fafc;
+}
+
+body[data-theme='dark'] .image-frame-controls button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #172033;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .profile-panel .image-frame-controls input[type='range'] {
+  accent-color: #d4b062;
 }
 
 body[data-theme='dark'] .ghost-danger {
@@ -3619,6 +3677,10 @@ body[data-theme='dark'] .modal-header {
   .company-photo-preview {
     width: 72px;
     height: 72px;
+  }
+
+  .image-frame-controls {
+    grid-column: 1 / -1;
   }
 
   .profile-save-panel button {

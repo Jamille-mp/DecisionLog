@@ -197,6 +197,18 @@ type ProfileFormData = {
   newPassword: string
 }
 
+type ImageFrameSettings = {
+  zoom: number
+  x: number
+  y: number
+}
+
+const defaultImageFrameSettings: ImageFrameSettings = {
+  zoom: 1,
+  x: 0,
+  y: 0,
+}
+
 const roleLabels: Record<ApiRole, RoleLabel> = {
   admin: 'Administrador',
   manager: 'Gestor',
@@ -230,29 +242,76 @@ function readImageAsDataUrl(file: File) {
   })
 }
 
+function cropImageToSquareDataUrl(source: string, frame: ImageFrameSettings) {
+  return new Promise<string>((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => {
+      const size = 512
+      const canvas = document.createElement('canvas')
+      const context = canvas.getContext('2d')
+
+      if (!context) {
+        reject(new Error('Nao foi possivel preparar a imagem.'))
+        return
+      }
+
+      canvas.width = size
+      canvas.height = size
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, size, size)
+
+      const baseScale = Math.max(size / image.width, size / image.height)
+      const scale = baseScale * frame.zoom
+      const width = image.width * scale
+      const height = image.height * scale
+      const offsetX = (frame.x / 100) * size
+      const offsetY = (frame.y / 100) * size
+      const left = (size - width) / 2 + offsetX
+      const top = (size - height) / 2 + offsetY
+
+      context.drawImage(image, left, top, width, height)
+      resolve(canvas.toDataURL('image/jpeg', 0.88))
+    }
+    image.onerror = () => reject(new Error('Nao foi possivel enquadrar a imagem.'))
+    image.src = source
+  })
+}
+
 function ProfileAvatar({
   className = '',
+  frame = defaultImageFrameSettings,
   imageUrl,
   name,
 }: {
   className?: string
+  frame?: ImageFrameSettings
   imageUrl?: string | null
   name: string
 }) {
   return (
     <div className={`profile-avatar ${className}`.trim()}>
-      {imageUrl ? <img src={imageUrl} alt={`Foto de ${name}`} /> : getInitials(name)}
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={`Foto de ${name}`}
+          style={{ transform: `translate(${frame.x}%, ${frame.y}%) scale(${frame.zoom})` }}
+        />
+      ) : (
+        getInitials(name)
+      )}
     </div>
   )
 }
 
 function CompanyBadge({
   className = '',
+  frame = defaultImageFrameSettings,
   label = 'Empresa ativa',
   logoUrl,
   name,
 }: {
   className?: string
+  frame?: ImageFrameSettings
   label?: string
   logoUrl?: string | null
   name: string
@@ -260,7 +319,15 @@ function CompanyBadge({
   return (
     <div className={`company-badge ${className}`.trim()} title={`Empresa: ${name}`}>
       <span className="company-mark">
-        {logoUrl ? <img src={logoUrl} alt={`Logo de ${name}`} /> : getInitials(name)}
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={`Logo de ${name}`}
+            style={{ transform: `translate(${frame.x}%, ${frame.y}%) scale(${frame.zoom})` }}
+          />
+        ) : (
+          getInitials(name)
+        )}
       </span>
       <span className="company-label">{label}</span>
       <strong>{name}</strong>
@@ -1713,6 +1780,64 @@ function LegalModal({
   )
 }
 
+function ImageFrameControls({
+  disabled = false,
+  frame,
+  onChange,
+}: {
+  disabled?: boolean
+  frame: ImageFrameSettings
+  onChange: (frame: ImageFrameSettings) => void
+}) {
+  const updateFrame = (field: keyof ImageFrameSettings, value: number) => {
+    onChange({ ...frame, [field]: value })
+  }
+
+  return (
+    <div className="image-frame-controls" aria-label="Ajuste de enquadramento">
+      <label>
+        <span>Zoom</span>
+        <input
+          type="range"
+          min="1"
+          max="2.4"
+          step="0.05"
+          value={frame.zoom}
+          disabled={disabled}
+          onChange={(event) => updateFrame('zoom', Number(event.target.value))}
+        />
+      </label>
+      <label>
+        <span>Horizontal</span>
+        <input
+          type="range"
+          min="-45"
+          max="45"
+          step="1"
+          value={frame.x}
+          disabled={disabled}
+          onChange={(event) => updateFrame('x', Number(event.target.value))}
+        />
+      </label>
+      <label>
+        <span>Vertical</span>
+        <input
+          type="range"
+          min="-45"
+          max="45"
+          step="1"
+          value={frame.y}
+          disabled={disabled}
+          onChange={(event) => updateFrame('y', Number(event.target.value))}
+        />
+      </label>
+      <button type="button" disabled={disabled} onClick={() => onChange(defaultImageFrameSettings)}>
+        Centralizar
+      </button>
+    </div>
+  )
+}
+
 function ProfilePage({
   isSubmitting,
   onSave,
@@ -1736,6 +1861,8 @@ function ProfilePage({
     current: false,
     next: false,
   })
+  const [avatarFrame, setAvatarFrame] = useState<ImageFrameSettings>(defaultImageFrameSettings)
+  const [companyLogoFrame, setCompanyLogoFrame] = useState<ImageFrameSettings>(defaultImageFrameSettings)
   const canEditCompanyLogo = user.role === 'admin'
 
   async function handleImageChange(field: 'avatarUrl' | 'companyLogoUrl', files: FileList | null) {
@@ -1745,19 +1872,43 @@ function ProfilePage({
     try {
       const imageUrl = await readImageAsDataUrl(file)
       setFormData((current) => ({ ...current, [field]: imageUrl }))
+      if (field === 'avatarUrl') {
+        setAvatarFrame(defaultImageFrameSettings)
+      } else {
+        setCompanyLogoFrame(defaultImageFrameSettings)
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Nao foi possivel carregar a imagem.')
     }
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    void onSave(formData)
-    setFormData((current) => ({
-      ...current,
-      currentPassword: '',
-      newPassword: '',
-    }))
+    try {
+      const framedData: ProfileFormData = {
+        ...formData,
+        avatarUrl: formData.avatarUrl ? await cropImageToSquareDataUrl(formData.avatarUrl, avatarFrame) : null,
+        companyLogoUrl: formData.companyLogoUrl
+          ? await cropImageToSquareDataUrl(formData.companyLogoUrl, companyLogoFrame)
+          : null,
+      }
+
+      await onSave(framedData)
+      setFormData((current) => ({
+        ...current,
+        avatarUrl: framedData.avatarUrl,
+        companyLogoUrl: framedData.companyLogoUrl,
+      }))
+      setAvatarFrame(defaultImageFrameSettings)
+      setCompanyLogoFrame(defaultImageFrameSettings)
+      setFormData((current) => ({
+        ...current,
+        currentPassword: '',
+        newPassword: '',
+      }))
+    } catch {
+      toast.error('Nao foi possivel enquadrar a imagem selecionada.')
+    }
   }
 
   function updatePreferredTheme(preferredTheme: ProfileFormData['preferredTheme']) {
@@ -1774,7 +1925,7 @@ function ProfilePage({
       />
       <form className="profile-settings-layout" onSubmit={handleSubmit}>
         <aside className="profile-overview">
-          <ProfileAvatar className="large" imageUrl={formData.avatarUrl} name={formData.name} />
+          <ProfileAvatar className="large" frame={avatarFrame} imageUrl={formData.avatarUrl} name={formData.name} />
           <div>
             <h2>{user.name}</h2>
             <p>{user.email}</p>
@@ -1799,11 +1950,21 @@ function ProfilePage({
             </div>
             <div className="media-upload-grid">
               <div className="media-upload-item">
-                <ProfileAvatar className="large media-preview-avatar" imageUrl={formData.avatarUrl} name={formData.name} />
+                <ProfileAvatar
+                  className="large media-preview-avatar"
+                  frame={avatarFrame}
+                  imageUrl={formData.avatarUrl}
+                  name={formData.name}
+                />
                 <div className="media-upload-copy">
                   <strong>Foto de perfil</strong>
                   <span>PNG, JPG ou WebP até 512 KB.</span>
                 </div>
+                <ImageFrameControls
+                  disabled={!formData.avatarUrl}
+                  frame={avatarFrame}
+                  onChange={setAvatarFrame}
+                />
                 <div className="media-upload-actions">
                   <label className="upload-button" htmlFor="profileAvatarUrl">
                     <Camera />
@@ -1822,7 +1983,14 @@ function ProfilePage({
                     }}
                   />
                   {formData.avatarUrl && (
-                    <button className="ghost-danger" type="button" onClick={() => setFormData({ ...formData, avatarUrl: null })}>
+                    <button
+                      className="ghost-danger"
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, avatarUrl: null })
+                        setAvatarFrame(defaultImageFrameSettings)
+                      }}
+                    >
                       <Trash2 />
                       Remover
                     </button>
@@ -1833,7 +2001,13 @@ function ProfilePage({
               <div className="media-upload-item">
                 <div className="company-photo-preview">
                   {formData.companyLogoUrl ? (
-                    <img src={formData.companyLogoUrl} alt={`Logo de ${user.company?.name || 'Empresa'}`} />
+                    <img
+                      src={formData.companyLogoUrl}
+                      alt={`Logo de ${user.company?.name || 'Empresa'}`}
+                      style={{
+                        transform: `translate(${companyLogoFrame.x}%, ${companyLogoFrame.y}%) scale(${companyLogoFrame.zoom})`,
+                      }}
+                    />
                   ) : (
                     <ImageIcon />
                   )}
@@ -1861,7 +2035,14 @@ function ProfilePage({
                       }}
                     />
                     {formData.companyLogoUrl && (
-                      <button className="ghost-danger" type="button" onClick={() => setFormData({ ...formData, companyLogoUrl: null })}>
+                      <button
+                        className="ghost-danger"
+                        type="button"
+                        onClick={() => {
+                          setFormData({ ...formData, companyLogoUrl: null })
+                          setCompanyLogoFrame(defaultImageFrameSettings)
+                        }}
+                      >
                         <Trash2 />
                         Remover
                       </button>
@@ -1869,6 +2050,13 @@ function ProfilePage({
                   </div>
                 ) : (
                   <span className="media-upload-note">A marca da empresa é gerenciada por administradores.</span>
+                )}
+                {canEditCompanyLogo && (
+                  <ImageFrameControls
+                    disabled={!formData.companyLogoUrl}
+                    frame={companyLogoFrame}
+                    onChange={setCompanyLogoFrame}
+                  />
                 )}
               </div>
             </div>
