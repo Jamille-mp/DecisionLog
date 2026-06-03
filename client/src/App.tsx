@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   Building2,
+  Camera,
   CheckCircle2,
   Clock,
   Download,
@@ -14,6 +15,7 @@ import {
   FileText,
   FolderOpen,
   History,
+  Image as ImageIcon,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -23,6 +25,7 @@ import {
   Settings,
   Sun,
   Trash2,
+  Upload,
   User as UserIcon,
   Users,
   X,
@@ -56,10 +59,12 @@ type User = {
     id: string
     name: string
     slug: string
+    logoUrl?: string | null
   } | null
   name: string
   email: string
   phone?: string | null
+  avatarUrl?: string | null
   preferredTheme?: 'light' | 'dark'
   departmentId?: string | null
   department?: Department | null
@@ -159,6 +164,8 @@ type OidcConfig = {
 }
 
 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3333'
+const imageFileMaxBytes = 512 * 1024
+const acceptedImageTypes = ['image/png', 'image/jpeg', 'image/webp']
 
 const emptyAuthForm: AuthForm = {
   companyName: '',
@@ -183,6 +190,8 @@ type ProfileFormData = {
   name: string
   email: string
   phone: string
+  avatarUrl: string | null
+  companyLogoUrl: string | null
   preferredTheme: 'light' | 'dark'
   currentPassword: string
   newPassword: string
@@ -202,6 +211,61 @@ function getInitials(name: string) {
     .join('')
     .substring(0, 2)
     .toUpperCase()
+}
+
+function readImageAsDataUrl(file: File) {
+  if (!acceptedImageTypes.includes(file.type)) {
+    throw new Error('Use uma imagem PNG, JPG ou WebP.')
+  }
+
+  if (file.size > imageFileMaxBytes) {
+    throw new Error('A imagem deve ter no maximo 512 KB.')
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(new Error('Nao foi possivel ler a imagem.'))
+    reader.readAsDataURL(file)
+  })
+}
+
+function ProfileAvatar({
+  className = '',
+  imageUrl,
+  name,
+}: {
+  className?: string
+  imageUrl?: string | null
+  name: string
+}) {
+  return (
+    <div className={`profile-avatar ${className}`.trim()}>
+      {imageUrl ? <img src={imageUrl} alt={`Foto de ${name}`} /> : getInitials(name)}
+    </div>
+  )
+}
+
+function CompanyBadge({
+  className = '',
+  label = 'Empresa ativa',
+  logoUrl,
+  name,
+}: {
+  className?: string
+  label?: string
+  logoUrl?: string | null
+  name: string
+}) {
+  return (
+    <div className={`company-badge ${className}`.trim()} title={`Empresa: ${name}`}>
+      <span className="company-mark">
+        {logoUrl ? <img src={logoUrl} alt={`Logo de ${name}`} /> : getInitials(name)}
+      </span>
+      <span className="company-label">{label}</span>
+      <strong>{name}</strong>
+    </div>
+  )
 }
 
 function isStrongPassword(password: string) {
@@ -394,7 +458,9 @@ function App() {
       .join('')
       .substring(0, 2)
       .toUpperCase(),
+    avatarUrl: user?.avatarUrl || '',
     company: user?.company?.name || 'Empresa',
+    companyLogoUrl: user?.company?.logoUrl || '',
   }
 
   const decisionViews = useMemo(() => decisions.map(toDecisionView), [decisions])
@@ -913,11 +979,16 @@ function App() {
     setIsSubmitting(true)
 
     try {
-      const payload: Record<string, string> = {
+      const payload: Record<string, string | null> = {
         name: data.name,
         email: data.email,
         phone: data.phone,
+        avatarUrl: data.avatarUrl,
         preferredTheme: data.preferredTheme,
+      }
+
+      if (user?.role === 'admin') {
+        payload.companyLogoUrl = data.companyLogoUrl
       }
 
       if (data.newPassword) {
@@ -1124,18 +1195,22 @@ function App() {
             onClick={() => setIsProfileMenuOpen((current) => !current)}
             aria-label="Abrir ajustes de perfil"
           >
-            {userProfile.initials}
+            {userProfile.avatarUrl ? (
+              <img src={userProfile.avatarUrl} alt={`Foto de ${userProfile.name}`} />
+            ) : (
+              userProfile.initials
+            )}
           </button>
           {isProfileMenuOpen && (
             <div className="profile-popover">
               <div className="profile-popover-header">
                 <strong>{userProfile.name}</strong>
                 <span>{userProfile.role}</span>
-                <div className="company-badge company-badge-light" title={`Organização: ${userProfile.company}`}>
-                  <Building2 />
-                  <span className="company-label">Organização</span>
-                  <strong>{userProfile.company}</strong>
-                </div>
+                <CompanyBadge
+                  className="company-badge-light"
+                  logoUrl={userProfile.companyLogoUrl}
+                  name={userProfile.company}
+                />
               </div>
               <button type="button" onClick={openProfile}>
                 <Settings />
@@ -1651,6 +1726,8 @@ function ProfilePage({
     name: user.name,
     email: user.email,
     phone: user.phone || '',
+    avatarUrl: user.avatarUrl || null,
+    companyLogoUrl: user.company?.logoUrl || null,
     preferredTheme: user.preferredTheme || 'light',
     currentPassword: '',
     newPassword: '',
@@ -1659,6 +1736,19 @@ function ProfilePage({
     current: false,
     next: false,
   })
+  const canEditCompanyLogo = user.role === 'admin'
+
+  async function handleImageChange(field: 'avatarUrl' | 'companyLogoUrl', files: FileList | null) {
+    const file = files?.[0]
+    if (!file) return
+
+    try {
+      const imageUrl = await readImageAsDataUrl(file)
+      setFormData((current) => ({ ...current, [field]: imageUrl }))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Nao foi possivel carregar a imagem.')
+    }
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -1684,11 +1774,17 @@ function ProfilePage({
       />
       <form className="profile-settings-layout" onSubmit={handleSubmit}>
         <aside className="profile-overview">
-          <div className="profile-avatar large">{getInitials(user.name)}</div>
+          <ProfileAvatar className="large" imageUrl={formData.avatarUrl} name={formData.name} />
           <div>
             <h2>{user.name}</h2>
             <p>{user.email}</p>
           </div>
+          <CompanyBadge
+            className="profile-company-badge"
+            label="Empresa"
+            logoUrl={formData.companyLogoUrl}
+            name={user.company?.name || 'Empresa'}
+          />
           <div className="profile-overview-meta">
             <span>{roleLabels[user.role]}</span>
             <span>{user.department?.name || 'Sem departamento vinculado'}</span>
@@ -1696,6 +1792,88 @@ function ProfilePage({
         </aside>
 
         <div className="profile-settings-stack">
+          <section className="profile-panel profile-media-panel">
+            <div className="profile-panel-header">
+              <h2>Fotos de identificação</h2>
+              <p>Personalize sua foto no sistema e a marca exibida para a empresa ativa.</p>
+            </div>
+            <div className="media-upload-grid">
+              <div className="media-upload-item">
+                <ProfileAvatar className="large media-preview-avatar" imageUrl={formData.avatarUrl} name={formData.name} />
+                <div className="media-upload-copy">
+                  <strong>Foto de perfil</strong>
+                  <span>PNG, JPG ou WebP até 512 KB.</span>
+                </div>
+                <div className="media-upload-actions">
+                  <label className="upload-button" htmlFor="profileAvatarUrl">
+                    <Camera />
+                    Alterar
+                  </label>
+                  <input
+                    accept="image/png,image/jpeg,image/webp"
+                    className="file-input"
+                    id="profileAvatarUrl"
+                    type="file"
+                    onChange={(event) => {
+                      const input = event.currentTarget
+                      void handleImageChange('avatarUrl', input.files).finally(() => {
+                        input.value = ''
+                      })
+                    }}
+                  />
+                  {formData.avatarUrl && (
+                    <button className="ghost-danger" type="button" onClick={() => setFormData({ ...formData, avatarUrl: null })}>
+                      <Trash2 />
+                      Remover
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="media-upload-item">
+                <div className="company-photo-preview">
+                  {formData.companyLogoUrl ? (
+                    <img src={formData.companyLogoUrl} alt={`Logo de ${user.company?.name || 'Empresa'}`} />
+                  ) : (
+                    <ImageIcon />
+                  )}
+                </div>
+                <div className="media-upload-copy">
+                  <strong>Foto da empresa</strong>
+                  <span>{user.company?.name || 'Empresa'}</span>
+                </div>
+                {canEditCompanyLogo ? (
+                  <div className="media-upload-actions">
+                    <label className="upload-button" htmlFor="companyLogoUrl">
+                      <Upload />
+                      Alterar
+                    </label>
+                    <input
+                      accept="image/png,image/jpeg,image/webp"
+                      className="file-input"
+                      id="companyLogoUrl"
+                      type="file"
+                      onChange={(event) => {
+                        const input = event.currentTarget
+                        void handleImageChange('companyLogoUrl', input.files).finally(() => {
+                          input.value = ''
+                        })
+                      }}
+                    />
+                    {formData.companyLogoUrl && (
+                      <button className="ghost-danger" type="button" onClick={() => setFormData({ ...formData, companyLogoUrl: null })}>
+                        <Trash2 />
+                        Remover
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <span className="media-upload-note">A marca da empresa é gerenciada por administradores.</span>
+                )}
+              </div>
+            </div>
+          </section>
+
           <section className="profile-panel">
             <div className="profile-panel-header">
               <h2>Informações de contato</h2>
@@ -1944,7 +2122,14 @@ function Sidebar({
   isOpen: boolean
   onClose: () => void
   onNavigate: (page: Page) => void
-  userProfile: { name: string; role: RoleLabel; initials: string; company: string }
+  userProfile: {
+    avatarUrl: string
+    company: string
+    companyLogoUrl: string
+    initials: string
+    name: string
+    role: RoleLabel
+  }
 }) {
   const menuItems = [
     { id: 'dashboard' as const, label: 'Dashboard', icon: LayoutDashboard },
@@ -1985,8 +2170,6 @@ function Sidebar({
     .map((id) => menuItems.find((item) => item.id === id))
     .filter((item): item is NonNullable<typeof item> => Boolean(item))
     .map((item) => ({ ...item, label: navLabels[item.id] || item.label }))
-  const companyInitials = getInitials(userProfile.company)
-
   return (
     <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
       <div className="sidebar-logo">
@@ -1999,17 +2182,11 @@ function Sidebar({
         </button>
       </div>
       <div className="profile-box">
-        <div className="profile-avatar">
-          {userProfile.initials}
-        </div>
+        <ProfileAvatar imageUrl={userProfile.avatarUrl} name={userProfile.name} />
         <div className="profile-box-content">
           <p>{userProfile.name}</p>
           <span className="profile-role-badge">{userProfile.role}</span>
-          <div className="company-badge" title={`Organização: ${userProfile.company}`}>
-            <span className="company-mark">{companyInitials}</span>
-            <span className="company-label">Organização</span>
-            <strong>{userProfile.company}</strong>
-          </div>
+          <CompanyBadge logoUrl={userProfile.companyLogoUrl} name={userProfile.company} />
         </div>
       </div>
       <nav className="sidebar-menu" aria-label="Navegação principal">
@@ -2861,7 +3038,7 @@ function UserDetailsModal({
         </div>
         <div className="modal-content">
           <div className="user-detail-header">
-            <div className="profile-avatar large">{getInitials(user.name)}</div>
+            <ProfileAvatar className="large" imageUrl={user.avatarUrl} name={user.name} />
             <div>
               <h3>{user.name}</h3>
               <p>{user.email}</p>

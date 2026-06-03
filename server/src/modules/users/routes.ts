@@ -24,6 +24,7 @@ const profileSelect = {
   name: true,
   email: true,
   phone: true,
+  avatarUrl: true,
   preferredTheme: true,
   departmentId: true,
   department: true,
@@ -70,6 +71,7 @@ userRoutes.patch(
       name?: string;
       email?: string;
       phone?: string | null;
+      avatarUrl?: string | null;
       preferredTheme?: string;
       passwordHash?: string;
     } = {};
@@ -98,7 +100,12 @@ userRoutes.patch(
       updateData.email = data.email;
     }
     if (data.phone !== undefined) updateData.phone = data.phone || null;
+    if (data.avatarUrl !== undefined) updateData.avatarUrl = data.avatarUrl || null;
     if (data.preferredTheme) updateData.preferredTheme = data.preferredTheme;
+
+    if (data.companyLogoUrl !== undefined && currentUser.role !== "admin") {
+      throw new AppError("Apenas administradores podem alterar a foto da empresa.", 403);
+    }
 
     if (data.newPassword) {
       const passwordMatches = await bcrypt.compare(
@@ -113,20 +120,46 @@ userRoutes.patch(
       updateData.passwordHash = await bcrypt.hash(data.newPassword, 10);
     }
 
-    const user = await prisma.user.update({
-      where: {
-        id: currentUser.id,
-      },
-      data: updateData,
-      select: profileSelect,
-    });
+    if (data.companyLogoUrl !== undefined) {
+      await prisma.company.update({
+        where: {
+          id: currentUser.companyId,
+        },
+        data: {
+          logoUrl: data.companyLogoUrl || null,
+        },
+      });
+    }
+
+    const user =
+      Object.keys(updateData).length > 0
+        ? await prisma.user.update({
+            where: {
+              id: currentUser.id,
+            },
+            data: updateData,
+            select: profileSelect,
+          })
+        : await prisma.user.findUnique({
+            where: {
+              id: currentUser.id,
+            },
+            select: profileSelect,
+          });
+
+    if (!user) {
+      throw new AppError("UsuÃ¡rio nÃ£o encontrado.", 404);
+    }
 
     void logActivity(
       "PROFILE_UPDATED",
       {
         userId: currentUser.id,
         companyId: currentUser.companyId,
-        campos: Object.keys(updateData).filter((key) => key !== "passwordHash"),
+        campos: [
+          ...Object.keys(updateData).filter((key) => key !== "passwordHash"),
+          ...(data.companyLogoUrl !== undefined ? ["companyLogoUrl"] : []),
+        ],
         senhaAlterada: Boolean(updateData.passwordHash),
       },
       request.user?.id,
@@ -171,6 +204,7 @@ userRoutes.delete(
         name: `Usuário excluído ${currentUser.id.slice(0, 8)}`,
         email: `deleted-${currentUser.id}@decisionlog.local`,
         phone: null,
+        avatarUrl: null,
         departmentId: null,
       },
       select: {
@@ -234,6 +268,7 @@ userRoutes.get(
         name: true,
         email: true,
         phone: true,
+        avatarUrl: true,
         preferredTheme: true,
         departmentId: true,
         department: true,
@@ -297,6 +332,7 @@ userRoutes.patch(
         name: true,
         email: true,
         phone: true,
+        avatarUrl: true,
         preferredTheme: true,
         departmentId: true,
         department: true,

@@ -15,6 +15,7 @@ model User {
   email        String     @unique
   passwordHash String
   phone        String?
+  avatarUrl    String?    @db.MediumText
   preferredTheme String   @default("light")
   departmentId String?
   department   Department? @relation(fields: [departmentId], references: [id])
@@ -77,6 +78,7 @@ model Company {
   id        String          @id @default(uuid())
   name      String
   slug      String          @unique
+  logoUrl   String?         @db.MediumText
   active    Boolean         @default(true)
   domains   CompanyDomain[]
   users     User[]
