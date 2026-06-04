@@ -69,6 +69,29 @@
   padding: 12px 14px;
 }
 
+.company-access-code {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(212, 176, 98, 0.4);
+  border-radius: 8px;
+  background: #fff8ea;
+  color: #183354;
+  padding: 14px;
+}
+
+.company-access-code span {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.company-access-code strong {
+  font-family: 'Courier New', monospace;
+  font-size: 18px;
+  letter-spacing: 0;
+}
+
 .profile-settings-stack {
   display: grid;
   gap: 16px;
@@ -204,31 +227,76 @@
 .image-frame-controls {
   display: grid;
   grid-column: 2;
+  gap: 10px;
+  justify-items: start;
+}
+
+.image-crop-stage {
+  position: relative;
+  display: grid;
+  width: 132px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid rgba(212, 176, 98, 0.9);
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #6b7280;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.image-crop-stage.dragging {
+  cursor: grabbing;
+}
+
+.image-crop-stage[aria-disabled='true'] {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.image-crop-stage::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.58), inset 0 0 24px rgba(24, 51, 84, 0.1);
+  content: '';
+  pointer-events: none;
+}
+
+.image-crop-stage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  transform-origin: center;
+}
+
+.image-crop-placeholder {
+  max-width: 90px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.image-crop-actions {
+  display: grid;
   gap: 8px;
 }
 
-.image-frame-controls label {
-  display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-}
-
-.image-frame-controls span {
-  color: #183354;
+.image-crop-actions span {
+  max-width: 220px;
+  color: #6b7280;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
-.profile-panel .image-frame-controls input[type='range'] {
-  width: 100%;
-  border: 0;
-  accent-color: #183354;
-  padding: 0;
-}
-
-.image-frame-controls button {
+.image-crop-actions button {
   justify-self: start;
   border: 1px solid rgba(24, 51, 84, 0.16);
   border-radius: 8px;

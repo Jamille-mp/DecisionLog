@@ -78,6 +78,7 @@ model Company {
   id        String          @id @default(uuid())
   name      String
   slug      String          @unique
+  accessCode String         @unique
   logoUrl   String?         @db.MediumText
   active    Boolean         @default(true)
   domains   CompanyDomain[]

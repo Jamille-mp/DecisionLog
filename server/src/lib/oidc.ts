@@ -109,8 +109,9 @@ async function getJwks(jwksUri: string) {
   return jwksCache;
 }
 
-export function createOidcState(returnTo = "/") {
+export function createOidcState(returnTo = "/", companyAccessCode?: string) {
   const payload = {
+    companyAccessCode,
     exp: Math.floor(Date.now() / 1000) + 10 * 60,
     nonce: crypto.randomBytes(16).toString("hex"),
     returnTo,
@@ -147,6 +148,7 @@ export function verifyOidcState(state: string) {
   }
 
   const payload = jsonFromBase64Url<{
+    companyAccessCode?: string;
     exp: number;
     nonce: string;
     returnTo?: string;
@@ -159,9 +161,9 @@ export function verifyOidcState(state: string) {
   return payload;
 }
 
-export async function buildAuthorizationUrl(returnTo?: string) {
+export async function buildAuthorizationUrl(returnTo?: string, companyAccessCode?: string) {
   const discovery = await getDiscovery();
-  const { nonce, state } = createOidcState(returnTo);
+  const { nonce, state } = createOidcState(returnTo, companyAccessCode);
   const authorizationUrl = new URL(discovery.authorization_endpoint);
 
   authorizationUrl.searchParams.set("response_type", "code");

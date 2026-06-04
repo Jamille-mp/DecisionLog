@@ -191,9 +191,20 @@ body[data-theme='dark'] .filter-status {
 }
 
 body[data-theme='dark'] .profile-summary span,
-body[data-theme='dark'] .profile-overview-meta span {
+body[data-theme='dark'] .profile-overview-meta span,
+body[data-theme='dark'] .company-access-code {
   border-color: rgba(255, 255, 255, 0.12);
   background: #0f172a;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .company-access-code span,
+body[data-theme='dark'] .image-crop-actions span,
+body[data-theme='dark'] .image-crop-placeholder {
+  color: #94a3b8;
+}
+
+body[data-theme='dark'] .company-access-code strong {
   color: #f8fafc;
 }
 
@@ -202,6 +213,11 @@ body[data-theme='dark'] .profile-company-badge,
 body[data-theme='dark'] .profile-panel .upload-button {
   border-color: rgba(255, 255, 255, 0.12);
   background: #0f172a;
+}
+
+body[data-theme='dark'] .image-crop-stage {
+  border-color: rgba(212, 176, 98, 0.72);
+  background: #172033;
 }
 
 body[data-theme='dark'] .profile-company-badge .company-mark,
@@ -223,14 +239,10 @@ body[data-theme='dark'] .profile-panel .upload-button {
   color: #f8fafc;
 }
 
-body[data-theme='dark'] .image-frame-controls button {
+body[data-theme='dark'] .image-crop-actions button {
   border-color: rgba(255, 255, 255, 0.12);
   background: #172033;
   color: #f8fafc;
-}
-
-body[data-theme='dark'] .profile-panel .image-frame-controls input[type='range'] {
-  accent-color: #d4b062;
 }
 
 body[data-theme='dark'] .ghost-danger {

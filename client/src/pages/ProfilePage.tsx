@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
+import { useRef, useState } from 'react'
+import type { FormEvent, PointerEvent } from 'react'
 import { Camera, Eye, EyeOff, Image as ImageIcon, Moon, Sun, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { CompanyBadge } from '../components/shared/CompanyBadge'
@@ -19,57 +19,84 @@ type ProfilePageProps = {
 function ImageFrameControls({
   disabled = false,
   frame,
+  imageUrl,
+  name,
   onChange,
 }: {
   disabled?: boolean
   frame: ImageFrameSettings
+  imageUrl?: string | null
+  name: string
   onChange: (frame: ImageFrameSettings) => void
 }) {
-  const updateFrame = (field: keyof ImageFrameSettings, value: number) => {
-    onChange({ ...frame, [field]: value })
+  const [isDragging, setIsDragging] = useState(false)
+  const dragStart = useRef<{ clientX: number; clientY: number; frameX: number; frameY: number } | null>(null)
+
+  const clampFrame = (value: number) => Math.max(-45, Math.min(45, value))
+
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (disabled || !imageUrl) return
+
+    dragStart.current = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      frameX: frame.x,
+      frameY: frame.y,
+    }
+    event.currentTarget.setPointerCapture(event.pointerId)
+    setIsDragging(true)
+  }
+
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    if (!dragStart.current || disabled || !imageUrl) return
+
+    const { width, height } = event.currentTarget.getBoundingClientRect()
+    const deltaX = ((event.clientX - dragStart.current.clientX) / Math.max(width, 1)) * 100
+    const deltaY = ((event.clientY - dragStart.current.clientY) / Math.max(height, 1)) * 100
+
+    onChange({
+      ...frame,
+      x: clampFrame(dragStart.current.frameX + deltaX),
+      y: clampFrame(dragStart.current.frameY + deltaY),
+    })
+  }
+
+  function handlePointerEnd(event: PointerEvent<HTMLDivElement>) {
+    dragStart.current = null
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+    setIsDragging(false)
   }
 
   return (
     <div className="image-frame-controls" aria-label="Ajuste de enquadramento">
-      <label>
-        <span>Zoom</span>
-        <input
-          type="range"
-          min="1"
-          max="2.4"
-          step="0.05"
-          value={frame.zoom}
-          disabled={disabled}
-          onChange={(event) => updateFrame('zoom', Number(event.target.value))}
-        />
-      </label>
-      <label>
-        <span>Horizontal</span>
-        <input
-          type="range"
-          min="-45"
-          max="45"
-          step="1"
-          value={frame.x}
-          disabled={disabled}
-          onChange={(event) => updateFrame('x', Number(event.target.value))}
-        />
-      </label>
-      <label>
-        <span>Vertical</span>
-        <input
-          type="range"
-          min="-45"
-          max="45"
-          step="1"
-          value={frame.y}
-          disabled={disabled}
-          onChange={(event) => updateFrame('y', Number(event.target.value))}
-        />
-      </label>
-      <button type="button" disabled={disabled} onClick={() => onChange(defaultImageFrameSettings)}>
-        Centralizar
-      </button>
+      <div
+        aria-disabled={disabled || !imageUrl}
+        className={`image-crop-stage${isDragging ? ' dragging' : ''}`.trim()}
+        onPointerCancel={handlePointerEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerEnd}
+        role="application"
+      >
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={`Enquadramento de ${name}`}
+            draggable={false}
+            style={{ transform: `translate(${frame.x}%, ${frame.y}%) scale(${frame.zoom})` }}
+          />
+        ) : (
+          <span className="image-crop-placeholder">Selecione uma imagem</span>
+        )}
+      </div>
+      <div className="image-crop-actions">
+        <span>{imageUrl ? 'Arraste a imagem para ajustar o enquadramento.' : 'Envie uma foto para ajustar.'}</span>
+        <button type="button" disabled={disabled || !imageUrl} onClick={() => onChange(defaultImageFrameSettings)}>
+          Centralizar
+        </button>
+      </div>
     </div>
   )
 }
@@ -168,6 +195,12 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
             <span>{roleLabels[user.role]}</span>
             <span>{user.department?.name || 'Sem departamento vinculado'}</span>
           </div>
+          {user.role === 'admin' && user.company?.accessCode && (
+            <div className="company-access-code">
+              <span>Código da empresa</span>
+              <strong>{user.company.accessCode}</strong>
+            </div>
+          )}
         </aside>
 
         <div className="profile-settings-stack">
@@ -188,7 +221,13 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                   <strong>Foto de perfil</strong>
                   <span>PNG, JPG ou WebP até 512 KB.</span>
                 </div>
-                <ImageFrameControls disabled={!formData.avatarUrl} frame={avatarFrame} onChange={setAvatarFrame} />
+                <ImageFrameControls
+                  disabled={!formData.avatarUrl}
+                  frame={avatarFrame}
+                  imageUrl={formData.avatarUrl}
+                  name={formData.name}
+                  onChange={setAvatarFrame}
+                />
                 <div className="media-upload-actions">
                   <label className="upload-button" htmlFor="profileAvatarUrl">
                     <Camera />
@@ -279,6 +318,8 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                   <ImageFrameControls
                     disabled={!formData.companyLogoUrl}
                     frame={companyLogoFrame}
+                    imageUrl={formData.companyLogoUrl}
+                    name={user.company?.name || 'Empresa'}
                     onChange={setCompanyLogoFrame}
                   />
                 )}

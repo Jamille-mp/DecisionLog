@@ -1,6 +1,7 @@
 import type { ApiRole, AuthForm, DecisionFormData, ImageFrameSettings, RoleLabel } from '../types'
 
 export const emptyAuthForm: AuthForm = {
+  companyAccessCode: '',
   companyName: '',
   name: '',
   email: '',

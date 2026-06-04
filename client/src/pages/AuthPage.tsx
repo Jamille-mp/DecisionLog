@@ -269,6 +269,18 @@ export function AuthPage({
                 />
               </div>
             )}
+            {authMode === 'register' && (
+              <div>
+                <label htmlFor="companyAccessCode">CÃ³digo da empresa</label>
+                <input
+                  id="companyAccessCode"
+                  value={authForm.companyAccessCode}
+                  onChange={(event) => onChange({ ...authForm, companyAccessCode: event.target.value.toUpperCase() })}
+                  placeholder="Ex: DL-AESA01"
+                  required
+                />
+              </div>
+            )}
             <div>
               <label htmlFor="email">E-mail</label>
               <input
@@ -383,9 +395,18 @@ export function AuthPage({
             </button>
           </form>
           {authMode === 'login' && oidcConfig.enabled && (
-            <button className="oidc-button" type="button" onClick={onOidcLogin}>
-              {oidcConfig.providerName}
-            </button>
+            <div className="oidc-access-block">
+              <label htmlFor="oidcCompanyAccessCode">CÃ³digo da empresa</label>
+              <input
+                id="oidcCompanyAccessCode"
+                value={authForm.companyAccessCode}
+                onChange={(event) => onChange({ ...authForm, companyAccessCode: event.target.value.toUpperCase() })}
+                placeholder="Somente para primeiro acesso"
+              />
+              <button className="oidc-button" type="button" onClick={onOidcLogin}>
+                {oidcConfig.providerName}
+              </button>
+            </div>
           )}
           {authMode === 'login' && (
             <div className="password-recovery-row">

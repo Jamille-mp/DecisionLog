@@ -329,13 +329,14 @@ function App() {
                 acceptedTerms: authForm.acceptedTerms,
                 acceptedPrivacy: authForm.acceptedPrivacy,
               }
-          : {
-              name: authForm.name,
-              email: authForm.email,
-              password: authForm.password,
-              acceptedTerms: authForm.acceptedTerms,
-              acceptedPrivacy: authForm.acceptedPrivacy,
-            }
+            : {
+                name: authForm.name,
+                email: authForm.email,
+                companyAccessCode: authForm.companyAccessCode,
+                password: authForm.password,
+                acceptedTerms: authForm.acceptedTerms,
+                acceptedPrivacy: authForm.acceptedPrivacy,
+              }
 
       const response = await fetch(`${apiUrl}/auth/${endpoint}`, {
         method: 'POST',
@@ -385,7 +386,12 @@ function App() {
   }
 
   function handleOidcLogin() {
-    window.location.href = `${apiUrl}/auth/oidc/start`
+    const params = new URLSearchParams()
+    if (authForm.companyAccessCode.trim()) {
+      params.set('companyAccessCode', authForm.companyAccessCode.trim())
+    }
+
+    window.location.href = `${apiUrl}/auth/oidc/start${params.size ? `?${params.toString()}` : ''}`
   }
 
   async function handleSaveDecision(formData: DecisionFormData) {

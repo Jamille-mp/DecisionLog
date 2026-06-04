@@ -91,6 +91,7 @@ describe("DecisionLog API", () => {
         id: companyId,
         name: "DecisionLog",
         slug: "decisionlog",
+        accessCode: "DL-DEMO01",
         active: true,
       },
     });
@@ -553,6 +554,13 @@ describe("DecisionLog API", () => {
 
   it("cadastra usuario com consentimento LGPD registrado", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue(null);
+    mocks.prisma.company.findUnique.mockResolvedValueOnce({
+      id: companyId,
+      name: "DecisionLog",
+      slug: "decisionlog",
+      accessCode: "DL-DEMO01",
+      active: true,
+    });
     mocks.prisma.user.create.mockResolvedValue({
       id: "user-2",
       companyId,
@@ -568,6 +576,8 @@ describe("DecisionLog API", () => {
       name: "Nova Usuaria",
       email: "nova@decisionlog.local",
       password: "DecisionLog@26",
+      companyAccessCode: "DL-DEMO01",
+      role: "admin",
       acceptedTerms: true,
       acceptedPrivacy: true,
     });
@@ -576,6 +586,7 @@ describe("DecisionLog API", () => {
     expect(mocks.prisma.user.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
+          role: "manager",
           termsAcceptedAt: expect.any(Date),
           privacyAcceptedAt: expect.any(Date),
         }),
@@ -583,14 +594,31 @@ describe("DecisionLog API", () => {
     );
   });
 
+  it("bloqueia cadastro comum com codigo de empresa invalido", async () => {
+    mocks.prisma.company.findUnique.mockResolvedValueOnce(null);
+
+    const response = await request(app).post("/auth/register").send({
+      name: "Nova Usuaria",
+      email: "nova@decisionlog.local",
+      password: "DecisionLog@26",
+      companyAccessCode: "DL-ERRADO",
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+    });
+
+    expect(response.status).toBe(403);
+    expect(mocks.prisma.user.create).not.toHaveBeenCalled();
+  });
+
   it("cadastra empresa e cria primeiro administrador pelo domínio corporativo", async () => {
     mocks.prisma.companyDomain.findUnique.mockResolvedValueOnce(null);
-    mocks.prisma.company.findUnique.mockResolvedValueOnce(null);
+    mocks.prisma.company.findUnique.mockResolvedValue(null);
     mocks.prisma.user.findUnique.mockResolvedValueOnce(null);
     mocks.prisma.company.create.mockResolvedValue({
       id: "company-aesa",
       name: "AESA",
       slug: "aesa",
+      accessCode: "DL-AESA01",
       active: true,
       createdAt: new Date(),
       updatedAt: new Date(),

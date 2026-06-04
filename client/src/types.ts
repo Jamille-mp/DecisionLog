@@ -10,6 +10,7 @@ export type Company = {
   id: string
   name: string
   slug: string
+  accessCode?: string
   logoUrl?: string | null
 }
 
@@ -104,6 +105,7 @@ export type DecisionFormData = {
 }
 
 export type AuthForm = {
+  companyAccessCode: string
   companyName: string
   name: string
   email: string

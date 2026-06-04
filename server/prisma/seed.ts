@@ -5,11 +5,13 @@ const seedCompanies = [
   {
     name: "DecisionLog",
     slug: "decisionlog",
+    accessCode: "DL-DEMO01",
     domains: ["decisionlog.local"],
   },
   {
     name: "AESA",
     slug: "aesa",
+    accessCode: "DL-AESA01",
     domains: ["aesa-cesa.br"],
   },
 ];
@@ -275,11 +277,13 @@ async function main() {
         },
         update: {
           name: company.name,
+          accessCode: company.accessCode,
           active: true,
         },
         create: {
           name: company.name,
           slug: company.slug,
+          accessCode: company.accessCode,
           active: true,
         },
       }),

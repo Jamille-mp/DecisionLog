@@ -3,7 +3,13 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { AppError } from "../../errors/AppError";
-import { createCompanySlug, findCompanyByEmail, getEmailDomain } from "../../lib/company";
+import {
+  assertCompanyAccessCode,
+  createCompanySlug,
+  findCompanyByEmail,
+  generateUniqueCompanyAccessCode,
+  getEmailDomain,
+} from "../../lib/company";
 import { logActivity } from "../../lib/mongodb";
 import {
   buildAuthorizationUrl,
@@ -14,6 +20,7 @@ import {
   verifyOidcState,
 } from "../../lib/oidc";
 import { prisma } from "../../lib/prisma";
+import { exposeCompanyAccessCodeForAdmin } from "../../lib/userResponse";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import {
   forgotPasswordSchema,
@@ -68,7 +75,11 @@ authRoutes.get(
 
     const returnTo =
       typeof request.query.returnTo === "string" ? request.query.returnTo : "/";
-    const authorizationUrl = await buildAuthorizationUrl(returnTo);
+    const companyAccessCode =
+      typeof request.query.companyAccessCode === "string"
+        ? request.query.companyAccessCode
+        : undefined;
+    const authorizationUrl = await buildAuthorizationUrl(returnTo, companyAccessCode);
 
     response.redirect(authorizationUrl);
   }),
@@ -112,6 +123,12 @@ authRoutes.get(
     }
 
     if (!user) {
+      if (!verifiedState.companyAccessCode) {
+        throw new AppError("Informe o cÃ³digo da empresa para o primeiro acesso institucional.", 403);
+      }
+
+      await assertCompanyAccessCode(company.id, verifiedState.companyAccessCode);
+
       const acceptedAt = new Date();
       const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 10);
       const companyUsers = await prisma.user.count({
@@ -203,10 +220,12 @@ authRoutes.post(
 
     const acceptedAt = new Date();
     const passwordHash = await bcrypt.hash(data.password, 10);
+    const accessCode = await generateUniqueCompanyAccessCode();
     const company = await prisma.company.create({
       data: {
         name: data.companyName,
         slug,
+        accessCode,
         active: true,
       },
     });
@@ -250,6 +269,7 @@ authRoutes.post(
         companyId: company.id,
         companyName: company.name,
         domain,
+        accessCode: company.accessCode,
         adminUserId: user.id,
         adminEmail: user.email,
       },
@@ -270,6 +290,7 @@ authRoutes.post(
   asyncHandler(async (request, response) => {
     const data = registerSchema.parse(request.body);
     const company = await findCompanyByEmail(data.email);
+    await assertCompanyAccessCode(company.id, data.companyAccessCode);
     const existingUser = await prisma.user.findUnique({
       where: {
         email: data.email,
@@ -288,7 +309,7 @@ authRoutes.post(
         name: data.name,
         email: data.email,
         passwordHash,
-        role: data.role,
+        role: "manager",
         termsAcceptedAt: acceptedAt,
         privacyAcceptedAt: acceptedAt,
       },
@@ -313,7 +334,7 @@ authRoutes.post(
       user.companyId,
     );
 
-    response.status(201).json(user);
+    response.status(201).json(exposeCompanyAccessCodeForAdmin(user));
   }),
 );
 
@@ -350,20 +371,22 @@ authRoutes.post(
       user.companyId,
     );
 
+    const responseUser = exposeCompanyAccessCodeForAdmin(user);
+
     response.json({
       token,
       user: {
-        id: user.id,
-        companyId: user.companyId,
-        company: user.company,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        avatarUrl: user.avatarUrl,
-        preferredTheme: user.preferredTheme,
-        departmentId: user.departmentId,
-        department: user.department,
-        role: user.role,
+        id: responseUser.id,
+        companyId: responseUser.companyId,
+        company: responseUser.company,
+        name: responseUser.name,
+        email: responseUser.email,
+        phone: responseUser.phone,
+        avatarUrl: responseUser.avatarUrl,
+        preferredTheme: responseUser.preferredTheme,
+        departmentId: responseUser.departmentId,
+        department: responseUser.department,
+        role: responseUser.role,
       },
     });
   }),

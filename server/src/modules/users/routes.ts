@@ -4,6 +4,7 @@ import { AppError } from "../../errors/AppError";
 import { findCompanyByEmail } from "../../lib/company";
 import { logActivity } from "../../lib/mongodb";
 import { prisma } from "../../lib/prisma";
+import { exposeCompanyAccessCodeForAdmin } from "../../lib/userResponse";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import { isAuthenticated } from "../../middlewares/isAuthenticated";
 import { requireRole } from "../../middlewares/requireRole";
@@ -49,7 +50,7 @@ userRoutes.get(
       throw new AppError("Usuário não encontrado.", 404);
     }
 
-    response.json(user);
+    response.json(exposeCompanyAccessCodeForAdmin(user));
   }),
 );
 
@@ -166,7 +167,7 @@ userRoutes.patch(
       request.user?.companyId,
     );
 
-    response.json(user);
+    response.json(exposeCompanyAccessCodeForAdmin(user));
   }),
 );
 

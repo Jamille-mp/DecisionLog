@@ -15,8 +15,8 @@ export const passwordSchema = z
 export const registerSchema = z.object({
   name: z.string().min(2),
   email: z.email(),
+  companyAccessCode: z.string().min(4),
   password: passwordSchema,
-  role: userRoleSchema.optional().default("manager"),
   acceptedTerms: z.literal(true),
   acceptedPrivacy: z.literal(true),
 });
