@@ -1,0 +1,726 @@
+﻿body[data-theme='dark'] .login-card,
+body[data-theme='dark'] .kpi-card,
+body[data-theme='dark'] .chart-card,
+body[data-theme='dark'] .form-card,
+body[data-theme='dark'] .table-card,
+body[data-theme='dark'] .audit-card,
+body[data-theme='dark'] .empty-card,
+body[data-theme='dark'] .modal-card,
+body[data-theme='dark'] .profile-popover,
+body[data-theme='dark'] .help-card,
+body[data-theme='dark'] .faq-panel,
+body[data-theme='dark'] .faq-grid article,
+body[data-theme='dark'] .health-grid span,
+body[data-theme='dark'] .loading-panel,
+body[data-theme='dark'] .profile-overview,
+body[data-theme='dark'] .profile-panel,
+body[data-theme='dark'] .profile-save-panel,
+body[data-theme='dark'] .monitor-card,
+body[data-theme='dark'] .monitor-operations article,
+body[data-theme='dark'] .demo-notice,
+body[data-theme='dark'] .about-panel,
+body[data-theme='dark'] .about-metrics span,
+body[data-theme='dark'] .audit-filter-panel,
+body[data-theme='dark'] .filters-card,
+body[data-theme='dark'] .decision-progress-card,
+body[data-theme='dark'] .decision-checklist span,
+body[data-theme='dark'] .admin-summary-grid article,
+body[data-theme='dark'] .monitor-summary,
+body[data-theme='dark'] .technical-grid article,
+body[data-theme='dark'] .presentation-page,
+body[data-theme='dark'] .presentation-topbar,
+body[data-theme='dark'] .auth-back-button,
+body[data-theme='dark'] .presentation-contact,
+body[data-theme='dark'] .presentation-contact-list span,
+body[data-theme='dark'] .preview-window,
+body[data-theme='dark'] .preview-kpis article,
+body[data-theme='dark'] .presentation-process article,
+body[data-theme='dark'] .presentation-benefits div,
+body[data-theme='dark'] .preview-note,
+body[data-theme='dark'] .back-button,
+body[data-theme='dark'] .date-filter,
+body[data-theme='dark'] .dashboard-guidance article {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #172033;
+  box-shadow: none;
+}
+
+body[data-theme='dark'] .login-card h2,
+body[data-theme='dark'] .login-card-header h2,
+body[data-theme='dark'] .consent-box > strong,
+body[data-theme='dark'] .page-section h1,
+body[data-theme='dark'] .chart-card h3,
+body[data-theme='dark'] .modal-header h2,
+body[data-theme='dark'] .help-card h2,
+body[data-theme='dark'] .faq-grid h3,
+body[data-theme='dark'] .profile-panel h2,
+body[data-theme='dark'] .profile-overview h2,
+body[data-theme='dark'] .monitor-card strong,
+body[data-theme='dark'] .monitor-operations h3,
+body[data-theme='dark'] .demo-notice strong,
+body[data-theme='dark'] .about-panel h2,
+body[data-theme='dark'] .about-metrics span,
+body[data-theme='dark'] .form-section-heading h2,
+body[data-theme='dark'] .technical-grid h3,
+body[data-theme='dark'] .decision-progress-card strong,
+body[data-theme='dark'] .presentation-copy h1,
+body[data-theme='dark'] .presentation-topbar strong,
+body[data-theme='dark'] .presentation-section-heading h2,
+body[data-theme='dark'] .presentation-contact h2,
+body[data-theme='dark'] .presentation-benefits strong,
+body[data-theme='dark'] .presentation-footer strong,
+body[data-theme='dark'] .preview-kpis strong,
+body[data-theme='dark'] .preview-heading strong,
+body[data-theme='dark'] .preview-note strong,
+body[data-theme='dark'] .presentation-process span,
+body[data-theme='dark'] .dashboard-guidance strong,
+body[data-theme='dark'] .filters-card-header strong,
+body[data-theme='dark'] .admin-summary-grid strong,
+body[data-theme='dark'] .export-options strong,
+body[data-theme='dark'] .preview-table div:first-child strong,
+body[data-theme='dark'] .user-detail-header h3,
+body[data-theme='dark'] .back-button,
+body[data-theme='dark'] td,
+body[data-theme='dark'] .modal-content strong,
+body[data-theme='dark'] .timeline-header span,
+body[data-theme='dark'] .timeline-action span,
+body[data-theme='dark'] .primary {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .login-card p,
+body[data-theme='dark'] .login-card-header p,
+body[data-theme='dark'] .kpi-card p,
+body[data-theme='dark'] .modal-content p,
+body[data-theme='dark'] .timeline-content p,
+body[data-theme='dark'] .loading-panel,
+body[data-theme='dark'] .profile-overview p,
+body[data-theme='dark'] .profile-panel-header p,
+body[data-theme='dark'] .monitor-card span,
+body[data-theme='dark'] .monitor-card p,
+body[data-theme='dark'] .faq-grid p,
+body[data-theme='dark'] .monitor-operations ul,
+body[data-theme='dark'] .demo-notice span,
+body[data-theme='dark'] .about-panel p,
+body[data-theme='dark'] .form-section-heading p,
+body[data-theme='dark'] .decision-progress-card > div:first-child span,
+body[data-theme='dark'] .page-subtitle,
+body[data-theme='dark'] .monitor-summary,
+body[data-theme='dark'] .technical-grid ul,
+body[data-theme='dark'] .presentation-copy p,
+body[data-theme='dark'] .presentation-actions span,
+body[data-theme='dark'] .presentation-section-heading p,
+body[data-theme='dark'] .presentation-contact p,
+body[data-theme='dark'] .presentation-topbar span,
+body[data-theme='dark'] .presentation-footer,
+body[data-theme='dark'] .preview-kpis span,
+body[data-theme='dark'] .preview-heading span,
+body[data-theme='dark'] .presentation-process p,
+body[data-theme='dark'] .dashboard-guidance p,
+body[data-theme='dark'] .filters-card-header span,
+body[data-theme='dark'] .admin-summary-grid span,
+body[data-theme='dark'] .export-options small,
+body[data-theme='dark'] .preview-note span,
+body[data-theme='dark'] .preview-table span,
+body[data-theme='dark'] .user-detail-header p,
+body[data-theme='dark'] .field-hint,
+body[data-theme='dark'] .empty-card span,
+body[data-theme='dark'] .legal-content p {
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] .presentation-process strong {
+  background: #d4b062;
+  color: #183354;
+}
+
+body[data-theme='dark'] .decision-progress-bar {
+  background: #0f172a;
+}
+
+body[data-theme='dark'] .decision-checklist span.done {
+  border-color: rgba(16, 185, 129, 0.32);
+  background: rgba(16, 185, 129, 0.12);
+  color: #86efac;
+}
+
+body[data-theme='dark'] .export-options button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #172033;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .export-options svg {
+  background: #0f172a;
+}
+
+body[data-theme='dark'] .presentation-actions a,
+body[data-theme='dark'] .presentation-footer a {
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] .presentation-actions button.secondary {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: #172033;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .page-title-row {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme='dark'] .password-recovery-row,
+body[data-theme='dark'] .auth-switcher,
+body[data-theme='dark'] .login-footnote {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme='dark'] .presentation-topbar,
+body[data-theme='dark'] .presentation-section,
+body[data-theme='dark'] .presentation-footer {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme='dark'] .filters-card-header {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme='dark'] .filter-status {
+  background: rgba(212, 176, 98, 0.16);
+  color: #facc15;
+}
+
+body[data-theme='dark'] .profile-summary span,
+body[data-theme='dark'] .profile-overview-meta span {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .media-upload-item,
+body[data-theme='dark'] .profile-company-badge,
+body[data-theme='dark'] .profile-panel .upload-button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+}
+
+body[data-theme='dark'] .profile-company-badge .company-mark,
+body[data-theme='dark'] .company-photo-preview {
+  background: rgba(212, 176, 98, 0.18);
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .profile-company-badge .company-label,
+body[data-theme='dark'] .media-upload-copy span,
+body[data-theme='dark'] .media-upload-note {
+  color: #94a3b8;
+}
+
+body[data-theme='dark'] .profile-company-badge strong,
+body[data-theme='dark'] .media-upload-copy strong,
+body[data-theme='dark'] .image-frame-controls span,
+body[data-theme='dark'] .profile-panel .upload-button {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .image-frame-controls button {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #172033;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .profile-panel .image-frame-controls input[type='range'] {
+  accent-color: #d4b062;
+}
+
+body[data-theme='dark'] .ghost-danger {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+}
+
+body[data-theme='dark'] .company-badge-light {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+}
+
+body[data-theme='dark'] .company-badge-light .company-mark,
+body[data-theme='dark'] .company-badge-light svg {
+  background: rgba(212, 176, 98, 0.18);
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .company-badge-light .company-label {
+  color: #94a3b8;
+}
+
+body[data-theme='dark'] .company-badge-light strong {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .help-card p {
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] input,
+body[data-theme='dark'] select,
+body[data-theme='dark'] textarea,
+body[data-theme='dark'] .filter-grid select,
+body[data-theme='dark'] .filter-grid input,
+body[data-theme='dark'] .date-filter input,
+body[data-theme='dark'] .table-input,
+body[data-theme='dark'] .description-box,
+body[data-theme='dark'] .timeline-content {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .login-form label,
+body[data-theme='dark'] .decision-form label,
+body[data-theme='dark'] .profile-panel label,
+body[data-theme='dark'] .consent-box label,
+body[data-theme='dark'] .health-grid span,
+body[data-theme='dark'] .empty-card p,
+body[data-theme='dark'] th,
+body[data-theme='dark'] .theme-toggle button {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .profile-popover button {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .password-field button {
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] .password-field button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body[data-theme='dark'] .profile-popover button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body[data-theme='dark'] .consent-box,
+body[data-theme='dark'] .legal-actions button,
+body[data-theme='dark'] .theme-toggle button,
+body[data-theme='dark'] .oidc-button,
+body[data-theme='dark'] .legal-summary {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+}
+
+body[data-theme='dark'] .oidc-button {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .oidc-button:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+body[data-theme='dark'] .legal-summary span {
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] .app-footer {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme='dark'] .clear-filters {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .preview-table em {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .theme-toggle button.active {
+  border-color: #d4b062;
+  background: rgba(212, 176, 98, 0.16);
+}
+
+body[data-theme='dark'] tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+body[data-theme='dark'] .action-row button {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .action-row .danger {
+  color: #fca5a5;
+}
+
+body[data-theme='dark'] .action-row .gold {
+  color: #facc15;
+}
+
+body[data-theme='dark'] .modal-header {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #172033;
+}
+
+@media (max-width: 900px) {
+  .login-shell,
+  .about-panel,
+  .dashboard-guidance,
+  .presentation-shell,
+  .technical-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .login-intro-panel {
+    min-height: auto;
+  }
+
+  .login-assurance-list,
+  .presentation-process,
+  .presentation-benefits {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kpi-grid,
+  .chart-grid,
+  .form-grid,
+  .filter-grid,
+  .faq-grid,
+  .help-grid,
+  .help-grid.compact,
+  .health-grid,
+  .detail-grid,
+  .admin-summary-grid,
+  .monitor-operations,
+  .media-upload-grid,
+  .profile-settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-overview {
+    position: static;
+  }
+
+  .media-upload-item {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .media-preview-avatar,
+  .company-photo-preview {
+    width: 72px;
+    height: 72px;
+  }
+
+  .image-frame-controls {
+    grid-column: 1 / -1;
+  }
+
+  .profile-save-panel button {
+    width: 100%;
+  }
+
+  .page-section {
+    padding: 20px;
+  }
+
+  .app-footer,
+  .monitor-summary,
+  .presentation-contact {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .app-footer {
+    width: calc(100% - 40px);
+  }
+}
+
+@media (max-width: 640px) {
+  .login-page {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .presentation-page {
+    padding: 0;
+  }
+
+  .presentation-shell {
+    gap: 24px;
+    padding: 28px 20px;
+  }
+
+  .presentation-topbar {
+    position: static;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    border-radius: 0;
+    padding: 14px 20px;
+  }
+
+  .presentation-topbar > div {
+    flex: 1 1 auto;
+  }
+
+  .presentation-topbar-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .presentation-login-button {
+    flex: 0 0 auto;
+  }
+
+  .presentation-actions button,
+  .presentation-contact button {
+    width: 100%;
+  }
+
+  .presentation-copy {
+    padding: 0;
+  }
+
+  .presentation-copy h1 {
+    font-size: 32px;
+  }
+
+  .preview-kpis,
+  .preview-table {
+    padding-inline: 14px;
+  }
+
+  .preview-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .login-shell {
+    min-height: 100vh;
+    gap: 0;
+  }
+
+  .login-intro-panel,
+  .login-card {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .login-intro-panel {
+    padding: 24px 20px;
+  }
+
+  .login-brand-block img {
+    width: 68px;
+  }
+
+  .login-intro-panel h1 {
+    font-size: 26px;
+  }
+
+  .login-assurance-list,
+  .monitor-grid,
+  .presentation-process,
+  .presentation-benefits,
+  .dashboard-guidance {
+    grid-template-columns: 1fr;
+  }
+
+  .presentation-main,
+  .presentation-footer {
+    width: 100%;
+  }
+
+  .presentation-section {
+    padding: 28px 20px;
+  }
+
+  .presentation-contact {
+    margin: 0 20px 24px;
+  }
+
+  .presentation-contact-list {
+    display: grid;
+    width: 100%;
+  }
+
+  .presentation-contact-list span {
+    width: 100%;
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+  }
+
+  .presentation-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 20px;
+  }
+
+  .presentation-footer nav,
+  .presentation-footer > span,
+  .login-footer span {
+    line-height: 1.45;
+  }
+
+  .login-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 0 20px 20px;
+  }
+
+  .auth-back-button {
+    width: fit-content;
+  }
+
+  .legal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .legal-actions button {
+    width: 100%;
+    border: 1px solid rgba(24, 51, 84, 0.12);
+    border-radius: 8px;
+    padding: 9px 10px;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .consent-box label {
+    align-items: flex-start;
+  }
+
+  .login-card,
+  .form-card,
+  .audit-card,
+  .chart-card,
+  .empty-card {
+    padding: 20px;
+  }
+
+  .page-section h1 {
+    font-size: 24px;
+  }
+
+  .page-title-row,
+  .timeline-header,
+  .form-actions,
+  .toolbar-actions,
+  .filters-card-header,
+  .profile-save-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar-actions button,
+  .toolbar-actions .health-pill,
+  .clear-filters {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .topbar {
+    gap: 8px;
+    height: 64px;
+    padding: 0 14px;
+  }
+
+  .content-area {
+    padding-top: 64px;
+  }
+
+  .topbar-brand span {
+    display: none;
+  }
+
+  .topbar-brand img {
+    width: 42px;
+    height: 42px;
+  }
+
+  .brand-button {
+    display: none;
+  }
+
+  .back-button {
+    width: 38px;
+    height: 38px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .back-button svg {
+    width: 18px;
+  }
+
+  .back-button {
+    font-size: 0;
+  }
+
+  .sidebar {
+    width: min(86vw, 288px);
+  }
+
+  .compact-form {
+    grid-template-columns: 1fr;
+  }
+
+  th,
+  td {
+    padding: 12px 14px;
+  }
+
+  table {
+    min-width: 760px;
+  }
+
+  .table-scroll {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-header,
+  .modal-content,
+  .modal-footer {
+    padding: 18px;
+  }
+
+  .modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-card {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 8px 8px 0 0;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .profile-settings-layout,
+  .profile-panel,
+  .profile-overview,
+  .chart-card {
+    gap: 16px;
+  }
+
+  .monitor-card {
+    padding: 18px;
+  }
+
+  .kpi-card {
+    padding: 18px;
+  }
+
+  .kpi-card strong {
+    font-size: 24px;
+  }
+
+  .app-footer {
+    width: calc(100% - 32px);
+    padding-bottom: 18px;
+  }
+}

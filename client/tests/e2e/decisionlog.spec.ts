@@ -199,6 +199,39 @@ test('landing pública mostra proposta corporativa sem detalhes internos sensív
   await expect(page.getByText('RabbitMQ')).toHaveCount(0)
 })
 
+test('permite abrir cadastro público de empresa e enviar primeiro administrador', async ({ page }) => {
+  let requestedPayload: Record<string, unknown> | null = null
+  await mockApi(page)
+  await page.route(`${apiBase}/auth/register-company`, async (route) => {
+    requestedPayload = route.request().postDataJSON() as Record<string, unknown>
+    await route.fulfill({
+      contentType: 'application/json',
+      status: 201,
+      body: JSON.stringify({
+        message: 'Empresa cadastrada. Faça login com o administrador criado.',
+      }),
+    })
+  })
+
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Cadastrar empresa' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Cadastrar empresa' })).toBeVisible()
+  await page.getByLabel('Empresa').fill('AESA')
+  await page.getByLabel('Nome').fill('Jamille AESA')
+  await page.getByLabel('E-mail').fill('2024130015@aesa-cesa.br')
+  await page.getByRole('textbox', { name: 'Senha' }).fill('DecisionLog@26')
+  await page.getByLabel(/Li e aceito/).check()
+  await page.getByLabel(/Autorizo o tratamento/).check()
+  await page.getByRole('button', { name: 'Cadastrar empresa' }).click()
+
+  await expect(page.getByRole('heading', { name: 'Entrar na plataforma' })).toBeVisible()
+  expect(requestedPayload).toMatchObject({
+    companyName: 'AESA',
+    email: '2024130015@aesa-cesa.br',
+  })
+})
+
 test('mostra ajuda e sair somente no menu da bolinha de perfil', async ({ page }) => {
   await login(page)
 
