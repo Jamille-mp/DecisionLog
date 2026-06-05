@@ -171,6 +171,7 @@ body[data-theme='dark'] .page-title-row {
 
 body[data-theme='dark'] .password-recovery-row,
 body[data-theme='dark'] .auth-switcher,
+body[data-theme='dark'] .oidc-access-block,
 body[data-theme='dark'] .login-footnote {
   border-color: rgba(255, 255, 255, 0.1);
 }
@@ -291,6 +292,7 @@ body[data-theme='dark'] .timeline-content {
 body[data-theme='dark'] .login-form label,
 body[data-theme='dark'] .decision-form label,
 body[data-theme='dark'] .profile-panel label,
+body[data-theme='dark'] .oidc-access-block label,
 body[data-theme='dark'] .consent-box label,
 body[data-theme='dark'] .health-grid span,
 body[data-theme='dark'] .empty-card p,

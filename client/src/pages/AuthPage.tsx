@@ -271,7 +271,7 @@ export function AuthPage({
             )}
             {authMode === 'register' && (
               <div>
-                <label htmlFor="companyAccessCode">CÃ³digo da empresa</label>
+                <label htmlFor="companyAccessCode">Código da empresa</label>
                 <input
                   id="companyAccessCode"
                   value={authForm.companyAccessCode}
@@ -396,13 +396,16 @@ export function AuthPage({
           </form>
           {authMode === 'login' && oidcConfig.enabled && (
             <div className="oidc-access-block">
-              <label htmlFor="oidcCompanyAccessCode">CÃ³digo da empresa</label>
-              <input
-                id="oidcCompanyAccessCode"
-                value={authForm.companyAccessCode}
-                onChange={(event) => onChange({ ...authForm, companyAccessCode: event.target.value.toUpperCase() })}
-                placeholder="Somente para primeiro acesso"
-              />
+              <div>
+                <label htmlFor="oidcCompanyAccessCode">Código da empresa</label>
+                <input
+                  id="oidcCompanyAccessCode"
+                  value={authForm.companyAccessCode}
+                  onChange={(event) => onChange({ ...authForm, companyAccessCode: event.target.value.toUpperCase() })}
+                  placeholder="Somente para primeiro acesso"
+                />
+                <small className="field-hint">Use este campo apenas no primeiro acesso institucional.</small>
+              </div>
               <button className="oidc-button" type="button" onClick={onOidcLogin}>
                 {oidcConfig.providerName}
               </button>

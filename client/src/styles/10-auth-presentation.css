@@ -854,6 +854,36 @@
   color: #183354;
 }
 
+.oidc-access-block {
+  display: grid;
+  gap: 12px;
+  border-top: 1px solid rgba(24, 51, 84, 0.08);
+  margin-top: 18px;
+  padding-top: 18px;
+}
+
+.oidc-access-block label {
+  display: block;
+  margin-bottom: 8px;
+  color: #183354;
+  font-weight: 500;
+}
+
+.oidc-access-block input {
+  width: 100%;
+  border: 1px solid rgba(24, 51, 84, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #183354;
+  outline: none;
+  padding: 13px 15px;
+}
+
+.oidc-access-block input:focus {
+  border-color: #183354;
+  box-shadow: 0 0 0 2px rgba(24, 51, 84, 0.2);
+}
+
 .oidc-button {
   width: 100%;
   border: 1px solid rgba(24, 51, 84, 0.16);
@@ -861,7 +891,6 @@
   background: #ffffff;
   color: #183354;
   font-weight: 700;
-  margin-top: 14px;
   padding: 12px 18px;
 }
 
