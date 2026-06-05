@@ -15,6 +15,7 @@ body[data-theme='dark'] .loading-panel,
 body[data-theme='dark'] .profile-overview,
 body[data-theme='dark'] .profile-panel,
 body[data-theme='dark'] .profile-save-panel,
+body[data-theme='dark'] .profile-crop-dialog,
 body[data-theme='dark'] .monitor-card,
 body[data-theme='dark'] .monitor-operations article,
 body[data-theme='dark'] .demo-notice,
@@ -221,8 +222,8 @@ body[data-theme='dark'] .company-access-code {
 }
 
 body[data-theme='dark'] .company-access-code span,
-body[data-theme='dark'] .image-crop-actions span,
-body[data-theme='dark'] .image-crop-placeholder {
+body[data-theme='dark'] .profile-crop-dialog p,
+body[data-theme='dark'] .profile-crop-header span {
   color: #94a3b8;
 }
 
@@ -230,14 +231,27 @@ body[data-theme='dark'] .company-access-code strong {
   color: #f8fafc;
 }
 
-body[data-theme='dark'] .media-upload-item,
-body[data-theme='dark'] .profile-company-badge,
-body[data-theme='dark'] .profile-panel .upload-button {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: #0f172a;
+body[data-theme='dark'] .profile-crop-header h2 {
+  color: #f8fafc;
 }
 
-body[data-theme='dark'] .image-crop-stage {
+body[data-theme='dark'] .media-upload-item,
+body[data-theme='dark'] .profile-company-badge,
+body[data-theme='dark'] .profile-panel .upload-button,
+body[data-theme='dark'] .profile-crop-header button,
+body[data-theme='dark'] .profile-crop-actions button.secondary {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .profile-crop-board {
+  background:
+    linear-gradient(rgba(15, 23, 42, 0.76), rgba(15, 23, 42, 0.76)),
+    radial-gradient(circle at center, rgba(212, 176, 98, 0.12), transparent 42%);
+}
+
+body[data-theme='dark'] .profile-crop-viewport {
   border-color: rgba(212, 176, 98, 0.72);
   background: #172033;
 }
@@ -256,14 +270,7 @@ body[data-theme='dark'] .media-upload-note {
 
 body[data-theme='dark'] .profile-company-badge strong,
 body[data-theme='dark'] .media-upload-copy strong,
-body[data-theme='dark'] .image-frame-controls span,
 body[data-theme='dark'] .profile-panel .upload-button {
-  color: #f8fafc;
-}
-
-body[data-theme='dark'] .image-crop-actions button {
-  border-color: rgba(255, 255, 255, 0.12);
-  background: #172033;
   color: #f8fafc;
 }
 
@@ -446,10 +453,6 @@ body[data-theme='dark'] .modal-header {
   .company-photo-preview {
     width: 72px;
     height: 72px;
-  }
-
-  .image-frame-controls {
-    grid-column: 1 / -1;
   }
 
   .profile-save-panel button {
@@ -753,6 +756,32 @@ body[data-theme='dark'] .modal-header {
   .profile-overview,
   .chart-card {
     gap: 16px;
+  }
+
+  .profile-crop-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .profile-crop-dialog {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 8px 8px 0 0;
+    overflow-y: auto;
+  }
+
+  .profile-crop-board {
+    min-height: 280px;
+    padding: 18px;
+  }
+
+  .profile-crop-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .profile-crop-actions button {
+    width: 100%;
   }
 
   .monitor-card {

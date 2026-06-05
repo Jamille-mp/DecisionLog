@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { FormEvent, PointerEvent } from 'react'
-import { Camera, Eye, EyeOff, Image as ImageIcon, Moon, Sun, Trash2, Upload } from 'lucide-react'
+import { Camera, Check, Eye, EyeOff, Image as ImageIcon, Moon, Sun, Trash2, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { CompanyBadge } from '../components/shared/CompanyBadge'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -8,7 +8,7 @@ import { ProfileAvatar } from '../components/shared/ProfileAvatar'
 import { defaultImageFrameSettings, roleLabels } from '../constants/app'
 import type { ImageFrameSettings, ProfileFormData, User } from '../types'
 import { formatPhone } from '../utils/format'
-import { cropImageToSquareDataUrl, readImageAsDataUrl } from '../utils/image'
+import { cropImageToCircleDataUrl, readImageAsDataUrl } from '../utils/image'
 
 type ProfilePageProps = {
   isSubmitting: boolean
@@ -16,18 +16,30 @@ type ProfilePageProps = {
   user: User
 }
 
-function ImageFrameControls({
-  disabled = false,
+type CropEditorState = {
+  field: 'avatarUrl' | 'companyLogoUrl'
+  frame: ImageFrameSettings
+  name: string
+  source: string
+  title: string
+}
+
+function ProfilePhotoCropDialog({
   frame,
   imageUrl,
   name,
+  title,
+  onCancel,
   onChange,
+  onConfirm,
 }: {
-  disabled?: boolean
   frame: ImageFrameSettings
-  imageUrl?: string | null
+  imageUrl: string
   name: string
+  title: string
+  onCancel: () => void
   onChange: (frame: ImageFrameSettings) => void
+  onConfirm: () => void
 }) {
   const [isDragging, setIsDragging] = useState(false)
   const dragStart = useRef<{ clientX: number; clientY: number; frameX: number; frameY: number } | null>(null)
@@ -35,8 +47,6 @@ function ImageFrameControls({
   const clampFrame = (value: number) => Math.max(-45, Math.min(45, value))
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (disabled || !imageUrl) return
-
     dragStart.current = {
       clientX: event.clientX,
       clientY: event.clientY,
@@ -48,7 +58,7 @@ function ImageFrameControls({
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!dragStart.current || disabled || !imageUrl) return
+    if (!dragStart.current) return
 
     const { width, height } = event.currentTarget.getBoundingClientRect()
     const deltaX = ((event.clientX - dragStart.current.clientX) / Math.max(width, 1)) * 100
@@ -70,33 +80,51 @@ function ImageFrameControls({
   }
 
   return (
-    <div className="image-frame-controls" aria-label="Ajuste de enquadramento">
-      <div
-        aria-disabled={disabled || !imageUrl}
-        className={`image-crop-stage${isDragging ? ' dragging' : ''}`.trim()}
-        onPointerCancel={handlePointerEnd}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerEnd}
-        role="application"
-      >
-        {imageUrl ? (
+    <div className="profile-crop-backdrop" role="dialog" aria-modal="true" aria-label={title}>
+      <section className="profile-crop-dialog">
+        <div className="profile-crop-header">
+          <div>
+            <span>Foto de perfil</span>
+            <h2>{title}</h2>
+          </div>
+          <button type="button" aria-label="Cancelar ajuste da foto" onClick={onCancel}>
+            <X />
+          </button>
+        </div>
+
+        <div className="profile-crop-board">
+          <div
+            className={`profile-crop-viewport${isDragging ? ' dragging' : ''}`.trim()}
+            onPointerCancel={handlePointerEnd}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerEnd}
+            role="application"
+          >
           <img
             src={imageUrl}
             alt={`Enquadramento de ${name}`}
             draggable={false}
             style={{ transform: `translate(${frame.x}%, ${frame.y}%) scale(${frame.zoom})` }}
           />
-        ) : (
-          <span className="image-crop-placeholder">Selecione uma imagem</span>
-        )}
-      </div>
-      <div className="image-crop-actions">
-        <span>{imageUrl ? 'Arraste a imagem para ajustar o enquadramento.' : 'Envie uma foto para ajustar.'}</span>
-        <button type="button" disabled={disabled || !imageUrl} onClick={() => onChange(defaultImageFrameSettings)}>
+          </div>
+        </div>
+
+        <p>Arraste a imagem por trás do círculo fixo até o enquadramento ficar correto.</p>
+
+        <div className="profile-crop-actions">
+          <button className="secondary" type="button" onClick={() => onChange(defaultImageFrameSettings)}>
           Centralizar
-        </button>
-      </div>
+          </button>
+          <button className="secondary" type="button" onClick={onCancel}>
+            Cancelar
+          </button>
+          <button type="button" onClick={onConfirm}>
+            <Check />
+            Confirmar foto
+          </button>
+        </div>
+      </section>
     </div>
   )
 }
@@ -116,8 +144,7 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
     current: false,
     next: false,
   })
-  const [avatarFrame, setAvatarFrame] = useState<ImageFrameSettings>(defaultImageFrameSettings)
-  const [companyLogoFrame, setCompanyLogoFrame] = useState<ImageFrameSettings>(defaultImageFrameSettings)
+  const [cropEditor, setCropEditor] = useState<CropEditorState | null>(null)
   const canEditCompanyLogo = user.role === 'admin'
 
   async function handleImageChange(field: 'avatarUrl' | 'companyLogoUrl', files: FileList | null) {
@@ -126,36 +153,35 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
 
     try {
       const imageUrl = await readImageAsDataUrl(file)
-      setFormData((current) => ({ ...current, [field]: imageUrl }))
-      if (field === 'avatarUrl') {
-        setAvatarFrame(defaultImageFrameSettings)
-      } else {
-        setCompanyLogoFrame(defaultImageFrameSettings)
-      }
+      setCropEditor({
+        field,
+        frame: defaultImageFrameSettings,
+        name: field === 'avatarUrl' ? formData.name : user.company?.name || 'Empresa',
+        source: imageUrl,
+        title: field === 'avatarUrl' ? 'Ajustar foto de perfil' : 'Ajustar foto da empresa',
+      })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível carregar a imagem.')
+    }
+  }
+
+  async function confirmImageCrop() {
+    if (!cropEditor) return
+
+    try {
+      const croppedImageUrl = await cropImageToCircleDataUrl(cropEditor.source, cropEditor.frame)
+      setFormData((current) => ({ ...current, [cropEditor.field]: croppedImageUrl }))
+      setCropEditor(null)
+      toast.success('Enquadramento confirmado.')
+    } catch {
+      toast.error('Não foi possível salvar as alterações do perfil.')
     }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     try {
-      const framedData: ProfileFormData = {
-        ...formData,
-        avatarUrl: formData.avatarUrl ? await cropImageToSquareDataUrl(formData.avatarUrl, avatarFrame) : null,
-        companyLogoUrl: formData.companyLogoUrl
-          ? await cropImageToSquareDataUrl(formData.companyLogoUrl, companyLogoFrame)
-          : null,
-      }
-
-      await onSave(framedData)
-      setFormData((current) => ({
-        ...current,
-        avatarUrl: framedData.avatarUrl,
-        companyLogoUrl: framedData.companyLogoUrl,
-      }))
-      setAvatarFrame(defaultImageFrameSettings)
-      setCompanyLogoFrame(defaultImageFrameSettings)
+      await onSave(formData)
       setFormData((current) => ({
         ...current,
         currentPassword: '',
@@ -180,7 +206,7 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
       />
       <form className="profile-settings-layout" onSubmit={handleSubmit}>
         <aside className="profile-overview">
-          <ProfileAvatar className="large" frame={avatarFrame} imageUrl={formData.avatarUrl} name={formData.name} />
+          <ProfileAvatar className="large" imageUrl={formData.avatarUrl} name={formData.name} />
           <div>
             <h2>{user.name}</h2>
             <p>{user.email}</p>
@@ -213,30 +239,39 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
               <div className="media-upload-item">
                 <ProfileAvatar
                   className="large media-preview-avatar"
-                  frame={avatarFrame}
                   imageUrl={formData.avatarUrl}
                   name={formData.name}
                 />
                 <div className="media-upload-copy">
                   <strong>Foto de perfil</strong>
-                  <span>PNG, JPG ou WebP até 512 KB.</span>
+                  <span>Escolha uma imagem e confirme o enquadramento circular.</span>
                 </div>
-                <ImageFrameControls
-                  disabled={!formData.avatarUrl}
-                  frame={avatarFrame}
-                  imageUrl={formData.avatarUrl}
-                  name={formData.name}
-                  onChange={setAvatarFrame}
-                />
                 <div className="media-upload-actions">
                   <label className="upload-button" htmlFor="profileAvatarUrl">
                     <Camera />
-                    Alterar
+                    Escolher foto
                   </label>
                   <input
                     accept="image/png,image/jpeg,image/webp"
                     className="file-input"
                     id="profileAvatarUrl"
+                    type="file"
+                    onChange={(event) => {
+                      const input = event.currentTarget
+                      void handleImageChange('avatarUrl', input.files).finally(() => {
+                        input.value = ''
+                      })
+                    }}
+                  />
+                  <label className="upload-button" htmlFor="profileAvatarCamera">
+                    <Camera />
+                    Usar câmera
+                  </label>
+                  <input
+                    accept="image/png,image/jpeg,image/webp"
+                    capture="user"
+                    className="file-input"
+                    id="profileAvatarCamera"
                     type="file"
                     onChange={(event) => {
                       const input = event.currentTarget
@@ -251,7 +286,6 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                       type="button"
                       onClick={() => {
                         setFormData({ ...formData, avatarUrl: null })
-                        setAvatarFrame(defaultImageFrameSettings)
                       }}
                     >
                       <Trash2 />
@@ -267,9 +301,6 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                     <img
                       src={formData.companyLogoUrl}
                       alt={`Logo de ${user.company?.name || 'Empresa'}`}
-                      style={{
-                        transform: `translate(${companyLogoFrame.x}%, ${companyLogoFrame.y}%) scale(${companyLogoFrame.zoom})`,
-                      }}
                     />
                   ) : (
                     <ImageIcon />
@@ -303,7 +334,6 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                         type="button"
                         onClick={() => {
                           setFormData({ ...formData, companyLogoUrl: null })
-                          setCompanyLogoFrame(defaultImageFrameSettings)
                         }}
                       >
                         <Trash2 />
@@ -313,15 +343,6 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                   </div>
                 ) : (
                   <span className="media-upload-note">A marca da empresa é gerenciada por administradores.</span>
-                )}
-                {canEditCompanyLogo && (
-                  <ImageFrameControls
-                    disabled={!formData.companyLogoUrl}
-                    frame={companyLogoFrame}
-                    imageUrl={formData.companyLogoUrl}
-                    name={user.company?.name || 'Empresa'}
-                    onChange={setCompanyLogoFrame}
-                  />
                 )}
               </div>
             </div>
@@ -469,6 +490,19 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
           </section>
         </div>
       </form>
+      {cropEditor && (
+        <ProfilePhotoCropDialog
+          frame={cropEditor.frame}
+          imageUrl={cropEditor.source}
+          name={cropEditor.name}
+          title={cropEditor.title}
+          onCancel={() => setCropEditor(null)}
+          onChange={(frame) => setCropEditor((current) => (current ? { ...current, frame } : current))}
+          onConfirm={() => {
+            void confirmImageCrop()
+          }}
+        />
+      )}
     </section>
   )
 }

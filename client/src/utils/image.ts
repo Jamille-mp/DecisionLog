@@ -18,7 +18,25 @@ export function readImageAsDataUrl(file: File) {
   })
 }
 
-export function cropImageToSquareDataUrl(source: string, frame: ImageFrameSettings) {
+function drawFramedImage(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  size: number,
+  frame: ImageFrameSettings,
+) {
+  const baseScale = Math.max(size / image.width, size / image.height)
+  const scale = baseScale * frame.zoom
+  const width = image.width * scale
+  const height = image.height * scale
+  const offsetX = (frame.x / 100) * size
+  const offsetY = (frame.y / 100) * size
+  const left = (size - width) / 2 + offsetX
+  const top = (size - height) / 2 + offsetY
+
+  context.drawImage(image, left, top, width, height)
+}
+
+export function cropImageToCircleDataUrl(source: string, frame: ImageFrameSettings) {
   return new Promise<string>((resolve, reject) => {
     const image = new Image()
     image.onload = () => {
@@ -33,20 +51,15 @@ export function cropImageToSquareDataUrl(source: string, frame: ImageFrameSettin
 
       canvas.width = size
       canvas.height = size
-      context.fillStyle = '#ffffff'
-      context.fillRect(0, 0, size, size)
+      context.clearRect(0, 0, size, size)
+      context.save()
+      context.beginPath()
+      context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
+      context.clip()
+      drawFramedImage(context, image, size, frame)
+      context.restore()
 
-      const baseScale = Math.max(size / image.width, size / image.height)
-      const scale = baseScale * frame.zoom
-      const width = image.width * scale
-      const height = image.height * scale
-      const offsetX = (frame.x / 100) * size
-      const offsetY = (frame.y / 100) * size
-      const left = (size - width) / 2 + offsetX
-      const top = (size - height) / 2 + offsetY
-
-      context.drawImage(image, left, top, width, height)
-      resolve(canvas.toDataURL('image/jpeg', 0.88))
+      resolve(canvas.toDataURL('image/png'))
     }
     image.onerror = () => reject(new Error('Não foi possível enquadrar a imagem.'))
     image.src = source
