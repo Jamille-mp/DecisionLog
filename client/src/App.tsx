@@ -45,9 +45,22 @@ import { ProfilePage } from './pages/ProfilePage'
 import { UsersPage } from './pages/UsersPage'
 import './App.css'
 
+function getInitialAuthError() {
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  const oidcError = params.get('auth_error')
+
+  if (!oidcError) return null
+
+  return (
+    params.get('auth_message') ||
+    'Sua conta não possui autorização para acessar esta empresa no DecisionLog.'
+  )
+}
+
 function App() {
   const [authMode, setAuthMode] = useState<AuthMode>('login')
   const [authForm, setAuthForm] = useState<AuthForm>(emptyAuthForm)
+  const [authError, setAuthError] = useState<string | null>(() => getInitialAuthError())
   const [token, setToken] = useState(() => localStorage.getItem('decisionlog:token') || '')
   const [user, setUser] = useState<User | null>(() => {
     const storedUser = localStorage.getItem('decisionlog:user')
@@ -100,6 +113,12 @@ function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
     const oidcToken = params.get('oidc_token')
+    const oidcError = params.get('auth_error')
+
+    if (oidcError) {
+      window.history.replaceState({}, document.title, window.location.pathname)
+      return
+    }
 
     if (!oidcToken) return
 
@@ -270,6 +289,7 @@ function App() {
 
     try {
       if (authMode === 'forgot') {
+        setAuthError(null)
         const response = await fetch(`${apiUrl}/auth/forgot-password`, {
           method: 'POST',
           headers: {
@@ -290,6 +310,7 @@ function App() {
       }
 
       if (authMode === 'reset') {
+        setAuthError(null)
         const response = await fetch(`${apiUrl}/auth/reset-password`, {
           method: 'POST',
           headers: {
@@ -351,6 +372,7 @@ function App() {
       }
 
       if (authMode === 'register' || authMode === 'company-register') {
+        setAuthError(null)
         toast.success(authMode === 'company-register' ? 'Empresa cadastrada. Faça login como administrador.' : 'Usuário cadastrado. Faça login para continuar.')
         setAuthMode('login')
         setAuthForm(emptyAuthForm)
@@ -362,6 +384,7 @@ function App() {
       localStorage.setItem('decisionlog:user', JSON.stringify(data.user))
       setToken(data.token)
       setUser(data.user)
+      setAuthError(null)
       setAuthForm(emptyAuthForm)
       toast.success('Login realizado.')
     } catch {
@@ -386,6 +409,7 @@ function App() {
   }
 
   function handleOidcLogin() {
+    setAuthError(null)
     const params = new URLSearchParams()
     if (authForm.companyAccessCode.trim()) {
       params.set('companyAccessCode', authForm.companyAccessCode.trim())
@@ -781,11 +805,13 @@ function App() {
         <Toaster richColors position="top-right" />
         <AuthPage
           authForm={authForm}
+          authError={authError}
           authMode={authMode}
           isSubmitting={isSubmitting}
           onChange={setAuthForm}
           onOpenLegal={setLegalModal}
           onModeChange={setAuthMode}
+          onClearAuthError={() => setAuthError(null)}
           onOidcLogin={handleOidcLogin}
           onSubmit={handleAuthSubmit}
           oidcConfig={oidcConfig}

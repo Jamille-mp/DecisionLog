@@ -1,14 +1,16 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, ShieldAlert } from 'lucide-react'
 import logo from '../assets/decisionlog-logo.png'
 import type { AuthForm, AuthMode, OidcConfig } from '../types'
 
 type AuthPageProps = {
   authForm: AuthForm
+  authError?: string | null
   authMode: AuthMode
   isSubmitting: boolean
   onChange: (form: AuthForm) => void
+  onClearAuthError: () => void
   onOpenLegal: (type: 'terms' | 'privacy') => void
   onModeChange: (mode: AuthMode) => void
   onOidcLogin: () => void
@@ -18,17 +20,20 @@ type AuthPageProps = {
 
 export function AuthPage({
   authForm,
+  authError,
   authMode,
   isSubmitting,
   onChange,
+  onClearAuthError,
   onOpenLegal,
   onModeChange,
   onOidcLogin,
   onSubmit,
   oidcConfig,
 }: AuthPageProps) {
-  const [showLoginPanel, setShowLoginPanel] = useState(false)
+  const [showLoginPanel, setShowLoginPanel] = useState(() => Boolean(authError))
   const [showPassword, setShowPassword] = useState(false)
+
   const authTitle =
     authMode === 'company-register'
       ? 'Cadastrar empresa'
@@ -244,6 +249,23 @@ export function AuthPage({
               <p>{authDescription}</p>
             </div>
           </div>
+          {authError && (
+            <section className="access-denied-card" role="alert" aria-live="polite">
+              <ShieldAlert />
+              <div>
+                <strong>Acesso não autorizado</strong>
+                <p>{authError}</p>
+                <ul>
+                  <li>Use o e-mail vinculado à empresa cadastrada.</li>
+                  <li>Informe o código da empresa no primeiro acesso institucional.</li>
+                  <li>Se o acesso deveria existir, solicite confirmação ao administrador.</li>
+                </ul>
+              </div>
+              <button type="button" onClick={onClearAuthError}>
+                Entendi
+              </button>
+            </section>
+          )}
           <form onSubmit={onSubmit} className="login-form">
             {authMode === 'company-register' && (
               <div>

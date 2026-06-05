@@ -36,6 +36,7 @@ body[data-theme='dark'] .preview-window,
 body[data-theme='dark'] .preview-kpis article,
 body[data-theme='dark'] .presentation-process article,
 body[data-theme='dark'] .presentation-benefits div,
+body[data-theme='dark'] .access-denied-card,
 body[data-theme='dark'] .preview-note,
 body[data-theme='dark'] .back-button,
 body[data-theme='dark'] .date-filter,
@@ -127,6 +128,26 @@ body[data-theme='dark'] .field-hint,
 body[data-theme='dark'] .empty-card span,
 body[data-theme='dark'] .legal-content p {
   color: #cbd5e1;
+}
+
+body[data-theme='dark'] .access-denied-card {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: rgba(127, 29, 29, 0.18);
+}
+
+body[data-theme='dark'] .access-denied-card strong {
+  color: #fecaca;
+}
+
+body[data-theme='dark'] .access-denied-card p,
+body[data-theme='dark'] .access-denied-card ul {
+  color: #e2e8f0;
+}
+
+body[data-theme='dark'] .access-denied-card button {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: #172033;
+  color: #fecaca;
 }
 
 body[data-theme='dark'] .presentation-process strong {
@@ -589,6 +610,19 @@ body[data-theme='dark'] .modal-header {
   .legal-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .access-denied-card {
+    grid-template-columns: 1fr;
+  }
+
+  .access-denied-card > svg {
+    width: 34px;
+    height: 34px;
+  }
+
+  .access-denied-card button {
+    width: 100%;
   }
 
   .legal-actions button {

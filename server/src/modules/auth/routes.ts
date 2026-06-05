@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { Router } from "express";
+import { Router, type Response } from "express";
 import jwt from "jsonwebtoken";
 import { AppError } from "../../errors/AppError";
 import {
@@ -62,6 +62,21 @@ function getFrontendRedirectUrl() {
   );
 }
 
+function redirectWithAuthError(response: Response, error: unknown) {
+  const redirectUrl = new URL(getFrontendRedirectUrl());
+  const message =
+    error instanceof AppError
+      ? error.message
+      : "Não foi possível validar sua conta institucional.";
+
+  redirectUrl.hash = new URLSearchParams({
+    auth_error: "access_denied",
+    auth_message: message,
+  }).toString();
+
+  response.redirect(redirectUrl.toString());
+}
+
 authRoutes.get("/oidc/config", (_request, response) => {
   response.json(getOidcPublicConfig());
 });
@@ -88,6 +103,7 @@ authRoutes.get(
 authRoutes.get(
   "/oidc/callback",
   asyncHandler(async (request, response) => {
+    try {
     if (!isOidcEnabled()) {
       throw new AppError("Login institucional não configurado.", 503);
     }
@@ -169,6 +185,9 @@ authRoutes.get(
     }).toString();
 
     response.redirect(redirectUrl.toString());
+    } catch (error) {
+      redirectWithAuthError(response, error);
+    }
   }),
 );
 
