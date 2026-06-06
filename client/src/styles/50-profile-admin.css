@@ -92,6 +92,37 @@
   letter-spacing: 0;
 }
 
+.company-access-code small {
+  color: #6b7280;
+  line-height: 1.45;
+}
+
+.company-access-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.company-access-actions button {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid rgba(24, 51, 84, 0.14);
+  border-radius: 8px;
+  background: #ffffff;
+  color: #183354;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 9px 10px;
+}
+
+.company-access-actions svg {
+  width: 15px;
+  height: 15px;
+}
+
 .profile-settings-stack {
   display: grid;
   gap: 16px;

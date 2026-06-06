@@ -31,8 +31,6 @@ function getDecisionId(id: string | string[] | undefined) {
 
 function canManageDecision(
   role: string | undefined,
-  currentUserId: string | undefined,
-  decisionUserId: string | null,
   currentUserDepartmentId?: string | null,
   decisionDepartmentId?: string | null,
 ) {
@@ -42,8 +40,7 @@ function canManageDecision(
 
   return (
     role === "manager" &&
-    (decisionUserId === currentUserId ||
-      Boolean(currentUserDepartmentId && currentUserDepartmentId === decisionDepartmentId))
+    Boolean(currentUserDepartmentId && currentUserDepartmentId === decisionDepartmentId)
   );
 }
 
@@ -55,51 +52,23 @@ decisionRoutes.get(
     const { status, search, includeInactive } = listDecisionQuerySchema.parse(
       request.query,
     );
-    const currentUser =
-      request.user?.role === "manager"
-        ? await prisma.user.findUnique({
-            where: {
-              id: request.user.id,
-            },
-            select: {
-              companyId: true,
-              departmentId: true,
-            },
-          })
-        : null;
     const decisions = await prisma.decision.findMany({
       where: {
         companyId: request.user?.companyId,
         ...(includeInactive ? {} : { active: true }),
         ...(status ? { status } : {}),
-        ...(request.user?.role === "manager" || search
+        ...(search
           ? {
               AND: [
-                ...(request.user?.role === "manager"
-                  ? [
-                      {
-                        OR: [
-                          { userId: request.user.id },
-                          ...(currentUser?.departmentId
-                            ? [{ departmentId: currentUser.departmentId }]
-                            : []),
-                        ],
-                      },
-                    ]
-                  : []),
-                ...(search
-                  ? [
-                      {
-                        OR: [
-                          { title: { contains: search } },
-                          { context: { contains: search } },
-                          { decision: { contains: search } },
-                          { reason: { contains: search } },
-                          { department: { contains: search } },
-                        ],
-                      },
-                    ]
-                  : []),
+                {
+                  OR: [
+                    { title: { contains: search } },
+                    { context: { contains: search } },
+                    { decision: { contains: search } },
+                    { reason: { contains: search } },
+                    { department: { contains: search } },
+                  ],
+                },
               ],
             }
           : {}),
@@ -221,8 +190,6 @@ decisionRoutes.put(
     if (
       !canManageDecision(
         request.user?.role,
-        request.user?.id,
-        currentDecision.userId,
         currentUser?.departmentId,
         currentDecision.departmentId,
       )
@@ -338,8 +305,6 @@ decisionRoutes.delete(
     if (
       !canManageDecision(
         request.user?.role,
-        request.user?.id,
-        currentDecision.userId,
         currentUser?.departmentId,
         currentDecision.departmentId,
       )

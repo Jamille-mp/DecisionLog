@@ -613,6 +613,30 @@
   line-height: 1.45;
 }
 
+.login-context-card {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(212, 176, 98, 0.28);
+  border-radius: 8px;
+  background: rgba(212, 176, 98, 0.1);
+  padding: 16px;
+}
+
+.login-context-card strong {
+  color: #f8fafc;
+  font-size: 15px;
+}
+
+.login-context-card ul {
+  display: grid;
+  gap: 8px;
+  color: #dbe4ef;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+  padding-left: 18px;
+}
+
 .login-card {
   width: 100%;
   align-self: center;
@@ -765,6 +789,15 @@
   color: #7f1d1d;
   font-weight: 700;
   padding: 8px 12px;
+}
+
+.access-denied-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.access-denied-actions button {
+  white-space: nowrap;
 }
 
 .login-form label,

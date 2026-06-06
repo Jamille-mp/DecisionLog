@@ -31,7 +31,7 @@ export function AuthPage({
   onSubmit,
   oidcConfig,
 }: AuthPageProps) {
-  const [showLoginPanel, setShowLoginPanel] = useState(() => Boolean(authError))
+  const [showLoginPanel, setShowLoginPanel] = useState(() => Boolean(authError || authMode !== 'login'))
   const [showPassword, setShowPassword] = useState(false)
 
   const authTitle =
@@ -54,6 +54,33 @@ export function AuthPage({
           : authMode === 'reset'
             ? 'Digite o código recebido e cadastre uma nova senha segura.'
             : 'Use suas credenciais para acessar decisões, auditoria e indicadores.'
+  const accessGuide =
+    authMode === 'company-register'
+      ? {
+          title: 'Primeiro administrador',
+          items: [
+            'Cadastre a empresa com um e-mail corporativo válido.',
+            'Compartilhe o código de convite apenas com funcionários autorizados.',
+            'Depois, defina departamentos, perfis e permissões internas.',
+          ],
+        }
+      : authMode === 'register'
+        ? {
+            title: 'Cadastro por convite',
+            items: [
+              'Use o código recebido pelo administrador da empresa.',
+              'Seu e-mail precisa pertencer ao ambiente corporativo autorizado.',
+              'Após entrar, você verá as decisões da empresa conforme seu perfil.',
+            ],
+          }
+        : {
+            title: 'Acesso seguro',
+            items: [
+              'Entre com e-mail e senha ou use o login institucional disponível.',
+              'No primeiro acesso com Google, informe o código de convite da empresa.',
+              'As ações importantes ficam registradas para auditoria.',
+            ],
+          }
 
   if (!showLoginPanel) {
     return (
@@ -224,6 +251,14 @@ export function AuthPage({
               <span>Cadastro com aceite de termos e tratamento de dados conforme LGPD.</span>
             </div>
           </div>
+          <div className="login-context-card">
+            <strong>{accessGuide.title}</strong>
+            <ul>
+              {accessGuide.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </div>
         </section>
         <div className="login-card">
           <button
@@ -257,13 +292,26 @@ export function AuthPage({
                 <p>{authError}</p>
                 <ul>
                   <li>Use o e-mail vinculado à empresa cadastrada.</li>
-                  <li>Informe o código da empresa no primeiro acesso institucional.</li>
+                  <li>Informe o código de convite no primeiro acesso institucional.</li>
                   <li>Se o acesso deveria existir, solicite confirmação ao administrador.</li>
                 </ul>
               </div>
-              <button type="button" onClick={onClearAuthError}>
-                Entendi
-              </button>
+              <div className="access-denied-actions">
+                {authMode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClearAuthError()
+                      onModeChange('register')
+                    }}
+                  >
+                    Usar convite
+                  </button>
+                )}
+                <button type="button" onClick={onClearAuthError}>
+                  Entendi
+                </button>
+              </div>
             </section>
           )}
           <form onSubmit={onSubmit} className="login-form">

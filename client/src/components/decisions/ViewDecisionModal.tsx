@@ -19,8 +19,8 @@ export function ViewDecisionModal({
   if (!decision) return null
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card">
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div className="modal-card" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <h2>Detalhes da Decisão</h2>
           <button type="button" onClick={onClose}>

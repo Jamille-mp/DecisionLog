@@ -11,8 +11,8 @@ export function LegalModal({ type, onClose }: LegalModalProps) {
   const isTerms = type === 'terms'
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card legal-modal">
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div className="modal-card legal-modal" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <h2>{isTerms ? 'Termos de Uso' : 'Política de Privacidade e LGPD'}</h2>
           <button type="button" onClick={onClose}>

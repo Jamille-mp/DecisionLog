@@ -234,6 +234,25 @@ describe("DecisionLog API", () => {
     );
   });
 
+  it("permite gestor visualizar todas as decisões da empresa", async () => {
+    mocks.prisma.decision.findMany.mockResolvedValue([]);
+
+    const response = await request(app)
+      .get("/decisions")
+      .set("Authorization", `Bearer ${makeToken("manager")}`);
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mocks.prisma.decision.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          active: true,
+          companyId,
+        },
+      }),
+    );
+  });
+
   it("impede gestor de editar decisão concluída", async () => {
     mocks.prisma.decision.findFirst.mockResolvedValue({
       id: "decision-1",
@@ -263,6 +282,7 @@ describe("DecisionLog API", () => {
       status: "archived",
       active: true,
       userId: "user-1",
+      departmentId: "department-ti",
     };
     const updatedDecision = {
       ...currentDecision,
@@ -270,6 +290,11 @@ describe("DecisionLog API", () => {
     };
 
     mocks.prisma.decision.findFirst.mockResolvedValue(currentDecision);
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      companyId,
+      departmentId: "department-ti",
+    });
     mocks.prisma.decision.update.mockResolvedValue(updatedDecision);
 
     const response = await request(app)
@@ -297,6 +322,7 @@ describe("DecisionLog API", () => {
       status: "pending",
       active: true,
       userId: "user-1",
+      departmentId: "department-ti",
     };
     const inactiveDecision = {
       ...currentDecision,
@@ -306,6 +332,11 @@ describe("DecisionLog API", () => {
     };
 
     mocks.prisma.decision.findFirst.mockResolvedValue(currentDecision);
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      companyId,
+      departmentId: "department-ti",
+    });
     mocks.prisma.decision.update.mockResolvedValue(inactiveDecision);
 
     const response = await request(app)

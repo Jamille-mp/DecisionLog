@@ -8,7 +8,7 @@ import { formatDateTime, toIsoDateFromBrazilianDate } from '../utils/format'
 
 type DecisionHistoryProps = {
   decisions: DecisionView[]
-  currentUserId?: string
+  currentUserDepartmentId?: string | null
   userRole: RoleLabel
   onArchive: (decision: DecisionView) => void
   onEdit: (decision: DecisionView) => void
@@ -18,7 +18,7 @@ type DecisionHistoryProps = {
 
 export function DecisionHistory({
   decisions,
-  currentUserId,
+  currentUserDepartmentId,
   userRole,
   onArchive,
   onEdit,
@@ -33,6 +33,9 @@ export function DecisionHistory({
   const [dateToFilter, setDateToFilter] = useState('')
   const [isExportModalOpen, setIsExportModalOpen] = useState(false)
   const canCreateOrEdit = userRole === 'Administrador' || userRole === 'Gestor'
+  const canManageDecision = (decision: DecisionView) =>
+    userRole === 'Administrador' ||
+    (userRole === 'Gestor' && Boolean(currentUserDepartmentId && currentUserDepartmentId === decision.departamentoId))
   const departments = Array.from(new Set(decisions.map((decision) => decision.departamento))).sort()
   const hasFilters = Boolean(searchTerm || statusFilter || impactFilter || departmentFilter || dateFromFilter || dateToFilter)
   const filteredDecisions = decisions.filter((decision) => {
@@ -141,8 +144,8 @@ export function DecisionHistory({
         title="Histórico de Decisões"
       />
       {isExportModalOpen && (
-        <div className="modal-backdrop">
-          <div className="modal-card export-modal">
+        <div className="modal-backdrop" onMouseDown={() => setIsExportModalOpen(false)}>
+          <div className="modal-card export-modal" onMouseDown={(event) => event.stopPropagation()}>
             <div className="modal-header">
               <h2>Exportar histórico</h2>
               <button type="button" onClick={() => setIsExportModalOpen(false)}>
@@ -279,12 +282,12 @@ export function DecisionHistory({
                     </button>
                     {canCreateOrEdit && (
                       <>
-                        {(userRole === 'Administrador' || decision.source.user?.id === currentUserId) && (
+                        {canManageDecision(decision) && (
                           <button className="gold" type="button" onClick={() => onEdit(decision)} title="Editar">
                             <Edit2 />
                           </button>
                         )}
-                        {decision.status !== 'Inativa' && (
+                        {canManageDecision(decision) && decision.status !== 'Inativa' && (
                           <button
                             className="gold"
                             type="button"
@@ -294,7 +297,7 @@ export function DecisionHistory({
                             <FolderOpen />
                           </button>
                         )}
-                        {(userRole === 'Administrador' || decision.source.user?.id === currentUserId) && (
+                        {canManageDecision(decision) && (
                           <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Inativar">
                             <Trash2 />
                           </button>

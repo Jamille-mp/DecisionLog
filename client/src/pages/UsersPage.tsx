@@ -119,8 +119,8 @@ function UserDetailsModal({
   user: User
 }) {
   return (
-    <div className="modal-backdrop">
-      <div className="modal-card user-modal">
+    <div className="modal-backdrop" onMouseDown={onClose}>
+      <div className="modal-card user-modal" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal-header">
           <h2>Detalhes do funcionário</h2>
           <button type="button" onClick={onClose}>

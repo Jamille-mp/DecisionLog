@@ -387,6 +387,47 @@ body[data-theme='dark'] .modal-header {
   background: #172033;
 }
 
+body[data-theme='dark'] .dashboard-guidance article,
+body[data-theme='dark'] .decision-form,
+body[data-theme='dark'] .form-section,
+body[data-theme='dark'] .decision-checklist span,
+body[data-theme='dark'] .export-options button,
+body[data-theme='dark'] .compact-form,
+body[data-theme='dark'] .search-wrap,
+body[data-theme='dark'] .timeline-item,
+body[data-theme='dark'] .timeline-content,
+body[data-theme='dark'] .monitor-summary,
+body[data-theme='dark'] .technical-grid article,
+body[data-theme='dark'] .monitor-operations article,
+body[data-theme='dark'] .legal-summary,
+body[data-theme='dark'] .company-access-actions button,
+body[data-theme='dark'] .company-profile-status {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .company-profile-mark,
+body[data-theme='dark'] .company-access-actions svg {
+  background: rgba(212, 176, 98, 0.18);
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .company-profile-status {
+  color: #facc15;
+}
+
+body[data-theme='dark'] .decision-form input::placeholder,
+body[data-theme='dark'] .login-form input::placeholder,
+body[data-theme='dark'] .search-wrap input::placeholder {
+  color: #94a3b8;
+}
+
+body[data-theme='dark'] option {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
 @media (max-width: 900px) {
   .login-shell,
   .about-panel,
@@ -516,6 +557,7 @@ body[data-theme='dark'] .modal-header {
 
   .login-intro-panel {
     padding: 24px 20px;
+    gap: 16px;
   }
 
   .login-brand-block img {
@@ -527,6 +569,7 @@ body[data-theme='dark'] .modal-header {
   }
 
   .login-assurance-list,
+  .login-context-card,
   .monitor-grid,
   .presentation-process,
   .presentation-benefits,
@@ -619,12 +662,37 @@ body[data-theme='dark'] .modal-header {
     width: 100%;
   }
 
+  .company-access-actions {
+    grid-template-columns: 1fr;
+  }
+
   .login-card,
   .form-card,
   .audit-card,
   .chart-card,
   .empty-card {
     padding: 20px;
+  }
+
+  .login-context-card {
+    padding: 14px;
+  }
+
+  .login-context-card ul {
+    gap: 6px;
+  }
+
+  .auth-switcher,
+  .password-recovery-row {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .auth-switcher .mode-button,
+  .password-recovery-row .mode-button {
+    width: 100%;
+    min-height: 40px;
   }
 
   .page-section h1 {

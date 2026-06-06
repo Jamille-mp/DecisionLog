@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Building2, Eye, EyeOff, Moon, ShieldCheck, Sun } from 'lucide-react'
+import { Building2, Copy, Eye, EyeOff, Link, Moon, ShieldCheck, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { CompanyBadge } from '../components/shared/CompanyBadge'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -48,6 +48,31 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
     setFormData((current) => ({ ...current, preferredTheme }))
   }
 
+  async function copyToClipboard(value: string, successMessage: string) {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value)
+      } else {
+        const textArea = document.createElement('textarea')
+        textArea.value = value
+        textArea.style.position = 'fixed'
+        textArea.style.opacity = '0'
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+      }
+
+      toast.success(successMessage)
+    } catch {
+      toast.error('Não foi possível copiar automaticamente.')
+    }
+  }
+
+  function buildInviteLink(accessCode: string) {
+    return `${window.location.origin}${window.location.pathname}?convite=${encodeURIComponent(accessCode)}`
+  }
+
   return (
     <section className="page-section">
       <PageHeader
@@ -76,6 +101,26 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
               <span>Código de convite da empresa</span>
               <strong>{user.company.accessCode}</strong>
               <small>Compartilhe este código apenas com funcionários autorizados no primeiro acesso.</small>
+              <div className="company-access-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void copyToClipboard(user.company?.accessCode || '', 'Código de convite copiado.')
+                  }}
+                >
+                  <Copy />
+                  Copiar código
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void copyToClipboard(buildInviteLink(user.company?.accessCode || ''), 'Link de convite copiado.')
+                  }}
+                >
+                  <Link />
+                  Copiar link
+                </button>
+              </div>
             </div>
           )}
         </aside>

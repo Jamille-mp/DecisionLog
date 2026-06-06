@@ -57,9 +57,26 @@ function getInitialAuthError() {
   )
 }
 
+function getInitialInviteCode() {
+  return new URLSearchParams(window.location.search).get('convite')?.toUpperCase() || ''
+}
+
+async function readApiError(response: Response, fallback: string) {
+  try {
+    const data = (await response.json()) as { error?: string }
+    return data.error || fallback
+  } catch {
+    return fallback
+  }
+}
+
 function App() {
-  const [authMode, setAuthMode] = useState<AuthMode>('login')
-  const [authForm, setAuthForm] = useState<AuthForm>(emptyAuthForm)
+  const initialInviteCode = getInitialInviteCode()
+  const [authMode, setAuthMode] = useState<AuthMode>(initialInviteCode ? 'register' : 'login')
+  const [authForm, setAuthForm] = useState<AuthForm>({
+    ...emptyAuthForm,
+    companyAccessCode: initialInviteCode,
+  })
   const [authError, setAuthError] = useState<string | null>(() => getInitialAuthError())
   const [token, setToken] = useState(() => localStorage.getItem('decisionlog:token') || '')
   const [user, setUser] = useState<User | null>(() => {
@@ -321,7 +338,7 @@ function App() {
         })
 
         if (!response.ok) {
-          throw new Error('Falha ao redefinir senha.')
+          throw new Error(await readApiError(response, 'Falha ao redefinir senha.'))
         }
 
         toast.success('Senha atualizada. Faça login para continuar.')
@@ -366,7 +383,7 @@ function App() {
       })
 
       if (!response.ok) {
-        throw new Error('Falha na autenticação.')
+        throw new Error(await readApiError(response, 'Falha na autenticação.'))
       }
 
       if (authMode === 'register' || authMode === 'company-register') {
@@ -385,8 +402,10 @@ function App() {
       setAuthError(null)
       setAuthForm(emptyAuthForm)
       toast.success('Login realizado.')
-    } catch {
-      toast.error('Não foi possível autenticar. Confira os dados.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Não foi possível autenticar. Confira os dados.'
+      setAuthError(message)
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }
@@ -746,6 +765,7 @@ function App() {
           <DecisionHistory
             decisions={decisionViews}
             userRole={userProfile.role}
+            currentUserDepartmentId={user?.departmentId}
             onEdit={(decision) => {
               setEditingDecision(decision)
               setPageHistory((current) => [...current, currentPage])
@@ -754,7 +774,6 @@ function App() {
             onDelete={handleDeleteDecision}
             onArchive={handleArchiveDecision}
             onView={openDecision}
-            currentUserId={user?.id}
           />
         )
       case 'audit':
