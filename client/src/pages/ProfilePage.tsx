@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { FormEvent, PointerEvent } from 'react'
-import { Camera, Check, Eye, EyeOff, Image as ImageIcon, Moon, Sun, Trash2, Upload, X } from 'lucide-react'
+import { Camera, Check, Eye, EyeOff, Image as ImageIcon, Moon, RotateCcw, Sun, Trash2, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { CompanyBadge } from '../components/shared/CompanyBadge'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -8,7 +8,7 @@ import { ProfileAvatar } from '../components/shared/ProfileAvatar'
 import { defaultImageFrameSettings, roleLabels } from '../constants/app'
 import type { ImageFrameSettings, ProfileFormData, User } from '../types'
 import { formatPhone } from '../utils/format'
-import { cropImageToCircleDataUrl, readImageAsDataUrl } from '../utils/image'
+import { cropImageToAvatarDataUrl, readImageAsDataUrl } from '../utils/image'
 
 type ProfilePageProps = {
   isSubmitting: boolean
@@ -83,10 +83,7 @@ function ProfilePhotoCropDialog({
     <div className="profile-crop-backdrop" role="dialog" aria-modal="true" aria-label={title}>
       <section className="profile-crop-dialog">
         <div className="profile-crop-header">
-          <div>
-            <span>Foto de perfil</span>
-            <h2>{title}</h2>
-          </div>
+          <h2>{title}</h2>
           <button type="button" aria-label="Cancelar ajuste da foto" onClick={onCancel}>
             <X />
           </button>
@@ -94,35 +91,90 @@ function ProfilePhotoCropDialog({
 
         <div className="profile-crop-board">
           <div
-            className={`profile-crop-viewport${isDragging ? ' dragging' : ''}`.trim()}
+            className={`profile-crop-viewport whatsapp${isDragging ? ' dragging' : ''}`.trim()}
             onPointerCancel={handlePointerEnd}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerEnd}
             role="application"
           >
-          <img
-            src={imageUrl}
-            alt={`Enquadramento de ${name}`}
-            draggable={false}
-            style={{ transform: `translate(${frame.x}%, ${frame.y}%) scale(${frame.zoom})` }}
-          />
+            <img
+              src={imageUrl}
+              alt={`Enquadramento de ${name}`}
+              draggable={false}
+              style={{ transform: `translate(${frame.x}%, ${frame.y}%) scale(${frame.zoom})` }}
+            />
           </div>
         </div>
 
-        <p>Arraste a imagem por trás do círculo fixo até o enquadramento ficar correto.</p>
+        <p>Arraste a imagem atrás da grade fixa. O resultado será exibido em círculo em todas as telas.</p>
 
         <div className="profile-crop-actions">
           <button className="secondary" type="button" onClick={() => onChange(defaultImageFrameSettings)}>
-          Centralizar
+            <RotateCcw />
+            Centralizar
           </button>
           <button className="secondary" type="button" onClick={onCancel}>
             Cancelar
           </button>
           <button type="button" onClick={onConfirm}>
             <Check />
-            Confirmar foto
+            OK
           </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function PhotoSourceSheet({
+  cameraInputId,
+  galleryInputId,
+  hasImage,
+  title,
+  onClose,
+  onRemove,
+}: {
+  cameraInputId: string
+  galleryInputId: string
+  hasImage: boolean
+  title: string
+  onClose: () => void
+  onRemove: () => void
+}) {
+  return (
+    <div className="photo-source-backdrop" role="presentation" onMouseDown={onClose}>
+      <section
+        className="photo-source-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="photo-source-handle" aria-hidden="true" />
+        <div className="photo-source-header">
+          <button type="button" aria-label="Fechar opções de foto" onClick={onClose}>
+            <X />
+          </button>
+          <h2>{title}</h2>
+          {hasImage ? (
+            <button className="danger" type="button" aria-label="Remover foto" onClick={onRemove}>
+              <Trash2 />
+            </button>
+          ) : (
+            <span aria-hidden="true" />
+          )}
+        </div>
+
+        <div className="photo-source-options">
+          <label htmlFor={cameraInputId}>
+            <Camera />
+            Câmera
+          </label>
+          <label htmlFor={galleryInputId}>
+            <ImageIcon />
+            Galeria
+          </label>
         </div>
       </section>
     </div>
@@ -145,6 +197,7 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
     next: false,
   })
   const [cropEditor, setCropEditor] = useState<CropEditorState | null>(null)
+  const [photoPicker, setPhotoPicker] = useState<'avatarUrl' | 'companyLogoUrl' | null>(null)
   const canEditCompanyLogo = user.role === 'admin'
 
   async function handleImageChange(field: 'avatarUrl' | 'companyLogoUrl', files: FileList | null) {
@@ -160,6 +213,7 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
         source: imageUrl,
         title: field === 'avatarUrl' ? 'Ajustar foto de perfil' : 'Ajustar foto da empresa',
       })
+      setPhotoPicker(null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Não foi possível carregar a imagem.')
     }
@@ -169,7 +223,7 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
     if (!cropEditor) return
 
     try {
-      const croppedImageUrl = await cropImageToCircleDataUrl(cropEditor.source, cropEditor.frame)
+      const croppedImageUrl = await cropImageToAvatarDataUrl(cropEditor.source, cropEditor.frame)
       setFormData((current) => ({ ...current, [cropEditor.field]: croppedImageUrl }))
       setCropEditor(null)
       toast.success('Enquadramento confirmado.')
@@ -247,10 +301,10 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                   <span>Escolha uma imagem e confirme o enquadramento circular.</span>
                 </div>
                 <div className="media-upload-actions">
-                  <label className="upload-button" htmlFor="profileAvatarUrl">
+                  <button className="upload-button" type="button" onClick={() => setPhotoPicker('avatarUrl')}>
                     <Camera />
-                    Escolher foto
-                  </label>
+                    Editar foto
+                  </button>
                   <input
                     accept="image/png,image/jpeg,image/webp"
                     className="file-input"
@@ -263,10 +317,6 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                       })
                     }}
                   />
-                  <label className="upload-button" htmlFor="profileAvatarCamera">
-                    <Camera />
-                    Usar câmera
-                  </label>
                   <input
                     accept="image/png,image/jpeg,image/webp"
                     capture="user"
@@ -280,18 +330,6 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                       })
                     }}
                   />
-                  {formData.avatarUrl && (
-                    <button
-                      className="ghost-danger"
-                      type="button"
-                      onClick={() => {
-                        setFormData({ ...formData, avatarUrl: null })
-                      }}
-                    >
-                      <Trash2 />
-                      Remover
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -312,10 +350,10 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                 </div>
                 {canEditCompanyLogo ? (
                   <div className="media-upload-actions">
-                    <label className="upload-button" htmlFor="companyLogoUrl">
+                    <button className="upload-button" type="button" onClick={() => setPhotoPicker('companyLogoUrl')}>
                       <Upload />
-                      Alterar
-                    </label>
+                      Alterar marca
+                    </button>
                     <input
                       accept="image/png,image/jpeg,image/webp"
                       className="file-input"
@@ -328,18 +366,19 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                         })
                       }}
                     />
-                    {formData.companyLogoUrl && (
-                      <button
-                        className="ghost-danger"
-                        type="button"
-                        onClick={() => {
-                          setFormData({ ...formData, companyLogoUrl: null })
-                        }}
-                      >
-                        <Trash2 />
-                        Remover
-                      </button>
-                    )}
+                    <input
+                      accept="image/png,image/jpeg,image/webp"
+                      capture="environment"
+                      className="file-input"
+                      id="companyLogoCamera"
+                      type="file"
+                      onChange={(event) => {
+                        const input = event.currentTarget
+                        void handleImageChange('companyLogoUrl', input.files).finally(() => {
+                          input.value = ''
+                        })
+                      }}
+                    />
                   </div>
                 ) : (
                   <span className="media-upload-note">A marca da empresa é gerenciada por administradores.</span>
@@ -500,6 +539,32 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
           onChange={(frame) => setCropEditor((current) => (current ? { ...current, frame } : current))}
           onConfirm={() => {
             void confirmImageCrop()
+          }}
+        />
+      )}
+      {photoPicker === 'avatarUrl' && (
+        <PhotoSourceSheet
+          cameraInputId="profileAvatarCamera"
+          galleryInputId="profileAvatarUrl"
+          hasImage={Boolean(formData.avatarUrl)}
+          title="Foto do perfil"
+          onClose={() => setPhotoPicker(null)}
+          onRemove={() => {
+            setFormData((current) => ({ ...current, avatarUrl: null }))
+            setPhotoPicker(null)
+          }}
+        />
+      )}
+      {photoPicker === 'companyLogoUrl' && (
+        <PhotoSourceSheet
+          cameraInputId="companyLogoCamera"
+          galleryInputId="companyLogoUrl"
+          hasImage={Boolean(formData.companyLogoUrl)}
+          title="Foto da empresa"
+          onClose={() => setPhotoPicker(null)}
+          onRemove={() => {
+            setFormData((current) => ({ ...current, companyLogoUrl: null }))
+            setPhotoPicker(null)
           }}
         />
       )}

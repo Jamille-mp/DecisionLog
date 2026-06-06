@@ -235,6 +235,17 @@ body[data-theme='dark'] .profile-crop-header h2 {
   color: #f8fafc;
 }
 
+body[data-theme='dark'] .profile-crop-dialog {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #101820;
+}
+
+body[data-theme='dark'] .profile-crop-actions button.secondary {
+  border-color: transparent;
+  background: transparent;
+  color: #20c76f;
+}
+
 body[data-theme='dark'] .media-upload-item,
 body[data-theme='dark'] .profile-company-badge,
 body[data-theme='dark'] .profile-panel .upload-button,
@@ -246,14 +257,18 @@ body[data-theme='dark'] .profile-crop-actions button.secondary {
 }
 
 body[data-theme='dark'] .profile-crop-board {
-  background:
-    linear-gradient(rgba(15, 23, 42, 0.76), rgba(15, 23, 42, 0.76)),
-    radial-gradient(circle at center, rgba(212, 176, 98, 0.12), transparent 42%);
+  background: #050a0f;
 }
 
 body[data-theme='dark'] .profile-crop-viewport {
-  border-color: rgba(212, 176, 98, 0.72);
-  background: #172033;
+  border-color: rgba(255, 255, 255, 0.92);
+  background: #050a0f;
+}
+
+body[data-theme='dark'] .photo-source-sheet {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: #101820;
+  color: #f8fafc;
 }
 
 body[data-theme='dark'] .profile-company-badge .company-mark,
@@ -782,6 +797,21 @@ body[data-theme='dark'] .modal-header {
 
   .profile-crop-actions button {
     width: 100%;
+  }
+
+  .photo-source-backdrop {
+    padding: 0;
+  }
+
+  .photo-source-sheet {
+    width: 100%;
+    border-radius: 28px 28px 0 0;
+    padding: 12px 20px 28px;
+  }
+
+  .photo-source-options label {
+    min-height: 64px;
+    font-size: 20px;
   }
 
   .monitor-card {

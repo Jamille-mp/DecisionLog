@@ -36,7 +36,7 @@ function drawFramedImage(
   context.drawImage(image, left, top, width, height)
 }
 
-export function cropImageToCircleDataUrl(source: string, frame: ImageFrameSettings) {
+export function cropImageToAvatarDataUrl(source: string, frame: ImageFrameSettings) {
   return new Promise<string>((resolve, reject) => {
     const image = new Image()
     image.onload = () => {
@@ -51,15 +51,11 @@ export function cropImageToCircleDataUrl(source: string, frame: ImageFrameSettin
 
       canvas.width = size
       canvas.height = size
-      context.clearRect(0, 0, size, size)
-      context.save()
-      context.beginPath()
-      context.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2)
-      context.clip()
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, size, size)
       drawFramedImage(context, image, size, frame)
-      context.restore()
 
-      resolve(canvas.toDataURL('image/png'))
+      resolve(canvas.toDataURL('image/jpeg', 0.9))
     }
     image.onerror = () => reject(new Error('Não foi possível enquadrar a imagem.'))
     image.src = source
