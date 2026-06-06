@@ -121,6 +121,7 @@ export type OidcConfig = {
 }
 
 export type ProfileFormData = {
+  companyName: string
   name: string
   email: string
   phone: string

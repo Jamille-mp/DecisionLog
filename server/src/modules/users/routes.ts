@@ -82,6 +82,10 @@ userRoutes.patch(
     if (data.phone !== undefined) updateData.phone = data.phone || null;
     if (data.preferredTheme) updateData.preferredTheme = data.preferredTheme;
 
+    if (data.companyName !== undefined && currentUser.role !== "admin") {
+      throw new AppError("Apenas administradores podem alterar o nome da empresa.", 403);
+    }
+
     if (data.newPassword) {
       const passwordMatches = await bcrypt.compare(
         data.currentPassword || "",
@@ -93,6 +97,17 @@ userRoutes.patch(
       }
 
       updateData.passwordHash = await bcrypt.hash(data.newPassword, 10);
+    }
+
+    if (data.companyName !== undefined) {
+      await prisma.company.update({
+        where: {
+          id: currentUser.companyId,
+        },
+        data: {
+          name: data.companyName,
+        },
+      });
     }
 
     const user =
@@ -120,7 +135,10 @@ userRoutes.patch(
       {
         userId: currentUser.id,
         companyId: currentUser.companyId,
-        campos: Object.keys(updateData).filter((key) => key !== "passwordHash"),
+        campos: [
+          ...Object.keys(updateData).filter((key) => key !== "passwordHash"),
+          ...(data.companyName !== undefined ? ["companyName"] : []),
+        ],
         senhaAlterada: Boolean(updateData.passwordHash),
       },
       request.user?.id,

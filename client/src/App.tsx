@@ -638,6 +638,10 @@ function App() {
         preferredTheme: data.preferredTheme,
       }
 
+      if (user?.role === 'admin') {
+        payload.companyName = data.companyName
+      }
+
       if (data.newPassword) {
         payload.currentPassword = data.currentPassword
         payload.newPassword = data.newPassword

@@ -428,6 +428,77 @@ describe("DecisionLog API", () => {
     expect(response.body.role).toBe("manager");
   });
 
+  it("permite administrador alterar o nome visível da empresa", async () => {
+    mocks.prisma.user.findUnique
+      .mockResolvedValueOnce({
+        id: "user-1",
+        companyId,
+        name: "Jamille Admin",
+        email: "admin@decisionlog.local",
+        passwordHash: "hash",
+        role: "admin",
+        active: true,
+      })
+      .mockResolvedValueOnce({
+        id: "user-1",
+        companyId,
+        company: {
+          id: companyId,
+          name: "AESA",
+          slug: "decisionlog",
+          accessCode: "DL-DEMO01",
+          active: true,
+        },
+        name: "Jamille Admin",
+        email: "admin@decisionlog.local",
+        role: "admin",
+        active: true,
+      });
+    mocks.prisma.company.update.mockResolvedValue({
+      id: companyId,
+      name: "AESA",
+      slug: "decisionlog",
+      accessCode: "DL-DEMO01",
+      active: true,
+    });
+
+    const response = await request(app)
+      .patch("/users/me")
+      .set("Authorization", `Bearer ${makeToken("admin")}`)
+      .send({ companyName: "AESA" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.company.name).toBe("AESA");
+    expect(mocks.prisma.company.update).toHaveBeenCalledWith({
+      where: {
+        id: companyId,
+      },
+      data: {
+        name: "AESA",
+      },
+    });
+  });
+
+  it("bloqueia usuário sem perfil admin de alterar o nome da empresa", async () => {
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      companyId,
+      name: "Gestor",
+      email: "manager@decisionlog.local",
+      passwordHash: "hash",
+      role: "manager",
+      active: true,
+    });
+
+    const response = await request(app)
+      .patch("/users/me")
+      .set("Authorization", `Bearer ${makeToken("manager")}`)
+      .send({ companyName: "Novo Nome" });
+
+    expect(response.status).toBe(403);
+    expect(mocks.prisma.company.update).not.toHaveBeenCalled();
+  });
+
   it("oculta usuários excluídos da listagem administrativa por padrão", async () => {
     mocks.prisma.user.findMany.mockResolvedValue([]);
 

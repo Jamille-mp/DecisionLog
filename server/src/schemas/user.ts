@@ -16,6 +16,7 @@ export const updateProfileSchema = z
     name: z.string().min(2).optional(),
     email: z.email().optional(),
     phone: z.string().trim().max(30).nullable().optional(),
+    companyName: z.string().trim().min(2).max(120).optional(),
     preferredTheme: z.enum(["light", "dark"]).optional(),
     currentPassword: z.string().min(1).optional(),
     newPassword: passwordSchema.optional(),

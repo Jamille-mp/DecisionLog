@@ -2,7 +2,7 @@ import { getInitials } from '../../utils/format'
 
 export function CompanyBadge({
   className = '',
-  label = 'Empresa ativa',
+  label = 'Empresa vinculada',
   name,
 }: {
   className?: string

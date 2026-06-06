@@ -17,6 +17,7 @@ type ProfilePageProps = {
 
 export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
   const [formData, setFormData] = useState<ProfileFormData>({
+    companyName: user.company?.name || '',
     name: user.name,
     email: user.email,
     phone: user.phone || '',
@@ -145,23 +146,38 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
 
           <section className="profile-panel">
             <div className="profile-panel-header">
-              <h2>Perfil da empresa</h2>
-              <p>Informações que identificam a organização ativa e ajudam a evitar acesso no ambiente errado.</p>
+              <h2>Empresa vinculada</h2>
+              <p>Este é o ambiente corporativo em que seu usuário está conectado.</p>
             </div>
             <div className="company-profile-card">
               <div className="company-profile-mark">
                 <Building2 />
               </div>
               <div>
-                <span>Empresa ativa</span>
-                <strong>{user.company?.name || 'Empresa'}</strong>
-                <p>{user.company?.slug ? `Identificador interno: ${user.company.slug}` : 'Ambiente corporativo vinculado ao seu usuário.'}</p>
+                <span>Ambiente atual</span>
+                <strong>{formData.companyName || user.company?.name || 'Empresa'}</strong>
+                <p>{user.company?.slug ? `Identificador interno: ${user.company.slug}` : 'Empresa vinculada ao seu acesso.'}</p>
               </div>
               <div className="company-profile-status">
                 <ShieldCheck />
-                <span>{user.role === 'admin' ? 'Administração habilitada' : 'Acesso vinculado'}</span>
+                <span>{user.role === 'admin' ? 'Perfil administrador da empresa' : 'Perfil vinculado à empresa'}</span>
               </div>
             </div>
+            {user.role === 'admin' && (
+              <div>
+                <label htmlFor="companyNameEdit">Nome visível da empresa</label>
+                <input
+                  id="companyNameEdit"
+                  value={formData.companyName}
+                  onChange={(event) => setFormData({ ...formData, companyName: event.target.value })}
+                  placeholder="Nome da empresa"
+                  required
+                />
+                <small className="field-hint">
+                  Este nome aparece para todos os usuários vinculados a esta empresa.
+                </small>
+              </div>
+            )}
           </section>
 
           <section className="profile-panel">
