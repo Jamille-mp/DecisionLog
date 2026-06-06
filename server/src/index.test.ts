@@ -45,6 +45,8 @@ const mocks = vi.hoisted(() => ({
   listAuditLogs: vi.fn(),
   listAuditLogsByDecision: vi.fn(),
   checkMongoHealth: vi.fn(),
+  isPasswordResetEmailConfigured: vi.fn(),
+  sendPasswordResetEmail: vi.fn(),
 }));
 
 vi.mock("./lib/prisma", () => ({
@@ -56,6 +58,11 @@ vi.mock("./lib/mongodb", () => ({
   listAuditLogs: mocks.listAuditLogs,
   listAuditLogsByDecision: mocks.listAuditLogsByDecision,
   checkMongoHealth: mocks.checkMongoHealth,
+}));
+
+vi.mock("./lib/email", () => ({
+  isPasswordResetEmailConfigured: mocks.isPasswordResetEmailConfigured,
+  sendPasswordResetEmail: mocks.sendPasswordResetEmail,
 }));
 
 process.env.NODE_ENV = "test";
@@ -95,6 +102,8 @@ describe("DecisionLog API", () => {
         active: true,
       },
     });
+    mocks.isPasswordResetEmailConfigured.mockReturnValue(false);
+    mocks.sendPasswordResetEmail.mockResolvedValue(false);
   });
 
   it("autentica usuário válido e retorna token com perfil", async () => {
@@ -702,7 +711,7 @@ describe("DecisionLog API", () => {
     );
   });
 
-  it("gera token de recuperacao de senha sem revelar existencia do email", async () => {
+  it("gera token de recuperacao e avisa quando email nao esta configurado", async () => {
     mocks.prisma.user.findUnique.mockResolvedValue({
       id: "user-1",
       name: "Jamille Admin",
@@ -716,6 +725,8 @@ describe("DecisionLog API", () => {
     });
 
     expect(response.status).toBe(200);
+    expect(response.body.emailConfigured).toBe(false);
+    expect(response.body.emailSent).toBe(false);
     expect(response.body.resetToken).toEqual(expect.any(String));
     expect(mocks.prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -723,6 +734,39 @@ describe("DecisionLog API", () => {
           passwordResetTokenHash: expect.any(String),
           passwordResetExpiresAt: expect.any(Date),
         }),
+      }),
+    );
+    expect(mocks.sendPasswordResetEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "admin@decisionlog.local",
+        token: expect.any(String),
+      }),
+    );
+  });
+
+  it("envia email de recuperacao quando provedor esta configurado", async () => {
+    mocks.isPasswordResetEmailConfigured.mockReturnValue(true);
+    mocks.sendPasswordResetEmail.mockResolvedValue(true);
+    mocks.prisma.user.findUnique.mockResolvedValue({
+      id: "user-1",
+      name: "Jamille Admin",
+      email: "admin@decisionlog.local",
+      active: true,
+    });
+    mocks.prisma.user.update.mockResolvedValue({});
+
+    const response = await request(app).post("/auth/forgot-password").send({
+      email: "admin@decisionlog.local",
+    });
+
+    expect(response.status).toBe(200);
+    expect(response.body.emailConfigured).toBe(true);
+    expect(response.body.emailSent).toBe(true);
+    expect(mocks.sendPasswordResetEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "admin@decisionlog.local",
+        name: "Jamille Admin",
+        token: expect.any(String),
       }),
     );
   });

@@ -21,6 +21,7 @@ import {
   clearSession,
   getInitialAuthError,
   getInitialInviteCode,
+  getInitialResetToken,
   persistSession,
   persistToken,
   persistUser,
@@ -58,10 +59,12 @@ import './App.css'
 
 function App() {
   const initialInviteCode = getInitialInviteCode()
-  const [authMode, setAuthMode] = useState<AuthMode>(initialInviteCode ? 'register' : 'login')
+  const initialResetToken = getInitialResetToken()
+  const [authMode, setAuthMode] = useState<AuthMode>(initialResetToken ? 'reset' : initialInviteCode ? 'register' : 'login')
   const [authForm, setAuthForm] = useState<AuthForm>({
     ...emptyAuthForm,
     companyAccessCode: initialInviteCode,
+    resetToken: initialResetToken,
   })
   const [authError, setAuthError] = useState<string | null>(() => getInitialAuthError())
   const [token, setToken] = useState(readStoredToken)
@@ -299,10 +302,23 @@ function App() {
           throw new Error('Falha ao solicitar recuperação de senha.')
         }
 
-        const data = (await response.json()) as { message: string; resetToken?: string }
-        toast.success(data.message)
-        setAuthMode('reset')
-        setAuthForm((current) => ({ ...current, resetToken: data.resetToken || '' }))
+        const data = (await response.json()) as {
+          emailConfigured?: boolean
+          emailSent?: boolean
+          message: string
+          resetToken?: string
+        }
+        if (data.emailSent || data.resetToken) {
+          toast.success(data.message)
+        } else {
+          toast.warning(data.message)
+        }
+        if (data.resetToken) {
+          setAuthMode('reset')
+          setAuthForm((current) => ({ ...current, resetToken: data.resetToken || '' }))
+        } else {
+          setAuthMode('login')
+        }
         return
       }
 
@@ -324,6 +340,7 @@ function App() {
         }
 
         toast.success('Senha atualizada. Faça login para continuar.')
+        window.history.replaceState({}, document.title, window.location.pathname)
         setAuthMode('login')
         setAuthForm(emptyAuthForm)
         return

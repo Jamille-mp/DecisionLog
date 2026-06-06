@@ -10,6 +10,10 @@ import {
   getEmailDomain,
 } from "../../lib/company";
 import { signAppToken } from "../../lib/authToken";
+import {
+  isPasswordResetEmailConfigured,
+  sendPasswordResetEmail,
+} from "../../lib/email";
 import { logActivity } from "../../lib/mongodb";
 import {
   buildAuthorizationUrl,
@@ -376,9 +380,12 @@ authRoutes.post(
 
     const message =
       "Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.";
+    const emailConfigured = isPasswordResetEmailConfigured();
+    const unavailableMessage =
+      "O envio de e-mail de recuperação ainda não está configurado neste ambiente.";
 
     if (!user || !user.active) {
-      response.json({ message });
+      response.json({ message: emailConfigured ? message : unavailableMessage, emailConfigured });
       return;
     }
 
@@ -406,8 +413,20 @@ authRoutes.post(
       user.companyId,
     );
 
+    const emailSent = await sendPasswordResetEmail({
+      email: user.email,
+      name: user.name,
+      token: resetToken,
+    });
+
     response.json({
-      message,
+      message: emailSent
+        ? message
+        : emailConfigured
+          ? "Não foi possível enviar o e-mail de recuperação. Tente novamente em alguns instantes."
+          : unavailableMessage,
+      emailConfigured,
+      emailSent,
       ...(process.env.NODE_ENV === "production" ? {} : { resetToken }),
     });
   }),

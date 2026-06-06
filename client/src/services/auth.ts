@@ -16,6 +16,10 @@ export function getInitialInviteCode() {
   return new URLSearchParams(window.location.search).get('convite')?.toUpperCase() || ''
 }
 
+export function getInitialResetToken() {
+  return new URLSearchParams(window.location.search).get('resetToken') || ''
+}
+
 export async function readApiError(response: Response, fallback: string) {
   try {
     const data = (await response.json()) as { error?: string }
