@@ -1,14 +1,13 @@
-import { useRef, useState } from 'react'
-import type { FormEvent, PointerEvent } from 'react'
-import { Camera, Check, Eye, EyeOff, Image as ImageIcon, Moon, RotateCcw, Sun, Trash2, Upload, X } from 'lucide-react'
+import { useState } from 'react'
+import type { FormEvent } from 'react'
+import { Building2, Eye, EyeOff, Moon, ShieldCheck, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { CompanyBadge } from '../components/shared/CompanyBadge'
 import { PageHeader } from '../components/shared/PageHeader'
 import { ProfileAvatar } from '../components/shared/ProfileAvatar'
-import { defaultImageFrameSettings, roleLabels } from '../constants/app'
-import type { ImageFrameSettings, ProfileFormData, User } from '../types'
+import { roleLabels } from '../constants/app'
+import type { ProfileFormData, User } from '../types'
 import { formatPhone } from '../utils/format'
-import { cropImageToAvatarDataUrl, readImageAsDataUrl } from '../utils/image'
 
 type ProfilePageProps = {
   isSubmitting: boolean
@@ -16,178 +15,11 @@ type ProfilePageProps = {
   user: User
 }
 
-type CropEditorState = {
-  field: 'avatarUrl' | 'companyLogoUrl'
-  frame: ImageFrameSettings
-  name: string
-  source: string
-  title: string
-}
-
-function ProfilePhotoCropDialog({
-  frame,
-  imageUrl,
-  name,
-  title,
-  onCancel,
-  onChange,
-  onConfirm,
-}: {
-  frame: ImageFrameSettings
-  imageUrl: string
-  name: string
-  title: string
-  onCancel: () => void
-  onChange: (frame: ImageFrameSettings) => void
-  onConfirm: () => void
-}) {
-  const [isDragging, setIsDragging] = useState(false)
-  const dragStart = useRef<{ clientX: number; clientY: number; frameX: number; frameY: number } | null>(null)
-
-  const clampFrame = (value: number) => Math.max(-45, Math.min(45, value))
-
-  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
-    dragStart.current = {
-      clientX: event.clientX,
-      clientY: event.clientY,
-      frameX: frame.x,
-      frameY: frame.y,
-    }
-    event.currentTarget.setPointerCapture(event.pointerId)
-    setIsDragging(true)
-  }
-
-  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!dragStart.current) return
-
-    const { width, height } = event.currentTarget.getBoundingClientRect()
-    const deltaX = ((event.clientX - dragStart.current.clientX) / Math.max(width, 1)) * 100
-    const deltaY = ((event.clientY - dragStart.current.clientY) / Math.max(height, 1)) * 100
-
-    onChange({
-      ...frame,
-      x: clampFrame(dragStart.current.frameX + deltaX),
-      y: clampFrame(dragStart.current.frameY + deltaY),
-    })
-  }
-
-  function handlePointerEnd(event: PointerEvent<HTMLDivElement>) {
-    dragStart.current = null
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-    setIsDragging(false)
-  }
-
-  return (
-    <div className="profile-crop-backdrop" role="dialog" aria-modal="true" aria-label={title}>
-      <section className="profile-crop-dialog">
-        <div className="profile-crop-header">
-          <h2>{title}</h2>
-          <button type="button" aria-label="Cancelar ajuste da foto" onClick={onCancel}>
-            <X />
-          </button>
-        </div>
-
-        <div className="profile-crop-board">
-          <div
-            className={`profile-crop-viewport whatsapp${isDragging ? ' dragging' : ''}`.trim()}
-            onPointerCancel={handlePointerEnd}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerEnd}
-            role="application"
-          >
-            <img
-              src={imageUrl}
-              alt={`Enquadramento de ${name}`}
-              draggable={false}
-              style={{ transform: `translate(${frame.x}%, ${frame.y}%) scale(${frame.zoom})` }}
-            />
-          </div>
-        </div>
-
-        <p>Arraste a imagem atrás da grade fixa. O resultado será exibido em círculo em todas as telas.</p>
-
-        <div className="profile-crop-actions">
-          <button className="secondary" type="button" onClick={() => onChange(defaultImageFrameSettings)}>
-            <RotateCcw />
-            Centralizar
-          </button>
-          <button className="secondary" type="button" onClick={onCancel}>
-            Cancelar
-          </button>
-          <button type="button" onClick={onConfirm}>
-            <Check />
-            OK
-          </button>
-        </div>
-      </section>
-    </div>
-  )
-}
-
-function PhotoSourceSheet({
-  cameraInputId,
-  galleryInputId,
-  hasImage,
-  title,
-  onClose,
-  onRemove,
-}: {
-  cameraInputId: string
-  galleryInputId: string
-  hasImage: boolean
-  title: string
-  onClose: () => void
-  onRemove: () => void
-}) {
-  return (
-    <div className="photo-source-backdrop" role="presentation" onMouseDown={onClose}>
-      <section
-        className="photo-source-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="photo-source-handle" aria-hidden="true" />
-        <div className="photo-source-header">
-          <button type="button" aria-label="Fechar opções de foto" onClick={onClose}>
-            <X />
-          </button>
-          <h2>{title}</h2>
-          {hasImage ? (
-            <button className="danger" type="button" aria-label="Remover foto" onClick={onRemove}>
-              <Trash2 />
-            </button>
-          ) : (
-            <span aria-hidden="true" />
-          )}
-        </div>
-
-        <div className="photo-source-options">
-          <label htmlFor={cameraInputId}>
-            <Camera />
-            Câmera
-          </label>
-          <label htmlFor={galleryInputId}>
-            <ImageIcon />
-            Galeria
-          </label>
-        </div>
-      </section>
-    </div>
-  )
-}
-
 export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
   const [formData, setFormData] = useState<ProfileFormData>({
     name: user.name,
     email: user.email,
     phone: user.phone || '',
-    avatarUrl: user.avatarUrl || null,
-    companyLogoUrl: user.company?.logoUrl || null,
     preferredTheme: user.preferredTheme || 'light',
     currentPassword: '',
     newPassword: '',
@@ -196,41 +28,6 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
     current: false,
     next: false,
   })
-  const [cropEditor, setCropEditor] = useState<CropEditorState | null>(null)
-  const [photoPicker, setPhotoPicker] = useState<'avatarUrl' | 'companyLogoUrl' | null>(null)
-  const canEditCompanyLogo = user.role === 'admin'
-
-  async function handleImageChange(field: 'avatarUrl' | 'companyLogoUrl', files: FileList | null) {
-    const file = files?.[0]
-    if (!file) return
-
-    try {
-      const imageUrl = await readImageAsDataUrl(file)
-      setCropEditor({
-        field,
-        frame: defaultImageFrameSettings,
-        name: field === 'avatarUrl' ? formData.name : user.company?.name || 'Empresa',
-        source: imageUrl,
-        title: field === 'avatarUrl' ? 'Ajustar foto de perfil' : 'Ajustar foto da empresa',
-      })
-      setPhotoPicker(null)
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Não foi possível carregar a imagem.')
-    }
-  }
-
-  async function confirmImageCrop() {
-    if (!cropEditor) return
-
-    try {
-      const croppedImageUrl = await cropImageToAvatarDataUrl(cropEditor.source, cropEditor.frame)
-      setFormData((current) => ({ ...current, [cropEditor.field]: croppedImageUrl }))
-      setCropEditor(null)
-      toast.success('Enquadramento confirmado.')
-    } catch {
-      toast.error('Não foi possível salvar as alterações do perfil.')
-    }
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -242,7 +39,7 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
         newPassword: '',
       }))
     } catch {
-      toast.error('Não foi possível enquadrar a imagem selecionada.')
+      toast.error('Não foi possível atualizar o perfil.')
     }
   }
 
@@ -260,15 +57,14 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
       />
       <form className="profile-settings-layout" onSubmit={handleSubmit}>
         <aside className="profile-overview">
-          <ProfileAvatar className="large" imageUrl={formData.avatarUrl} name={formData.name} />
+          <ProfileAvatar className="large" name={formData.name} />
           <div>
-            <h2>{user.name}</h2>
-            <p>{user.email}</p>
+            <h2>{formData.name}</h2>
+            <p>{formData.email}</p>
           </div>
           <CompanyBadge
             className="profile-company-badge"
             label="Empresa"
-            logoUrl={formData.companyLogoUrl}
             name={user.company?.name || 'Empresa'}
           />
           <div className="profile-overview-meta">
@@ -277,112 +73,48 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
           </div>
           {user.role === 'admin' && user.company?.accessCode && (
             <div className="company-access-code">
-              <span>Código da empresa</span>
+              <span>Código de convite da empresa</span>
               <strong>{user.company.accessCode}</strong>
+              <small>Compartilhe este código apenas com funcionários autorizados no primeiro acesso.</small>
             </div>
           )}
         </aside>
 
         <div className="profile-settings-stack">
-          <section className="profile-panel profile-media-panel">
+          <section className="profile-panel">
             <div className="profile-panel-header">
-              <h2>Fotos de identificação</h2>
-              <p>Personalize sua foto no sistema e a marca exibida para a empresa ativa.</p>
+              <h2>Identificação do usuário</h2>
+              <p>
+                A plataforma usa as iniciais do nome como avatar. Isso evita imagens inadequadas e mantém a
+                identificação visual simples em todo o sistema.
+              </p>
             </div>
-            <div className="media-upload-grid">
-              <div className="media-upload-item">
-                <ProfileAvatar
-                  className="large media-preview-avatar"
-                  imageUrl={formData.avatarUrl}
-                  name={formData.name}
-                />
-                <div className="media-upload-copy">
-                  <strong>Foto de perfil</strong>
-                  <span>Escolha uma imagem e confirme o enquadramento circular.</span>
-                </div>
-                <div className="media-upload-actions">
-                  <button className="upload-button" type="button" onClick={() => setPhotoPicker('avatarUrl')}>
-                    <Camera />
-                    Editar foto
-                  </button>
-                  <input
-                    accept="image/png,image/jpeg,image/webp"
-                    className="file-input"
-                    id="profileAvatarUrl"
-                    type="file"
-                    onChange={(event) => {
-                      const input = event.currentTarget
-                      void handleImageChange('avatarUrl', input.files).finally(() => {
-                        input.value = ''
-                      })
-                    }}
-                  />
-                  <input
-                    accept="image/png,image/jpeg,image/webp"
-                    capture="user"
-                    className="file-input"
-                    id="profileAvatarCamera"
-                    type="file"
-                    onChange={(event) => {
-                      const input = event.currentTarget
-                      void handleImageChange('avatarUrl', input.files).finally(() => {
-                        input.value = ''
-                      })
-                    }}
-                  />
-                </div>
+            <div className="profile-initials-preview">
+              <ProfileAvatar className="large" name={formData.name} />
+              <div>
+                <strong>{formData.name || 'Usuário'}</strong>
+                <span>{roleLabels[user.role]} · {user.department?.name || 'Sem departamento'}</span>
               </div>
+            </div>
+          </section>
 
-              <div className="media-upload-item">
-                <div className="company-photo-preview">
-                  {formData.companyLogoUrl ? (
-                    <img
-                      src={formData.companyLogoUrl}
-                      alt={`Logo de ${user.company?.name || 'Empresa'}`}
-                    />
-                  ) : (
-                    <ImageIcon />
-                  )}
-                </div>
-                <div className="media-upload-copy">
-                  <strong>Foto da empresa</strong>
-                  <span>{user.company?.name || 'Empresa'}</span>
-                </div>
-                {canEditCompanyLogo ? (
-                  <div className="media-upload-actions">
-                    <button className="upload-button" type="button" onClick={() => setPhotoPicker('companyLogoUrl')}>
-                      <Upload />
-                      Alterar marca
-                    </button>
-                    <input
-                      accept="image/png,image/jpeg,image/webp"
-                      className="file-input"
-                      id="companyLogoUrl"
-                      type="file"
-                      onChange={(event) => {
-                        const input = event.currentTarget
-                        void handleImageChange('companyLogoUrl', input.files).finally(() => {
-                          input.value = ''
-                        })
-                      }}
-                    />
-                    <input
-                      accept="image/png,image/jpeg,image/webp"
-                      capture="environment"
-                      className="file-input"
-                      id="companyLogoCamera"
-                      type="file"
-                      onChange={(event) => {
-                        const input = event.currentTarget
-                        void handleImageChange('companyLogoUrl', input.files).finally(() => {
-                          input.value = ''
-                        })
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <span className="media-upload-note">A marca da empresa é gerenciada por administradores.</span>
-                )}
+          <section className="profile-panel">
+            <div className="profile-panel-header">
+              <h2>Perfil da empresa</h2>
+              <p>Informações que identificam a organização ativa e ajudam a evitar acesso no ambiente errado.</p>
+            </div>
+            <div className="company-profile-card">
+              <div className="company-profile-mark">
+                <Building2 />
+              </div>
+              <div>
+                <span>Empresa ativa</span>
+                <strong>{user.company?.name || 'Empresa'}</strong>
+                <p>{user.company?.slug ? `Identificador interno: ${user.company.slug}` : 'Ambiente corporativo vinculado ao seu usuário.'}</p>
+              </div>
+              <div className="company-profile-status">
+                <ShieldCheck />
+                <span>{user.role === 'admin' ? 'Administração habilitada' : 'Acesso vinculado'}</span>
               </div>
             </div>
           </section>
@@ -423,7 +155,7 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
           <section className="profile-panel">
             <div className="profile-panel-header">
               <h2>E-mail de acesso</h2>
-              <p>Este e-mail é usado no login e na recuperação de senha.</p>
+              <p>Este e-mail é usado no login, na recuperação de senha e no vínculo com a empresa.</p>
             </div>
             <div>
               <label htmlFor="profileEmail">E-mail</label>
@@ -529,45 +261,6 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
           </section>
         </div>
       </form>
-      {cropEditor && (
-        <ProfilePhotoCropDialog
-          frame={cropEditor.frame}
-          imageUrl={cropEditor.source}
-          name={cropEditor.name}
-          title={cropEditor.title}
-          onCancel={() => setCropEditor(null)}
-          onChange={(frame) => setCropEditor((current) => (current ? { ...current, frame } : current))}
-          onConfirm={() => {
-            void confirmImageCrop()
-          }}
-        />
-      )}
-      {photoPicker === 'avatarUrl' && (
-        <PhotoSourceSheet
-          cameraInputId="profileAvatarCamera"
-          galleryInputId="profileAvatarUrl"
-          hasImage={Boolean(formData.avatarUrl)}
-          title="Foto do perfil"
-          onClose={() => setPhotoPicker(null)}
-          onRemove={() => {
-            setFormData((current) => ({ ...current, avatarUrl: null }))
-            setPhotoPicker(null)
-          }}
-        />
-      )}
-      {photoPicker === 'companyLogoUrl' && (
-        <PhotoSourceSheet
-          cameraInputId="companyLogoCamera"
-          galleryInputId="companyLogoUrl"
-          hasImage={Boolean(formData.companyLogoUrl)}
-          title="Foto da empresa"
-          onClose={() => setPhotoPicker(null)}
-          onRemove={() => {
-            setFormData((current) => ({ ...current, companyLogoUrl: null }))
-            setPhotoPicker(null)
-          }}
-        />
-      )}
     </section>
   )
 }

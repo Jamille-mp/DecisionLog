@@ -1,4 +1,4 @@
-import type { ApiRole, AuthForm, DecisionFormData, ImageFrameSettings, RoleLabel } from '../types'
+import type { ApiRole, AuthForm, DecisionFormData, RoleLabel } from '../types'
 
 export const emptyAuthForm: AuthForm = {
   companyAccessCode: '',
@@ -18,12 +18,6 @@ export const emptyDecisionForm: DecisionFormData = {
   impacto: '',
   status: 'Pendente',
   descricao: '',
-}
-
-export const defaultImageFrameSettings: ImageFrameSettings = {
-  zoom: 1,
-  x: 0,
-  y: 0,
 }
 
 export const roleLabels: Record<ApiRole, RoleLabel> = {

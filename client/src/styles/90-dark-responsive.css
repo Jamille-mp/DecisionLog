@@ -15,7 +15,6 @@ body[data-theme='dark'] .loading-panel,
 body[data-theme='dark'] .profile-overview,
 body[data-theme='dark'] .profile-panel,
 body[data-theme='dark'] .profile-save-panel,
-body[data-theme='dark'] .profile-crop-dialog,
 body[data-theme='dark'] .monitor-card,
 body[data-theme='dark'] .monitor-operations article,
 body[data-theme='dark'] .demo-notice,
@@ -222,77 +221,37 @@ body[data-theme='dark'] .company-access-code {
 }
 
 body[data-theme='dark'] .company-access-code span,
-body[data-theme='dark'] .profile-crop-dialog p,
-body[data-theme='dark'] .profile-crop-header span {
+body[data-theme='dark'] .profile-initials-preview span,
+body[data-theme='dark'] .company-profile-card span,
+body[data-theme='dark'] .company-profile-card p {
   color: #94a3b8;
 }
 
-body[data-theme='dark'] .company-access-code strong {
+body[data-theme='dark'] .company-access-code strong,
+body[data-theme='dark'] .profile-initials-preview strong,
+body[data-theme='dark'] .company-profile-card strong {
   color: #f8fafc;
 }
 
-body[data-theme='dark'] .profile-crop-header h2 {
-  color: #f8fafc;
-}
-
-body[data-theme='dark'] .profile-crop-dialog {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: #101820;
-}
-
-body[data-theme='dark'] .profile-crop-actions button.secondary {
-  border-color: transparent;
-  background: transparent;
-  color: #20c76f;
-}
-
-body[data-theme='dark'] .media-upload-item,
 body[data-theme='dark'] .profile-company-badge,
-body[data-theme='dark'] .profile-panel .upload-button,
-body[data-theme='dark'] .profile-crop-header button,
-body[data-theme='dark'] .profile-crop-actions button.secondary {
+body[data-theme='dark'] .profile-initials-preview,
+body[data-theme='dark'] .company-profile-card {
   border-color: rgba(255, 255, 255, 0.12);
   background: #0f172a;
   color: #f8fafc;
 }
 
-body[data-theme='dark'] .profile-crop-board {
-  background: #050a0f;
-}
-
-body[data-theme='dark'] .profile-crop-viewport {
-  border-color: rgba(255, 255, 255, 0.92);
-  background: #050a0f;
-}
-
-body[data-theme='dark'] .photo-source-sheet {
-  border-color: rgba(255, 255, 255, 0.08);
-  background: #101820;
-  color: #f8fafc;
-}
-
-body[data-theme='dark'] .profile-company-badge .company-mark,
-body[data-theme='dark'] .company-photo-preview {
+body[data-theme='dark'] .profile-company-badge .company-mark {
   background: rgba(212, 176, 98, 0.18);
   color: #f8fafc;
 }
 
-body[data-theme='dark'] .profile-company-badge .company-label,
-body[data-theme='dark'] .media-upload-copy span,
-body[data-theme='dark'] .media-upload-note {
+body[data-theme='dark'] .profile-company-badge .company-label {
   color: #94a3b8;
 }
 
-body[data-theme='dark'] .profile-company-badge strong,
-body[data-theme='dark'] .media-upload-copy strong,
-body[data-theme='dark'] .profile-panel .upload-button {
+body[data-theme='dark'] .profile-company-badge strong {
   color: #f8fafc;
-}
-
-body[data-theme='dark'] .ghost-danger {
-  border-color: rgba(248, 113, 113, 0.22);
-  background: rgba(248, 113, 113, 0.08);
-  color: #fca5a5;
 }
 
 body[data-theme='dark'] .company-badge-light {
@@ -336,6 +295,8 @@ body[data-theme='dark'] .login-form label,
 body[data-theme='dark'] .decision-form label,
 body[data-theme='dark'] .profile-panel label,
 body[data-theme='dark'] .oidc-access-block label,
+body[data-theme='dark'] .oidc-invite-panel label,
+body[data-theme='dark'] .oidc-invite-panel strong,
 body[data-theme='dark'] .consent-box label,
 body[data-theme='dark'] .health-grid span,
 body[data-theme='dark'] .empty-card p,
@@ -363,10 +324,15 @@ body[data-theme='dark'] .profile-popover button:hover {
 body[data-theme='dark'] .consent-box,
 body[data-theme='dark'] .legal-actions button,
 body[data-theme='dark'] .theme-toggle button,
+body[data-theme='dark'] .oidc-invite-panel,
 body[data-theme='dark'] .oidc-button,
 body[data-theme='dark'] .legal-summary {
   border-color: rgba(255, 255, 255, 0.12);
   background: #0f172a;
+}
+
+body[data-theme='dark'] .oidc-invite-panel p {
+  color: #94a3b8;
 }
 
 body[data-theme='dark'] .oidc-button {
@@ -451,23 +417,12 @@ body[data-theme='dark'] .modal-header {
   .detail-grid,
   .admin-summary-grid,
   .monitor-operations,
-  .media-upload-grid,
   .profile-settings-layout {
     grid-template-columns: 1fr;
   }
 
   .profile-overview {
     position: static;
-  }
-
-  .media-upload-item {
-    grid-template-columns: 72px minmax(0, 1fr);
-  }
-
-  .media-preview-avatar,
-  .company-photo-preview {
-    width: 72px;
-    height: 72px;
   }
 
   .profile-save-panel button {
@@ -656,6 +611,14 @@ body[data-theme='dark'] .modal-header {
     align-items: flex-start;
   }
 
+  .oidc-invite-row {
+    grid-template-columns: 1fr;
+  }
+
+  .oidc-button {
+    width: 100%;
+  }
+
   .login-card,
   .form-card,
   .audit-card,
@@ -771,47 +734,6 @@ body[data-theme='dark'] .modal-header {
   .profile-overview,
   .chart-card {
     gap: 16px;
-  }
-
-  .profile-crop-backdrop {
-    align-items: end;
-    padding: 0;
-  }
-
-  .profile-crop-dialog {
-    width: 100%;
-    max-height: 92vh;
-    border-radius: 8px 8px 0 0;
-    overflow-y: auto;
-  }
-
-  .profile-crop-board {
-    min-height: 280px;
-    padding: 18px;
-  }
-
-  .profile-crop-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .profile-crop-actions button {
-    width: 100%;
-  }
-
-  .photo-source-backdrop {
-    padding: 0;
-  }
-
-  .photo-source-sheet {
-    width: 100%;
-    border-radius: 28px 28px 0 0;
-    padding: 12px 20px 28px;
-  }
-
-  .photo-source-options label {
-    min-height: 64px;
-    font-size: 20px;
   }
 
   .monitor-card {

@@ -916,14 +916,44 @@
   padding-top: 18px;
 }
 
-.oidc-access-block label {
+.oidc-invite-panel {
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(24, 51, 84, 0.1);
+  border-radius: 8px;
+  background: #f9fafb;
+  padding: 14px;
+}
+
+.oidc-invite-panel strong {
+  color: #183354;
+  font-size: 14px;
+}
+
+.oidc-invite-panel p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.oidc-access-block label,
+.oidc-invite-panel label {
   display: block;
   margin-bottom: 8px;
   color: #183354;
   font-weight: 500;
 }
 
-.oidc-access-block input {
+.oidc-invite-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.oidc-access-block input,
+.oidc-invite-panel input {
   width: 100%;
   border: 1px solid rgba(24, 51, 84, 0.2);
   border-radius: 8px;
@@ -939,7 +969,8 @@
 }
 
 .oidc-button {
-  width: 100%;
+  width: auto;
+  min-width: 180px;
   border: 1px solid rgba(24, 51, 84, 0.16);
   border-radius: 8px;
   background: #ffffff;

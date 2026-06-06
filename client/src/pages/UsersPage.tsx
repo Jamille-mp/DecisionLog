@@ -129,7 +129,7 @@ function UserDetailsModal({
         </div>
         <div className="modal-content">
           <div className="user-detail-header">
-            <ProfileAvatar className="large" imageUrl={user.avatarUrl} name={user.name} />
+            <ProfileAvatar className="large" name={user.name} />
             <div>
               <h3>{user.name}</h3>
               <p>{user.email}</p>

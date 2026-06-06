@@ -96,9 +96,7 @@ function App() {
       .join('')
       .substring(0, 2)
       .toUpperCase(),
-    avatarUrl: user?.avatarUrl || '',
     company: user?.company?.name || 'Empresa',
-    companyLogoUrl: user?.company?.logoUrl || '',
   }
 
   const decisionViews = useMemo(() => decisions.map(toDecisionView), [decisions])
@@ -638,12 +636,7 @@ function App() {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        avatarUrl: data.avatarUrl,
         preferredTheme: data.preferredTheme,
-      }
-
-      if (user?.role === 'admin') {
-        payload.companyLogoUrl = data.companyLogoUrl
       }
 
       if (data.newPassword) {
@@ -852,11 +845,7 @@ function App() {
             onClick={() => setIsProfileMenuOpen((current) => !current)}
             aria-label="Abrir ajustes de perfil"
           >
-            {userProfile.avatarUrl ? (
-              <img src={userProfile.avatarUrl} alt={`Foto de ${userProfile.name}`} />
-            ) : (
-              userProfile.initials
-            )}
+            {userProfile.initials}
           </button>
           {isProfileMenuOpen && (
             <div className="profile-popover">
@@ -865,7 +854,6 @@ function App() {
                 <span>{userProfile.role}</span>
                 <CompanyBadge
                   className="company-badge-light"
-                  logoUrl={userProfile.companyLogoUrl}
                   name={userProfile.company}
                 />
               </div>

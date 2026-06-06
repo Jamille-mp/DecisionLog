@@ -15,9 +15,7 @@ import { ProfileAvatar } from '../shared/ProfileAvatar'
 import type { Page, RoleLabel } from '../../types'
 
 export type SidebarUserProfile = {
-  avatarUrl: string
   company: string
-  companyLogoUrl: string
   initials: string
   name: string
   role: RoleLabel
@@ -92,11 +90,11 @@ export function Sidebar({
         </button>
       </div>
       <div className="profile-box">
-        <ProfileAvatar imageUrl={userProfile.avatarUrl} name={userProfile.name} />
+        <ProfileAvatar name={userProfile.name} />
         <div className="profile-box-content">
           <p>{userProfile.name}</p>
           <span className="profile-role-badge">{userProfile.role}</span>
-          <CompanyBadge logoUrl={userProfile.companyLogoUrl} name={userProfile.company} />
+          <CompanyBadge name={userProfile.company} />
         </div>
       </div>
       <nav className="sidebar-menu" aria-label="Navegação principal">

@@ -292,8 +292,8 @@ export function AuthPage({
               </div>
             )}
             {authMode === 'register' && (
-              <div>
-                <label htmlFor="companyAccessCode">Código da empresa</label>
+              <div className="company-invite-field">
+                <label htmlFor="companyAccessCode">Código de convite da empresa</label>
                 <input
                   id="companyAccessCode"
                   value={authForm.companyAccessCode}
@@ -301,6 +301,9 @@ export function AuthPage({
                   placeholder="Ex: DL-AESA01"
                   required
                 />
+                <small className="field-hint">
+                  Solicite este código ao administrador da empresa. Ele confirma que seu acesso pertence ao ambiente correto.
+                </small>
               </div>
             )}
             <div>
@@ -418,19 +421,25 @@ export function AuthPage({
           </form>
           {authMode === 'login' && oidcConfig.enabled && (
             <div className="oidc-access-block">
-              <div>
-                <label htmlFor="oidcCompanyAccessCode">Código da empresa</label>
-                <input
-                  id="oidcCompanyAccessCode"
-                  value={authForm.companyAccessCode}
-                  onChange={(event) => onChange({ ...authForm, companyAccessCode: event.target.value.toUpperCase() })}
-                  placeholder="Somente para primeiro acesso"
-                />
-                <small className="field-hint">Use este campo apenas no primeiro acesso institucional.</small>
+              <div className="oidc-invite-panel">
+                <strong>Primeiro acesso institucional</strong>
+                <p>
+                  Se você recebeu um convite da empresa, informe o código antes de entrar com Google.
+                  Nos próximos acessos, basta usar sua conta normalmente.
+                </p>
+                <label htmlFor="oidcCompanyAccessCode">Código de convite</label>
+                <div className="oidc-invite-row">
+                  <input
+                    id="oidcCompanyAccessCode"
+                    value={authForm.companyAccessCode}
+                    onChange={(event) => onChange({ ...authForm, companyAccessCode: event.target.value.toUpperCase() })}
+                    placeholder="Ex: DL-AESA01"
+                  />
+                  <button className="oidc-button" type="button" onClick={onOidcLogin}>
+                    {oidcConfig.providerName}
+                  </button>
+                </div>
               </div>
-              <button className="oidc-button" type="button" onClick={onOidcLogin}>
-                {oidcConfig.providerName}
-              </button>
             </div>
           )}
           {authMode === 'login' && (

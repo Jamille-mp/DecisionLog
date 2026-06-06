@@ -126,17 +126,9 @@ export type ProfileFormData = {
   name: string
   email: string
   phone: string
-  avatarUrl: string | null
-  companyLogoUrl: string | null
   preferredTheme: 'light' | 'dark'
   currentPassword: string
   newPassword: string
-}
-
-export type ImageFrameSettings = {
-  zoom: number
-  x: number
-  y: number
 }
 
 export type PageHeaderProps = {
