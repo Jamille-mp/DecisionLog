@@ -506,12 +506,24 @@ body[data-theme='dark'] option {
   .app-footer,
   .monitor-summary,
   .presentation-contact {
-    align-items: flex-start;
     flex-direction: column;
   }
 
   .app-footer {
     width: calc(100% - 40px);
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .app-footer div {
+    justify-content: center;
+  }
+
+  .monitor-summary,
+  .presentation-contact {
+    align-items: flex-start;
   }
 }
 
@@ -631,9 +643,18 @@ body[data-theme='dark'] option {
   }
 
   .presentation-footer {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
+    gap: 12px;
     padding: 20px;
+    text-align: center;
+  }
+
+  .presentation-footer div,
+  .presentation-footer nav {
+    justify-items: center;
+    justify-content: center;
+    width: 100%;
   }
 
   .presentation-footer nav,
@@ -643,9 +664,10 @@ body[data-theme='dark'] option {
   }
 
   .login-footer {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
     padding: 0 20px 20px;
+    text-align: center;
   }
 
   .auth-back-button {
