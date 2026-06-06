@@ -11,7 +11,6 @@ export type Company = {
   name: string
   slug: string
   accessCode?: string
-  logoUrl?: string | null
 }
 
 export type Department = {
@@ -34,7 +33,6 @@ export type User = {
   name: string
   email: string
   phone?: string | null
-  avatarUrl?: string | null
   preferredTheme?: 'light' | 'dark'
   departmentId?: string | null
   department?: Department | null

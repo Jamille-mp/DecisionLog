@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { ArrowLeft, Eye, EyeOff, ShieldAlert } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import logo from '../assets/decisionlog-logo.png'
+import { AccessDeniedNotice } from '../components/auth/AccessDeniedNotice'
+import { LegalConsent } from '../components/auth/LegalConsent'
+import { PasswordInput } from '../components/auth/PasswordInput'
+import { PresentationPage } from '../components/auth/PresentationPage'
 import type { AuthForm, AuthMode, OidcConfig } from '../types'
 
 type AuthPageProps = {
@@ -32,7 +36,6 @@ export function AuthPage({
   oidcConfig,
 }: AuthPageProps) {
   const [showLoginPanel, setShowLoginPanel] = useState(() => Boolean(authError || authMode !== 'login'))
-  const [showPassword, setShowPassword] = useState(false)
 
   const authTitle =
     authMode === 'company-register'
@@ -84,144 +87,14 @@ export function AuthPage({
 
   if (!showLoginPanel) {
     return (
-      <div className="presentation-page">
-        <header className="presentation-topbar">
-          <div>
-            <img src={logo} alt="DecisionLog" />
-            <div>
-              <strong>DecisionLog</strong>
-              <span>Governança de decisões</span>
-            </div>
-          </div>
-          <div className="presentation-topbar-actions">
-            <button className="presentation-login-button" type="button" onClick={() => setShowLoginPanel(true)}>
-              Entrar
-            </button>
-          </div>
-        </header>
-        <main className="presentation-main" id="inicio">
-          <section className="presentation-shell reveal-block">
-            <div className="presentation-copy">
-              <span>Decisões com contexto e confiança</span>
-              <h1>Transforme decisões importantes em registros claros, seguros e fáceis de acompanhar.</h1>
-              <p>
-                O DecisionLog centraliza decisões corporativas, responsáveis, justificativas e histórico para que a
-                equipe saiba exatamente o que foi decidido e por quê.
-              </p>
-              <div className="presentation-actions">
-                <button type="button" onClick={() => setShowLoginPanel(true)}>
-                  Acessar plataforma
-                </button>
-                <button
-                  className="secondary"
-                  type="button"
-                  onClick={() => {
-                    setShowLoginPanel(true)
-                    onModeChange('company-register')
-                  }}
-                >
-                  Cadastrar empresa
-                </button>
-              </div>
-            </div>
-            <div className="presentation-preview">
-              <div className="preview-window">
-                <div className="preview-heading">
-                  <span>Prévia ilustrativa</span>
-                  <strong>Painel de decisões</strong>
-                </div>
-                <div className="preview-kpis">
-                  <article>
-                    <span>Decisões registradas</span>
-                    <strong>128</strong>
-                  </article>
-                  <article>
-                    <span>Pendentes</span>
-                    <strong>14</strong>
-                  </article>
-                  <article>
-                    <span>Alto impacto</span>
-                    <strong>9</strong>
-                  </article>
-                </div>
-                <div className="preview-note">
-                  <strong>Hoje</strong>
-                  <span>3 decisões concluídas, 2 revisões abertas e 1 item arquivado para consulta futura.</span>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="presentation-section reveal-block" id="sobre">
-            <div className="presentation-section-heading">
-              <span>Sobre</span>
-              <h2>Um fluxo simples para decisões que precisam deixar rastro.</h2>
-              <p>
-                A plataforma foi pensada para ambientes corporativos em que decisões precisam ter contexto,
-                responsável, histórico e evidências consultáveis sem depender de conversas soltas.
-              </p>
-            </div>
-            <div className="presentation-process" aria-label="Ciclo de uso do DecisionLog">
-              <article>
-                <strong>1</strong>
-                <span>Registre a decisão</span>
-                <p>Informe contexto, área, impacto e responsável em um registro padronizado.</p>
-              </article>
-              <article>
-                <strong>2</strong>
-                <span>Acompanhe o status</span>
-                <p>Visualize pendências, decisões concluídas e itens arquivados para consulta.</p>
-              </article>
-              <article>
-                <strong>3</strong>
-                <span>Consulte o histórico</span>
-                <p>Recupere alterações e evidências quando houver auditoria ou prestação de contas.</p>
-              </article>
-            </div>
-          </section>
-
-          <section className="presentation-section presentation-benefits reveal-block" id="servicos">
-            <div>
-              <span>Menos ruído</span>
-              <strong>Informações importantes ficam organizadas em um único lugar.</strong>
-            </div>
-            <div>
-              <span>Mais responsabilidade</span>
-              <strong>Cada decisão mantém responsável, área, impacto e justificativa.</strong>
-            </div>
-            <div>
-              <span>Mais confiança</span>
-              <strong>A equipe consulta dados e histórico sem depender de memória individual.</strong>
-            </div>
-          </section>
-
-          <section className="presentation-section presentation-contact reveal-block" id="contato">
-            <div>
-              <span>Contato</span>
-              <h2>Precisa falar com suporte ou com a equipe responsável?</h2>
-              <div className="presentation-contact-list">
-                <span>suporte@decisionlog.com</span>
-                <span>(11) 4002-8922</span>
-                <span>Atendimento em dias úteis, das 8h às 18h</span>
-              </div>
-            </div>
-            <button type="button" onClick={() => setShowLoginPanel(true)}>
-              Acessar área do cliente
-            </button>
-          </section>
-        </main>
-
-        <footer className="presentation-footer">
-          <div>
-            <strong>DecisionLog</strong>
-            <span>Governança de decisões com rastreabilidade e segurança.</span>
-          </div>
-          <nav aria-label="Links institucionais">
-            <span>Ambiente interno protegido por autenticação</span>
-          </nav>
-          <span>© 2026 DecisionLog. Todos os direitos reservados.</span>
-        </footer>
-      </div>
+      <PresentationPage
+        logoSrc={logo}
+        onEnter={() => setShowLoginPanel(true)}
+        onRegisterCompany={() => {
+          setShowLoginPanel(true)
+          onModeChange('company-register')
+        }}
+      />
     )
   }
 
@@ -285,34 +158,15 @@ export function AuthPage({
             </div>
           </div>
           {authError && (
-            <section className="access-denied-card" role="alert" aria-live="polite">
-              <ShieldAlert />
-              <div>
-                <strong>Acesso não autorizado</strong>
-                <p>{authError}</p>
-                <ul>
-                  <li>Use o e-mail vinculado à empresa cadastrada.</li>
-                  <li>Informe o código de convite no primeiro acesso institucional.</li>
-                  <li>Se o acesso deveria existir, solicite confirmação ao administrador.</li>
-                </ul>
-              </div>
-              <div className="access-denied-actions">
-                {authMode === 'login' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClearAuthError()
-                      onModeChange('register')
-                    }}
-                  >
-                    Usar convite
-                  </button>
-                )}
-                <button type="button" onClick={onClearAuthError}>
-                  Entendi
-                </button>
-              </div>
-            </section>
+            <AccessDeniedNotice
+              authMode={authMode}
+              message={authError}
+              onClear={onClearAuthError}
+              onUseInvite={() => {
+                onClearAuthError()
+                onModeChange('register')
+              }}
+            />
           )}
           <form onSubmit={onSubmit} className="login-form">
             {authMode === 'company-register' && (
@@ -378,38 +232,26 @@ export function AuthPage({
               </div>
             )}
             {authMode !== 'forgot' && (
-              <div>
-                <label htmlFor="password">{authMode === 'reset' ? 'Nova senha' : 'Senha'}</label>
-                <div className="password-field">
-                  <input
-                    id="password"
-                    type={showPassword ? 'text' : 'password'}
-                    minLength={authMode === 'login' ? undefined : 8}
-                    pattern={
-                      authMode === 'login'
-                        ? undefined
-                        : '^(?!.*(012|123|234|345|456|567|678|789|987|876|765|654|543|432|321|210))(?=.*[A-Za-zÀ-ÿ])(?=.*\\d)(?=.*[^A-Za-zÀ-ÿ0-9]).{8,}$'
-                    }
-                    title="Use 8 caracteres ou mais, com letra, número, caractere especial e sem sequência numérica."
-                    value={authForm.password}
-                    onChange={(event) => onChange({ ...authForm, password: event.target.value })}
-                    placeholder={authMode === 'login' ? '********' : 'Ex: Decisão@26'}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((current) => !current)}
-                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                  >
-                    {showPassword ? <EyeOff /> : <Eye />}
-                  </button>
-                </div>
-                {authMode !== 'login' && (
-                  <small className="field-hint">
-                    Mínimo 8 caracteres, com letra, número, caractere especial e sem sequência numérica.
-                  </small>
-                )}
-              </div>
+              <PasswordInput
+                id="password"
+                label={authMode === 'reset' ? 'Nova senha' : 'Senha'}
+                minLength={authMode === 'login' ? undefined : 8}
+                pattern={
+                  authMode === 'login'
+                    ? undefined
+                    : '^(?!.*(012|123|234|345|456|567|678|789|987|876|765|654|543|432|321|210))(?=.*[A-Za-zÀ-ÿ])(?=.*\\d)(?=.*[^A-Za-zÀ-ÿ0-9]).{8,}$'
+                }
+                title="Use 8 caracteres ou mais, com letra, número, caractere especial e sem sequência numérica."
+                value={authForm.password}
+                onChange={(password) => onChange({ ...authForm, password })}
+                placeholder={authMode === 'login' ? '********' : 'Ex: Decisão@26'}
+                required
+                hint={
+                  authMode !== 'login'
+                    ? 'Mínimo 8 caracteres, com letra, número, caractere especial e sem sequência numérica.'
+                    : undefined
+                }
+              />
             )}
             {authMode === 'company-register' && (
               <small className="field-hint">
@@ -417,41 +259,7 @@ export function AuthPage({
               </small>
             )}
             {(authMode === 'register' || authMode === 'company-register') && (
-              <div className="consent-box">
-                <strong>Consentimento e privacidade</strong>
-                <div className="legal-actions">
-                  <button type="button" onClick={() => onOpenLegal('terms')}>
-                    Ler Termos de Uso
-                  </button>
-                  <button type="button" onClick={() => onOpenLegal('privacy')}>
-                    Ler Política de Privacidade
-                  </button>
-                </div>
-                <label>
-                  <input
-                    checked={authForm.acceptedTerms}
-                    onChange={(event) => onChange({ ...authForm, acceptedTerms: event.target.checked })}
-                    required
-                    type="checkbox"
-                  />
-                  <span>
-                    Li e aceito os{' '}
-                    <button className="text-link" type="button" onClick={() => onOpenLegal('terms')}>
-                      Termos de Uso
-                    </button>{' '}
-                    do DecisionLog.
-                  </span>
-                </label>
-                <label>
-                  <input
-                    checked={authForm.acceptedPrivacy}
-                    onChange={(event) => onChange({ ...authForm, acceptedPrivacy: event.target.checked })}
-                    required
-                    type="checkbox"
-                  />
-                  <span>Autorizo o tratamento dos meus dados conforme a LGPD e a Política de Privacidade.</span>
-                </label>
-              </div>
+              <LegalConsent authForm={authForm} onChange={onChange} onOpenLegal={onOpenLegal} />
             )}
             <button type="submit" disabled={isSubmitting}>
               {isSubmitting

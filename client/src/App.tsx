@@ -17,6 +17,17 @@ import { Sidebar } from './components/layout/Sidebar'
 import { apiUrl } from './config/app'
 import { emptyAuthForm, roleLabels } from './constants/app'
 import { toDecisionView, toPayload } from './domain/decisions'
+import {
+  clearSession,
+  getInitialAuthError,
+  getInitialInviteCode,
+  persistSession,
+  persistToken,
+  persistUser,
+  readApiError,
+  readStoredToken,
+  readStoredUser,
+} from './services/auth'
 import { authHeaders } from './services/http'
 import type {
   ApiDecision,
@@ -45,31 +56,6 @@ import { ProfilePage } from './pages/ProfilePage'
 import { UsersPage } from './pages/UsersPage'
 import './App.css'
 
-function getInitialAuthError() {
-  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-  const oidcError = params.get('auth_error')
-
-  if (!oidcError) return null
-
-  return (
-    params.get('auth_message') ||
-    'Sua conta não possui autorização para acessar esta empresa no DecisionLog.'
-  )
-}
-
-function getInitialInviteCode() {
-  return new URLSearchParams(window.location.search).get('convite')?.toUpperCase() || ''
-}
-
-async function readApiError(response: Response, fallback: string) {
-  try {
-    const data = (await response.json()) as { error?: string }
-    return data.error || fallback
-  } catch {
-    return fallback
-  }
-}
-
 function App() {
   const initialInviteCode = getInitialInviteCode()
   const [authMode, setAuthMode] = useState<AuthMode>(initialInviteCode ? 'register' : 'login')
@@ -78,11 +64,8 @@ function App() {
     companyAccessCode: initialInviteCode,
   })
   const [authError, setAuthError] = useState<string | null>(() => getInitialAuthError())
-  const [token, setToken] = useState(() => localStorage.getItem('decisionlog:token') || '')
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem('decisionlog:user')
-    return storedUser ? (JSON.parse(storedUser) as User) : null
-  })
+  const [token, setToken] = useState(readStoredToken)
+  const [user, setUser] = useState<User | null>(readStoredUser)
   const [oidcConfig, setOidcConfig] = useState<OidcConfig>({ enabled: false, providerName: 'Login institucional' })
   const [currentPage, setCurrentPage] = useState<Page>('dashboard')
   const [pageHistory, setPageHistory] = useState<Page[]>([])
@@ -137,7 +120,7 @@ function App() {
 
     if (!oidcToken) return
 
-    localStorage.setItem('decisionlog:token', oidcToken)
+    persistToken(oidcToken)
     window.history.replaceState({}, document.title, window.location.pathname)
 
     fetch(`${apiUrl}/users/me`, {
@@ -148,15 +131,14 @@ function App() {
         return (await response.json()) as User
       })
       .then((profile) => {
-        localStorage.setItem('decisionlog:user', JSON.stringify(profile))
+        persistUser(profile)
         setToken(oidcToken)
         setUser(profile)
         document.body.dataset.theme = profile.preferredTheme || 'light'
         toast.success('Login institucional realizado.')
       })
       .catch(() => {
-        localStorage.removeItem('decisionlog:token')
-        localStorage.removeItem('decisionlog:user')
+        clearSession()
         setToken('')
         setUser(null)
         toast.error('Não foi possível concluir o login institucional.')
@@ -395,8 +377,7 @@ function App() {
       }
 
       const data = (await response.json()) as { token: string; user: User }
-      localStorage.setItem('decisionlog:token', data.token)
-      localStorage.setItem('decisionlog:user', JSON.stringify(data.user))
+      persistSession(data.token, data.user)
       setToken(data.token)
       setUser(data.user)
       setAuthError(null)
@@ -412,8 +393,7 @@ function App() {
   }
 
   function handleLogout() {
-    localStorage.removeItem('decisionlog:token')
-    localStorage.removeItem('decisionlog:user')
+    clearSession()
     setToken('')
     setUser(null)
     setCurrentPage('dashboard')
@@ -677,7 +657,7 @@ function App() {
       }
 
       const updatedUser = (await response.json()) as User
-      localStorage.setItem('decisionlog:user', JSON.stringify(updatedUser))
+      persistUser(updatedUser)
       setUser(updatedUser)
       toast.success('Perfil atualizado.')
       void refreshAuditLogs()

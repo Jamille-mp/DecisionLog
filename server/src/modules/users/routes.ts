@@ -9,32 +9,12 @@ import { asyncHandler } from "../../middlewares/asyncHandler";
 import { isAuthenticated } from "../../middlewares/isAuthenticated";
 import { requireRole } from "../../middlewares/requireRole";
 import { updateProfileSchema, updateUserSchema } from "../../schemas/user";
+import { getParamId } from "../shared/params";
+import { adminUserSelect, profileSelect } from "./selectors";
 
 export const userRoutes = Router();
 
-function getParamId(id: string | string[] | undefined) {
-  return Array.isArray(id) ? id[0] : id;
-}
-
 userRoutes.use(isAuthenticated);
-
-const profileSelect = {
-  id: true,
-  companyId: true,
-  company: true,
-  name: true,
-  email: true,
-  phone: true,
-  avatarUrl: true,
-  preferredTheme: true,
-  departmentId: true,
-  department: true,
-  role: true,
-  active: true,
-  termsAcceptedAt: true,
-  privacyAcceptedAt: true,
-  createdAt: true,
-};
 
 userRoutes.get(
   "/me",
@@ -72,7 +52,6 @@ userRoutes.patch(
       name?: string;
       email?: string;
       phone?: string | null;
-      avatarUrl?: string | null;
       preferredTheme?: string;
       passwordHash?: string;
     } = {};
@@ -101,12 +80,7 @@ userRoutes.patch(
       updateData.email = data.email;
     }
     if (data.phone !== undefined) updateData.phone = data.phone || null;
-    if (data.avatarUrl !== undefined) updateData.avatarUrl = data.avatarUrl || null;
     if (data.preferredTheme) updateData.preferredTheme = data.preferredTheme;
-
-    if (data.companyLogoUrl !== undefined && currentUser.role !== "admin") {
-      throw new AppError("Apenas administradores podem alterar a foto da empresa.", 403);
-    }
 
     if (data.newPassword) {
       const passwordMatches = await bcrypt.compare(
@@ -119,17 +93,6 @@ userRoutes.patch(
       }
 
       updateData.passwordHash = await bcrypt.hash(data.newPassword, 10);
-    }
-
-    if (data.companyLogoUrl !== undefined) {
-      await prisma.company.update({
-        where: {
-          id: currentUser.companyId,
-        },
-        data: {
-          logoUrl: data.companyLogoUrl || null,
-        },
-      });
     }
 
     const user =
@@ -149,7 +112,7 @@ userRoutes.patch(
           });
 
     if (!user) {
-      throw new AppError("UsuÃ¡rio nÃ£o encontrado.", 404);
+      throw new AppError("Usuário não encontrado.", 404);
     }
 
     void logActivity(
@@ -157,10 +120,7 @@ userRoutes.patch(
       {
         userId: currentUser.id,
         companyId: currentUser.companyId,
-        campos: [
-          ...Object.keys(updateData).filter((key) => key !== "passwordHash"),
-          ...(data.companyLogoUrl !== undefined ? ["companyLogoUrl"] : []),
-        ],
+        campos: Object.keys(updateData).filter((key) => key !== "passwordHash"),
         senhaAlterada: Boolean(updateData.passwordHash),
       },
       request.user?.id,
@@ -262,21 +222,7 @@ userRoutes.get(
       orderBy: {
         createdAt: "desc",
       },
-      select: {
-        id: true,
-        companyId: true,
-        company: true,
-        name: true,
-        email: true,
-        phone: true,
-        avatarUrl: true,
-        preferredTheme: true,
-        departmentId: true,
-        department: true,
-        role: true,
-        active: true,
-        createdAt: true,
-      },
+      select: adminUserSelect,
     });
 
     response.json(users);
@@ -326,21 +272,7 @@ userRoutes.patch(
         id: userId,
       },
       data,
-      select: {
-        id: true,
-        companyId: true,
-        company: true,
-        name: true,
-        email: true,
-        phone: true,
-        avatarUrl: true,
-        preferredTheme: true,
-        departmentId: true,
-        department: true,
-        role: true,
-        active: true,
-        createdAt: true,
-      },
+      select: adminUserSelect,
     });
 
     void logActivity(

@@ -1025,9 +1025,22 @@
   padding: 14px;
 }
 
+.consent-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.consent-heading strong,
 .consent-box > strong {
   color: #183354;
   font-size: 14px;
+}
+
+.consent-heading p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .consent-box label {
@@ -1111,5 +1124,31 @@
 .legal-summary span {
   color: #4b5563;
   line-height: 1.5;
+}
+
+.legal-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.legal-topic-grid article {
+  display: grid;
+  gap: 5px;
+  border: 1px solid rgba(24, 51, 84, 0.1);
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 12px;
+}
+
+.legal-topic-grid strong {
+  color: #183354;
+  font-size: 13px;
+}
+
+.legal-topic-grid span {
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
 }
 

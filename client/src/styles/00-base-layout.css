@@ -210,6 +210,21 @@ body[data-theme='dark'] .app-footer {
   color: #183354;
 }
 
+body:not([data-theme='dark']) .company-badge-light,
+body:not([data-theme='dark']) .profile-company-badge {
+  color: #183354;
+}
+
+body:not([data-theme='dark']) .company-badge-light .company-label,
+body:not([data-theme='dark']) .profile-company-badge .company-label {
+  color: #4b5563;
+}
+
+body:not([data-theme='dark']) .company-badge-light strong,
+body:not([data-theme='dark']) .profile-company-badge strong {
+  color: #183354;
+}
+
 .profile-popover button {
   display: flex;
   align-items: center;

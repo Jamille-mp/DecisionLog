@@ -42,6 +42,16 @@ export function LegalModal({ type, onClose }: LegalModalProps) {
                 O uso inadequado, a tentativa de acesso não autorizado ou a alteração indevida de registros podem
                 levar à suspensão da conta.
               </p>
+              <div className="legal-topic-grid">
+                <article>
+                  <strong>Responsabilidade</strong>
+                  <span>O usuário responde pelas decisões, comentários e alterações realizadas com sua conta.</span>
+                </article>
+                <article>
+                  <strong>Uso permitido</strong>
+                  <span>A plataforma deve ser usada apenas para registros corporativos autorizados.</span>
+                </article>
+              </div>
             </>
           ) : (
             <>
@@ -57,6 +67,24 @@ export function LegalModal({ type, onClose }: LegalModalProps) {
                 O usuário pode atualizar seus dados de perfil na própria aplicação. Registros de auditoria são
                 mantidos para integridade e prestação de contas.
               </p>
+              <div className="legal-topic-grid">
+                <article>
+                  <strong>Quem acessa</strong>
+                  <span>Administradores veem dados de contato e perfil para gestão. Auditores veem rastros necessários à conformidade.</span>
+                </article>
+                <article>
+                  <strong>Por quanto tempo</strong>
+                  <span>Dados operacionais ficam ativos enquanto a conta existir. Logs de auditoria podem ser mantidos para comprovação.</span>
+                </article>
+                <article>
+                  <strong>Direitos do usuário</strong>
+                  <span>O usuário pode solicitar correção, atualização e esclarecimentos sobre o tratamento de dados.</span>
+                </article>
+                <article>
+                  <strong>Base de segurança</strong>
+                  <span>O sistema registra ações importantes para proteger integridade, permissão e rastreabilidade.</span>
+                </article>
+              </div>
             </>
           )}
         </div>

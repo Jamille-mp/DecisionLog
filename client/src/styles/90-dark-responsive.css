@@ -331,6 +331,25 @@ body[data-theme='dark'] .legal-summary {
   background: #0f172a;
 }
 
+body[data-theme='dark'] .consent-heading strong,
+body[data-theme='dark'] .legal-topic-grid strong {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] input:disabled,
+body[data-theme='dark'] select:disabled,
+body[data-theme='dark'] textarea:disabled {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: #111827;
+  color: #cbd5e1;
+  opacity: 1;
+}
+
+body[data-theme='dark'] .profile-overview-meta span {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .consent-heading p,
 body[data-theme='dark'] .oidc-invite-panel p {
   color: #94a3b8;
 }
@@ -344,6 +363,15 @@ body[data-theme='dark'] .oidc-button:hover {
 }
 
 body[data-theme='dark'] .legal-summary span {
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] .legal-topic-grid article {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #0f172a;
+}
+
+body[data-theme='dark'] .legal-topic-grid span {
   color: #cbd5e1;
 }
 
@@ -401,7 +429,8 @@ body[data-theme='dark'] .technical-grid article,
 body[data-theme='dark'] .monitor-operations article,
 body[data-theme='dark'] .legal-summary,
 body[data-theme='dark'] .company-access-actions button,
-body[data-theme='dark'] .company-profile-status {
+body[data-theme='dark'] .company-profile-status,
+body[data-theme='dark'] .profile-overview-meta span {
   border-color: rgba(255, 255, 255, 0.12);
   background: #0f172a;
   color: #f8fafc;
@@ -625,6 +654,10 @@ body[data-theme='dark'] option {
 
   .legal-actions {
     display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .legal-topic-grid {
     grid-template-columns: 1fr;
   }
 

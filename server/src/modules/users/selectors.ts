@@ -1,0 +1,31 @@
+export const profileSelect = {
+  id: true,
+  companyId: true,
+  company: true,
+  name: true,
+  email: true,
+  phone: true,
+  preferredTheme: true,
+  departmentId: true,
+  department: true,
+  role: true,
+  active: true,
+  termsAcceptedAt: true,
+  privacyAcceptedAt: true,
+  createdAt: true,
+};
+
+export const adminUserSelect = {
+  id: true,
+  companyId: true,
+  company: true,
+  name: true,
+  email: true,
+  phone: true,
+  preferredTheme: true,
+  departmentId: true,
+  department: true,
+  role: true,
+  active: true,
+  createdAt: true,
+};

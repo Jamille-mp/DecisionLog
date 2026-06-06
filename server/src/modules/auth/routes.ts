@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import { Router, type Response } from "express";
-import jwt from "jsonwebtoken";
+import { Router } from "express";
 import { AppError } from "../../errors/AppError";
 import {
   assertCompanyAccessCode,
@@ -10,6 +9,7 @@ import {
   generateUniqueCompanyAccessCode,
   getEmailDomain,
 } from "../../lib/company";
+import { signAppToken } from "../../lib/authToken";
 import { logActivity } from "../../lib/mongodb";
 import {
   buildAuthorizationUrl,
@@ -29,53 +29,9 @@ import {
   registerSchema,
   resetPasswordSchema,
 } from "../../schemas/auth";
+import { getFrontendRedirectUrl, redirectWithAuthError } from "./redirect";
 
 export const authRoutes = Router();
-
-function signAppToken(user: {
-  active: boolean;
-  companyId: string;
-  email: string;
-  id: string;
-  role: string;
-}) {
-  return jwt.sign(
-    {
-      email: user.email,
-      companyId: user.companyId,
-      role: user.role,
-      active: user.active,
-    },
-    process.env.JWT_SECRET || "dev-secret",
-    {
-      subject: user.id,
-      expiresIn: "1d",
-    },
-  );
-}
-
-function getFrontendRedirectUrl() {
-  return (
-    process.env.OIDC_FRONTEND_REDIRECT_URL ||
-    process.env.CLIENT_URL ||
-    "http://localhost:5173"
-  );
-}
-
-function redirectWithAuthError(response: Response, error: unknown) {
-  const redirectUrl = new URL(getFrontendRedirectUrl());
-  const message =
-    error instanceof AppError
-      ? error.message
-      : "Não foi possível validar sua conta institucional.";
-
-  redirectUrl.hash = new URLSearchParams({
-    auth_error: "access_denied",
-    auth_message: message,
-  }).toString();
-
-  response.redirect(redirectUrl.toString());
-}
 
 authRoutes.get("/oidc/config", (_request, response) => {
   response.json(getOidcPublicConfig());
@@ -140,7 +96,7 @@ authRoutes.get(
 
     if (!user) {
       if (!verifiedState.companyAccessCode) {
-        throw new AppError("Informe o cÃ³digo da empresa para o primeiro acesso institucional.", 403);
+        throw new AppError("Informe o código da empresa para o primeiro acesso institucional.", 403);
       }
 
       await assertCompanyAccessCode(company.id, verifiedState.companyAccessCode);
@@ -274,7 +230,6 @@ authRoutes.post(
         company: true,
         name: true,
         email: true,
-        avatarUrl: true,
         role: true,
         termsAcceptedAt: true,
         privacyAcceptedAt: true,
@@ -338,7 +293,6 @@ authRoutes.post(
         company: true,
         name: true,
         email: true,
-        avatarUrl: true,
         role: true,
         termsAcceptedAt: true,
         privacyAcceptedAt: true,
@@ -401,7 +355,6 @@ authRoutes.post(
         name: responseUser.name,
         email: responseUser.email,
         phone: responseUser.phone,
-        avatarUrl: responseUser.avatarUrl,
         preferredTheme: responseUser.preferredTheme,
         departmentId: responseUser.departmentId,
         department: responseUser.department,

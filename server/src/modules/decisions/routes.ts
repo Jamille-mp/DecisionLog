@@ -6,43 +6,16 @@ import { prisma } from "../../lib/prisma";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import { isAuthenticated } from "../../middlewares/isAuthenticated";
 import { requireRole } from "../../middlewares/requireRole";
+import { getParamId } from "../shared/params";
 import {
   createDecisionSchema,
   listDecisionQuerySchema,
   updateDecisionSchema,
 } from "../../schemas/decision";
+import { canManageDecision } from "./permissions";
+import { decisionInclude } from "./selectors";
 
 export const decisionRoutes = Router();
-
-const decisionInclude = {
-  user: {
-    select: {
-      id: true,
-      name: true,
-      role: true,
-    },
-  },
-  departmentRef: true,
-};
-
-function getDecisionId(id: string | string[] | undefined) {
-  return Array.isArray(id) ? id[0] : id;
-}
-
-function canManageDecision(
-  role: string | undefined,
-  currentUserDepartmentId?: string | null,
-  decisionDepartmentId?: string | null,
-) {
-  if (role === "admin") {
-    return true;
-  }
-
-  return (
-    role === "manager" &&
-    Boolean(currentUserDepartmentId && currentUserDepartmentId === decisionDepartmentId)
-  );
-}
 
 decisionRoutes.use(isAuthenticated);
 
@@ -156,7 +129,7 @@ decisionRoutes.put(
   requireRole(["admin", "manager"]),
   asyncHandler(async (request, response) => {
     const data = updateDecisionSchema.parse(request.body);
-    const decisionId = getDecisionId(request.params.id);
+    const decisionId = getParamId(request.params.id);
     let updateData = data;
 
     if (!decisionId) {
@@ -272,7 +245,7 @@ decisionRoutes.delete(
   "/:id",
   requireRole(["admin", "manager"]),
   asyncHandler(async (request, response) => {
-    const decisionId = getDecisionId(request.params.id);
+    const decisionId = getParamId(request.params.id);
 
     if (!decisionId) {
       throw new AppError("ID da decisão ausente.", 400);
