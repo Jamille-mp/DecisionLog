@@ -1,29 +1,35 @@
-import { Clock, FileText, User as UserIcon } from 'lucide-react'
+import { ArrowRight, Clock, FileText, User as UserIcon } from 'lucide-react'
 import { actionLabels } from '../../constants/app'
 import type { AuditLog } from '../../types'
 
 const fieldLabels: Record<string, string> = {
-  active: 'situação',
-  context: 'contexto',
-  decision: 'decisão',
-  department: 'departamento',
-  departmentId: 'departamento',
-  impact: 'impacto',
-  reason: 'justificativa',
-  status: 'status',
-  title: 'título',
+  active: 'Situação',
+  context: 'Contexto',
+  decision: 'Decisão',
+  department: 'Departamento',
+  departmentId: 'Departamento',
+  impact: 'Impacto',
+  reason: 'Justificativa',
+  status: 'Status',
+  title: 'Título',
 }
 
 const valueLabels: Record<string, string> = {
-  approved: 'concluída',
-  archived: 'arquivada',
-  false: 'inativo',
-  high: 'alto',
-  inactive: 'inativa',
-  low: 'baixo',
-  medium: 'médio',
-  pending: 'pendente',
-  true: 'ativo',
+  approved: 'Concluída',
+  archived: 'Arquivada',
+  false: 'Inativo',
+  high: 'Alto',
+  inactive: 'Inativa',
+  low: 'Baixo',
+  medium: 'Médio',
+  pending: 'Pendente',
+  true: 'Ativo',
+}
+
+type ChangeItem = {
+  field: string
+  from?: string
+  to?: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -35,7 +41,7 @@ function readString(value: unknown) {
 }
 
 function formatValue(value: unknown) {
-  if (value === null || value === undefined || value === '') return 'não informado'
+  if (value === null || value === undefined || value === '') return 'Não informado'
   if (typeof value === 'boolean') return valueLabels[String(value)] || String(value)
   if (typeof value === 'string') return valueLabels[value] || value
   return String(value)
@@ -47,66 +53,82 @@ function getState(details: Record<string, unknown>, key: 'estadoAnterior' | 'est
 }
 
 function getDecisionTitle(details: Record<string, unknown>) {
-  const title =
+  return (
     readString(details.title) ||
     readString(getState(details, 'estadoNovo')?.title) ||
-    readString(getState(details, 'estadoAnterior')?.title)
-
-  if (title) return title
-
-  return readString(details.decisionId) || 'decisão não identificada'
+    readString(getState(details, 'estadoAnterior')?.title) ||
+    readString(details.decisionId) ||
+    'Decisão não identificada'
+  )
 }
 
 function getActor(event: AuditLog) {
   return event.userName || event.userEmail || event.userId || 'Usuário não identificado'
 }
 
-function describeUpdatedFields(details: Record<string, unknown>) {
+function getChangedFields(details: Record<string, unknown>) {
   const fields = Array.isArray(details.updatedFields) ? details.updatedFields : []
-  const previousState = getState(details, 'estadoAnterior')
-  const nextState = getState(details, 'estadoNovo')
 
-  const descriptions = fields
-    .filter((field): field is string => typeof field === 'string')
-    .slice(0, 4)
-    .map((field) => {
-      const label = fieldLabels[field] || field
-      const previousValue = previousState ? formatValue(previousState[field]) : undefined
-      const nextValue = nextState ? formatValue(nextState[field]) : undefined
-
-      if (previousState && nextState) {
-        return `${label}: ${previousValue} → ${nextValue}`
-      }
-
-      return label
-    })
-
-  if (descriptions.length === 0) {
-    return 'alterou informações da decisão'
-  }
-
-  const suffix = fields.length > descriptions.length ? ` e mais ${fields.length - descriptions.length} campo(s)` : ''
-  return `alterou ${descriptions.join(', ')}${suffix}`
+  return fields.filter((field): field is string => typeof field === 'string')
 }
 
-function describeEvent(event: AuditLog) {
+function buildChangeList(event: AuditLog): ChangeItem[] {
   const details = event.details || {}
-  const title = getDecisionTitle(details)
+  const previousState = getState(details, 'estadoAnterior')
+  const nextState = getState(details, 'estadoNovo')
+  const fields = getChangedFields(details)
 
+  if (event.action === 'DECISION_UPDATED' && fields.length > 0) {
+    return fields
+      .filter((field) => {
+        if (!previousState || !nextState) return true
+        return formatValue(previousState[field]) !== formatValue(nextState[field])
+      })
+      .map((field) => ({
+        field: fieldLabels[field] || field,
+        from: previousState ? formatValue(previousState[field]) : undefined,
+        to: nextState ? formatValue(nextState[field]) : undefined,
+      }))
+  }
+
+  if (event.action === 'DECISION_ARCHIVED') {
+    return [{ field: 'Status', from: 'Pendente/Concluída', to: 'Arquivada' }]
+  }
+
+  if (event.action === 'DECISION_UNARCHIVED') {
+    return [{ field: 'Status', from: 'Arquivada', to: 'Pendente' }]
+  }
+
+  if (event.action === 'DECISION_DELETED') {
+    return [{ field: 'Situação', from: 'Ativa', to: 'Inativa' }]
+  }
+
+  return []
+}
+
+function getActionSummary(event: AuditLog) {
   switch (event.action) {
     case 'DECISION_CREATED':
-      return `criou a decisão "${title}".`
+      return 'Criou a decisão'
     case 'DECISION_UPDATED':
-      return `${describeUpdatedFields(details)} em "${title}".`
+      return 'Alterou campos da decisão'
     case 'DECISION_ARCHIVED':
-      return `arquivou a decisão "${title}".`
+      return 'Arquivou a decisão'
     case 'DECISION_UNARCHIVED':
-      return `desarquivou a decisão "${title}".`
+      return 'Desarquivou a decisão'
     case 'DECISION_DELETED':
-      return `inativou a decisão "${title}".`
+      return 'Inativou a decisão'
     default:
-      return `registrou um evento relacionado a "${title}".`
+      return actionLabels[event.action] || event.action
   }
+}
+
+function getEmptyChangeMessage(event: AuditLog) {
+  if (event.action === 'DECISION_CREATED') {
+    return 'Registro criado sem campos anteriores para comparar.'
+  }
+
+  return 'Nenhum campo de negócio mudou neste evento.'
 }
 
 export function AuditList({
@@ -118,44 +140,66 @@ export function AuditList({
 }) {
   return (
     <div className="audit-card">
-      <div className="timeline">
-        {events.length === 0 ? (
-          <p className="empty-message">{emptyMessage}</p>
-        ) : (
-          events.map((event, index) => (
-            <div key={event.id} className="timeline-item">
-              {index !== events.length - 1 && <div className="timeline-line" />}
-              <div className="timeline-dot">
-                <Clock />
-              </div>
-              <div className="timeline-content">
-                <div className="timeline-header">
-                  <div>
-                    <UserIcon />
-                    <span>{getActor(event)}</span>
+      {events.length === 0 ? (
+        <p className="empty-message">{emptyMessage}</p>
+      ) : (
+        <div className="audit-event-list">
+          {events.map((event) => {
+            const details = event.details || {}
+            const changes = buildChangeList(event)
+
+            return (
+              <article key={event.id} className="audit-event-card">
+                <div className="audit-event-main">
+                  <div className="audit-event-icon">
+                    <FileText />
                   </div>
+                  <div>
+                    <span className="audit-event-action">{getActionSummary(event)}</span>
+                    <h3>{getDecisionTitle(details)}</h3>
+                  </div>
+                </div>
+                <div className="audit-event-meta">
+                  <span>
+                    <UserIcon />
+                    {getActor(event)}
+                  </span>
                   <time>
+                    <Clock />
                     {new Intl.DateTimeFormat('pt-BR', {
                       dateStyle: 'short',
                       timeStyle: 'short',
                     }).format(new Date(event.timestamp))}
                   </time>
                 </div>
-                <div className="timeline-action">
-                  <FileText />
-                  <span>{actionLabels[event.action] || event.action}</span>
-                </div>
-                <p>
-                  <strong>{getActor(event)}</strong> {describeEvent(event)}
-                </p>
                 {event.userEmail && event.userEmail !== event.userName && (
                   <small className="timeline-meta">Responsável: {event.userEmail}</small>
                 )}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+                {changes.length > 0 ? (
+                  <div className="audit-change-grid">
+                    {changes.map((change) => (
+                      <div key={`${event.id}-${change.field}`} className="audit-change-item">
+                        <strong>{change.field}</strong>
+                        {change.from !== undefined || change.to !== undefined ? (
+                          <span>
+                            <em>{change.from || 'Não informado'}</em>
+                            <ArrowRight />
+                            <em>{change.to || 'Não informado'}</em>
+                          </span>
+                        ) : (
+                          <span>Campo alterado</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="audit-event-note">{getEmptyChangeMessage(event)}</p>
+                )}
+              </article>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

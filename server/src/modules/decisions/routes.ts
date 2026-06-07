@@ -1,4 +1,9 @@
 import { Router } from "express";
+import {
+  getDecisionAuditAction,
+  getDecisionChangedFields,
+  getDecisionEventName,
+} from "../../domain/decisions/decisionAudit";
 import { AppError } from "../../errors/AppError";
 import { publishDomainEvent } from "../../lib/eventBus";
 import { logActivity } from "../../lib/mongodb";
@@ -203,18 +208,15 @@ decisionRoutes.put(
       include: decisionInclude,
     });
 
-    const isArchiving = currentDecision.status !== "archived" && updateData.status === "archived";
-    const isUnarchiving = currentDecision.status === "archived" && updateData.status !== "archived";
-    const auditAction = isArchiving
-      ? "DECISION_ARCHIVED"
-      : isUnarchiving
-        ? "DECISION_UNARCHIVED"
-        : "DECISION_UPDATED";
-    const eventName = isArchiving
-      ? "decision.archived"
-      : isUnarchiving
-        ? "decision.unarchived"
-        : "decision.updated";
+    const updatedFields = getDecisionChangedFields(
+      currentDecision,
+      updatedDecision,
+    );
+    const auditAction = getDecisionAuditAction(
+      currentDecision.status,
+      updatedDecision.status,
+    );
+    const eventName = getDecisionEventName(auditAction);
 
     void logActivity(
       auditAction,
@@ -222,7 +224,7 @@ decisionRoutes.put(
         decisionId: updatedDecision.id,
         companyId: updatedDecision.companyId,
         title: updatedDecision.title,
-        updatedFields: Object.keys(updateData),
+        updatedFields,
         estadoAnterior: currentDecision,
         estadoNovo: updatedDecision,
       },
@@ -233,7 +235,7 @@ decisionRoutes.put(
       decisionId: updatedDecision.id,
       companyId: updatedDecision.companyId,
       title: updatedDecision.title,
-      updatedFields: Object.keys(updateData),
+      updatedFields,
       userId: request.user?.id,
     });
 
