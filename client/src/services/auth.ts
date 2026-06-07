@@ -3,6 +3,7 @@ import { apiUrl } from '../config/app'
 
 const tokenKey = 'decisionlog:token'
 const userKey = 'decisionlog:user'
+const logoutMarkerKey = 'decisionlog:logoutAt'
 
 export function getInitialAuthError() {
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
@@ -40,15 +41,18 @@ export function readStoredUser() {
 }
 
 export function persistSession(token: string, user: User) {
+  localStorage.removeItem(logoutMarkerKey)
   localStorage.setItem(tokenKey, token)
   localStorage.setItem(userKey, JSON.stringify(user))
 }
 
 export function persistToken(token: string) {
+  localStorage.removeItem(logoutMarkerKey)
   localStorage.setItem(tokenKey, token)
 }
 
 export function persistUser(user: User) {
+  localStorage.removeItem(logoutMarkerKey)
   localStorage.setItem(userKey, JSON.stringify(user))
 }
 
@@ -57,7 +61,21 @@ export function clearSession() {
   localStorage.removeItem(userKey)
 }
 
+export function markSessionLoggedOut() {
+  localStorage.setItem(logoutMarkerKey, String(Date.now()))
+}
+
+export function wasRecentlyLoggedOut() {
+  const logoutAt = Number(localStorage.getItem(logoutMarkerKey) || 0)
+
+  return logoutAt > 0 && Date.now() - logoutAt < 60_000
+}
+
 export async function refreshSession() {
+  if (wasRecentlyLoggedOut()) {
+    throw new Error('Sessão encerrada pelo usuário.')
+  }
+
   const response = await fetch(`${apiUrl}/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
@@ -73,9 +91,11 @@ export async function refreshSession() {
 }
 
 export async function requestLogout() {
+  markSessionLoggedOut()
+  clearSession()
+
   await fetch(`${apiUrl}/auth/logout`, {
     method: 'POST',
     credentials: 'include',
   }).catch(() => undefined)
-  clearSession()
 }

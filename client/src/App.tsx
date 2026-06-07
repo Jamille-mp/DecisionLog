@@ -30,6 +30,7 @@ import {
   readStoredUser,
   refreshSession,
   requestLogout,
+  wasRecentlyLoggedOut,
 } from './services/auth'
 import { authHeaders } from './services/http'
 import type {
@@ -115,6 +116,7 @@ function App() {
 
   useEffect(() => {
     if (token || user) return
+    if (wasRecentlyLoggedOut()) return
 
     let isCurrent = true
 
@@ -447,6 +449,8 @@ function App() {
     clearSession()
     setToken('')
     setUser(null)
+    setIsProfileMenuOpen(false)
+    setIsSidebarOpen(false)
     setCurrentPage('dashboard')
     setPageHistory([])
     setDecisions([])
