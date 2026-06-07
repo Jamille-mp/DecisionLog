@@ -1,9 +1,11 @@
 import { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from "../lib/secrets";
 
 type UserRole = "admin" | "manager" | "auditor";
 
 type TokenPayload = {
+  active?: boolean;
   sub: string;
   companyId?: string;
   email: string;
@@ -22,24 +24,32 @@ export function isAuthenticated(
     return;
   }
 
-  const [, token] = authHeader.split(" ");
+  const [scheme, token] = authHeader.split(" ");
 
-  if (!token) {
+  if (scheme !== "Bearer" || !token) {
     response.status(401).json({ error: "Token inválido." });
     return;
   }
 
   try {
-    const payload = jwt.verify(
-      token,
-      process.env.JWT_SECRET || "dev-secret",
-    ) as TokenPayload;
+    const payload = jwt.verify(token, getJwtSecret()) as TokenPayload;
+
+    if (
+      !payload.sub ||
+      !payload.companyId ||
+      !payload.email ||
+      !payload.role ||
+      payload.active === false
+    ) {
+      response.status(401).json({ error: "Token inválido." });
+      return;
+    }
 
     request.user = {
       id: payload.sub,
-      companyId: payload.companyId || "",
+      companyId: payload.companyId,
       email: payload.email,
-      role: payload.role || "manager",
+      role: payload.role,
     };
 
     next();

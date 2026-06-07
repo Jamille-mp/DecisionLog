@@ -2,6 +2,10 @@
   "name": "server",
   "version": "1.0.0",
   "main": "index.js",
+  "overrides": {
+    "@hono/node-server": "^1.19.13",
+    "hono": "^4.12.21"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
@@ -28,6 +32,8 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.2.0",
     "zod": "^4.4.1"

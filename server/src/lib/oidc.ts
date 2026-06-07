@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { AppError } from "../errors/AppError";
+import { getOidcStateSecret } from "./secrets";
 
 type OidcDiscovery = {
   issuer: string;
@@ -62,7 +63,7 @@ function jsonFromBase64Url<T>(input: string) {
 }
 
 function getOidcSecret() {
-  return process.env.OIDC_STATE_SECRET || process.env.JWT_SECRET || "dev-secret";
+  return getOidcStateSecret();
 }
 
 export function isOidcEnabled() {

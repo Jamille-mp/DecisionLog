@@ -38,7 +38,7 @@ export function MonitoringPage({ auditLogs, health, token }: MonitoringPageProps
     setIsRefreshing(true)
     try {
       const startedAt = performance.now()
-      const response = await fetch(`${apiUrl}/health`, {
+      const response = await fetch(`${apiUrl}/health/details`, {
         headers: token ? authHeaders(token) : undefined,
       })
       const payload = (await response.json()) as Health
@@ -101,7 +101,7 @@ export function MonitoringPage({ auditLogs, health, token }: MonitoringPageProps
         <article className={`monitor-card ${currentHealth?.status === 'ok' ? 'ok' : 'attention'}`}>
           <span>API REST</span>
           <strong>{currentHealth?.service || 'DecisionLog API'}</strong>
-          <p>Status HTTP: {currentHealth?.status || 'sem leitura'} | Endpoint: /health</p>
+          <p>Status HTTP: {currentHealth?.status || 'sem leitura'} | Endpoint: /health/details</p>
         </article>
         <article className={`monitor-card ${checks?.mysql === 'ok' ? 'ok' : 'attention'}`}>
           <span>Banco relacional</span>
@@ -122,6 +122,9 @@ export function MonitoringPage({ auditLogs, health, token }: MonitoringPageProps
             {eventFailureCount} falha(s) consecutiva(s) | {checks?.events.publishedEvents || 0} evento(s)
             publicados.
           </p>
+          {checks?.events.configured === false && (
+            <p>Broker RabbitMQ não configurado neste ambiente.</p>
+          )}
         </article>
       </div>
       <div className="monitor-operations">

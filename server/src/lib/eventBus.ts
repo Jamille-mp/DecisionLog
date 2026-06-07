@@ -26,6 +26,10 @@ function getBrokerMode(): BrokerMode {
     return mode;
   }
 
+  if (process.env.NODE_ENV === "production") {
+    return "rabbitmq";
+  }
+
   return "memory";
 }
 
@@ -122,8 +126,11 @@ export async function publishDomainEvent(
 }
 
 export function getEventBusHealth() {
+  const mode = getBrokerMode();
+
   return {
-    mode: getBrokerMode(),
+    mode,
+    configured: mode === "rabbitmq" ? Boolean(process.env.RABBITMQ_URL) : true,
     state: circuitState,
     failureCount,
     lastFailureAt,

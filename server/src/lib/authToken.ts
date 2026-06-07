@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { getJwtSecret } from "./secrets";
 
 type TokenUser = {
   active: boolean;
@@ -9,6 +10,9 @@ type TokenUser = {
 };
 
 export function signAppToken(user: TokenUser) {
+  const expiresIn = (process.env.JWT_EXPIRES_IN ||
+    "8h") as jwt.SignOptions["expiresIn"];
+
   return jwt.sign(
     {
       email: user.email,
@@ -16,10 +20,10 @@ export function signAppToken(user: TokenUser) {
       role: user.role,
       active: user.active,
     },
-    process.env.JWT_SECRET || "dev-secret",
+    getJwtSecret(),
     {
       subject: user.id,
-      expiresIn: "1d",
+      expiresIn,
     },
   );
 }

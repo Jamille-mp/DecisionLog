@@ -3,6 +3,8 @@ import { getEventBusHealth } from "../../lib/eventBus";
 import { checkMongoHealth } from "../../lib/mongodb";
 import { prisma } from "../../lib/prisma";
 import { asyncHandler } from "../../middlewares/asyncHandler";
+import { isAuthenticated } from "../../middlewares/isAuthenticated";
+import { requireRole } from "../../middlewares/requireRole";
 
 export const healthRoutes = Router();
 
@@ -31,12 +33,32 @@ async function getHealthChecks() {
       error instanceof Error ? error.message : "Erro desconhecido no MongoDB.";
   }
 
+  const eventsOk =
+    checks.events.state !== "open" &&
+    (process.env.NODE_ENV !== "production" ||
+      checks.events.mode === "rabbitmq" ||
+      process.env.ALLOW_MEMORY_EVENT_BROKER === "true");
   const status =
-    checks.mysql === "ok" && checks.mongodb === "ok" ? "ok" : "degraded";
+    checks.mysql === "ok" && checks.mongodb === "ok" && eventsOk
+      ? "ok"
+      : "degraded";
 
   return {
     checks,
     status,
+  };
+}
+
+function toPublicHealth(checks: Awaited<ReturnType<typeof getHealthChecks>>["checks"]) {
+  return {
+    api: checks.api,
+    mysql: checks.mysql,
+    mongodb: checks.mongodb,
+    events: {
+      mode: checks.events.mode,
+      state: checks.events.state,
+      configured: checks.events.configured,
+    },
   };
 }
 
@@ -48,7 +70,7 @@ healthRoutes.get(
     response.status(200).json({
       status,
       service: "DecisionLog API",
-      checks,
+      checks: toPublicHealth(checks),
     });
   }),
 );
@@ -61,6 +83,22 @@ healthRoutes.get(
     response.status(status === "ok" ? 200 : 503).json({
       status,
       service: "DecisionLog API",
+      checks: toPublicHealth(checks),
+    });
+  }),
+);
+
+healthRoutes.get(
+  "/details",
+  isAuthenticated,
+  requireRole(["admin"]),
+  asyncHandler(async (_request, response) => {
+    const { checks, status } = await getHealthChecks();
+
+    response.json({
+      status,
+      service: "DecisionLog API",
+      checkedAt: new Date().toISOString(),
       checks,
     });
   }),

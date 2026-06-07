@@ -4,14 +4,14 @@ services:
     container_name: decisionlog-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: "2010005"
-      MYSQL_DATABASE: "decisionlog"
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-decisionlog_dev_password}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-decisionlog}"
     ports:
       - "3306:3306"
     volumes:
       - decisionlog_mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p2010005"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -20,6 +20,9 @@ services:
     image: mongo:7
     container_name: decisionlog-mongodb
     restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER:-decisionlog}"
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:-decisionlog_dev_password}"
     ports:
       - "27017:27017"
     volumes:
