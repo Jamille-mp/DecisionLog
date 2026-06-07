@@ -78,6 +78,7 @@ function makeToken(role: "admin" | "manager" | "auditor", userId = "user-1") {
       email: `${role}@decisionlog.local`,
       companyId,
       role,
+      active: true,
     },
     process.env.JWT_SECRET || "test-secret",
     {
@@ -382,6 +383,14 @@ describe("DecisionLog API", () => {
     expect(mocks.listAuditLogs).not.toHaveBeenCalled();
   });
 
+  it("rejeita token sem esquema Bearer", async () => {
+    const response = await request(app)
+      .get("/audit-logs")
+      .set("Authorization", `Token ${makeToken("admin")}`);
+
+    expect(response.status).toBe(401);
+  });
+
   it("lista histórico de auditoria de uma decisão específica", async () => {
     mocks.listAuditLogsByDecision.mockResolvedValue([
       {
@@ -549,7 +558,7 @@ describe("DecisionLog API", () => {
     expect(response.body.name).toBe("Inovação");
   });
 
-  it("retorna health check completo", async () => {
+  it("retorna health check público sem detalhes sensíveis", async () => {
     mocks.prisma.$queryRaw.mockResolvedValue([{ "1": 1 }]);
     mocks.checkMongoHealth.mockResolvedValue(undefined);
 
@@ -558,9 +567,60 @@ describe("DecisionLog API", () => {
     expect(response.status).toBe(200);
     expect(response.body.checks.mysql).toBe("ok");
     expect(response.body.checks.mongodb).toBe("ok");
+    expect(response.body.checks.mongodbError).toBeUndefined();
     expect(response.body.checks.events).toEqual(
-      expect.objectContaining({ state: expect.any(String) }),
+      expect.objectContaining({ state: expect.any(String), mode: expect.any(String) }),
     );
+  });
+
+  it("protege health check detalhado para administradores", async () => {
+    mocks.prisma.$queryRaw.mockResolvedValue([{ "1": 1 }]);
+    mocks.checkMongoHealth.mockResolvedValue(undefined);
+
+    const unauthenticated = await request(app).get("/health/details");
+    const manager = await request(app)
+      .get("/health/details")
+      .set("Authorization", `Bearer ${makeToken("manager")}`);
+    const admin = await request(app)
+      .get("/health/details")
+      .set("Authorization", `Bearer ${makeToken("admin")}`);
+
+    expect(unauthenticated.status).toBe(401);
+    expect(manager.status).toBe(403);
+    expect(admin.status).toBe(200);
+    expect(admin.body.checks).toEqual(
+      expect.objectContaining({
+        mysql: "ok",
+        mongodb: "ok",
+        events: expect.objectContaining({ failureCount: expect.any(Number) }),
+      }),
+    );
+  });
+
+  it("aplica cabeçalhos básicos de segurança HTTP", async () => {
+    mocks.prisma.$queryRaw.mockResolvedValue([{ "1": 1 }]);
+    mocks.checkMongoHealth.mockResolvedValue(undefined);
+
+    const response = await request(app).get("/health");
+
+    expect(response.headers["x-powered-by"]).toBeUndefined();
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["x-frame-options"]).toBe("SAMEORIGIN");
+    expect(response.headers["ratelimit"]).toBeDefined();
+  });
+
+  it("mantém resposta estável em carga leve de health check", async () => {
+    mocks.prisma.$queryRaw.mockResolvedValue([{ "1": 1 }]);
+    mocks.checkMongoHealth.mockResolvedValue(undefined);
+
+    const startedAt = Date.now();
+    const responses = await Promise.all(
+      Array.from({ length: 40 }, () => request(app).get("/health")),
+    );
+    const durationMs = Date.now() - startedAt;
+
+    expect(responses.every((response) => response.status === 200)).toBe(true);
+    expect(durationMs).toBeLessThan(2_000);
   });
 
   it("exige aceite de termos e privacidade no cadastro", async () => {
