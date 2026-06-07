@@ -1,4 +1,5 @@
 import type { User } from '../types'
+import { apiUrl } from '../config/app'
 
 const tokenKey = 'decisionlog:token'
 const userKey = 'decisionlog:user'
@@ -54,4 +55,27 @@ export function persistUser(user: User) {
 export function clearSession() {
   localStorage.removeItem(tokenKey)
   localStorage.removeItem(userKey)
+}
+
+export async function refreshSession() {
+  const response = await fetch(`${apiUrl}/auth/refresh`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+
+  if (!response.ok) {
+    throw new Error('Sessão expirada.')
+  }
+
+  const data = (await response.json()) as { token: string; user: User }
+  persistSession(data.token, data.user)
+  return data
+}
+
+export async function requestLogout() {
+  await fetch(`${apiUrl}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  }).catch(() => undefined)
+  clearSession()
 }

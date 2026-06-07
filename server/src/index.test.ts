@@ -15,6 +15,12 @@ const mocks = vi.hoisted(() => ({
       findMany: vi.fn(),
       update: vi.fn(),
     },
+    refreshToken: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      updateMany: vi.fn(),
+    },
     company: {
       findUnique: vi.fn(),
       create: vi.fn(),
@@ -105,6 +111,14 @@ describe("DecisionLog API", () => {
     });
     mocks.isPasswordResetEmailConfigured.mockReturnValue(false);
     mocks.sendPasswordResetEmail.mockResolvedValue(false);
+    mocks.prisma.refreshToken.create.mockResolvedValue({
+      id: "refresh-1",
+      userId: "user-1",
+      tokenHash: "hash",
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      revokedAt: null,
+      createdAt: new Date(),
+    });
   });
 
   it("autentica usuário válido e retorna token com perfil", async () => {
@@ -130,11 +144,89 @@ describe("DecisionLog API", () => {
       email: "admin@decisionlog.local",
       role: "admin",
     });
+    expect(response.headers["set-cookie"]?.[0]).toContain(
+      "decisionlog_refresh=",
+    );
+    expect(response.headers["set-cookie"]?.[0]).toContain("HttpOnly");
+    expect(mocks.prisma.refreshToken.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ userId: "user-1" }),
+      }),
+    );
     expect(mocks.logActivity).toHaveBeenCalledWith(
       "USER_LOGGED_IN",
       expect.objectContaining({ role: "admin" }),
       "user-1",
       companyId,
+    );
+  });
+
+  it("renova sessão com refresh token em cookie HttpOnly", async () => {
+    const cookieToken = "refresh-token-test";
+    const user = {
+      id: "user-1",
+      companyId,
+      name: "Jamille Admin",
+      email: "admin@decisionlog.local",
+      phone: null,
+      preferredTheme: "light",
+      departmentId: null,
+      department: null,
+      company: {
+        id: companyId,
+        name: "DecisionLog",
+        slug: "decisionlog",
+        accessCode: "DL-DEMO01",
+      },
+      passwordHash: "hash",
+      role: "admin",
+      active: true,
+    };
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(cookieToken)
+      .digest("hex");
+
+    mocks.prisma.refreshToken.findUnique.mockResolvedValue({
+      id: "refresh-1",
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: null,
+      createdAt: new Date(),
+      user,
+    });
+    mocks.prisma.refreshToken.update.mockResolvedValue({
+      id: "refresh-1",
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 60_000),
+      revokedAt: new Date(),
+      createdAt: new Date(),
+    });
+
+    const response = await request(app)
+      .post("/auth/refresh")
+      .set("Cookie", [`decisionlog_refresh=${cookieToken}`]);
+
+    expect(response.status).toBe(200);
+    expect(response.body.token).toEqual(expect.any(String));
+    expect(response.body.user.email).toBe("admin@decisionlog.local");
+    expect(mocks.prisma.refreshToken.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "refresh-1" } }),
+    );
+    expect(mocks.prisma.refreshToken.create).toHaveBeenCalled();
+  });
+
+  it("revoga refresh token no logout", async () => {
+    const response = await request(app)
+      .post("/auth/logout")
+      .set("Cookie", ["decisionlog_refresh=logout-token"]);
+
+    expect(response.status).toBe(204);
+    expect(mocks.prisma.refreshToken.updateMany).toHaveBeenCalled();
+    expect(response.headers["set-cookie"]?.[0]).toContain(
+      "decisionlog_refresh=",
     );
   });
 

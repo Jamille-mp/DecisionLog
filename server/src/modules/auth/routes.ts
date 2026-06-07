@@ -24,6 +24,11 @@ import {
   verifyOidcState,
 } from "../../lib/oidc";
 import { prisma } from "../../lib/prisma";
+import {
+  issueRefreshToken,
+  revokeRefreshToken,
+  rotateRefreshToken,
+} from "../../lib/refreshToken";
 import { exposeCompanyAccessCodeForAdmin } from "../../lib/userResponse";
 import { asyncHandler } from "../../middlewares/asyncHandler";
 import {
@@ -131,6 +136,7 @@ authRoutes.get(
     }
 
     const token = signAppToken(user);
+    await issueRefreshToken(response, user.id);
 
     void logActivity(
       "USER_LOGGED_IN_OIDC",
@@ -340,6 +346,7 @@ authRoutes.post(
     }
 
     const token = signAppToken(user);
+    await issueRefreshToken(response, user.id);
 
     void logActivity(
       "USER_LOGGED_IN",
@@ -365,6 +372,45 @@ authRoutes.post(
         role: responseUser.role,
       },
     });
+  }),
+);
+
+authRoutes.post(
+  "/refresh",
+  asyncHandler(async (request, response) => {
+    const user = await rotateRefreshToken(request, response);
+
+    if (!user) {
+      throw new AppError("Sessão expirada. Faça login novamente.", 401);
+    }
+
+    const token = signAppToken(user);
+    const responseUser = exposeCompanyAccessCodeForAdmin(user);
+
+    response.json({
+      token,
+      user: {
+        id: responseUser.id,
+        companyId: responseUser.companyId,
+        company: responseUser.company,
+        name: responseUser.name,
+        email: responseUser.email,
+        phone: responseUser.phone,
+        preferredTheme: responseUser.preferredTheme,
+        departmentId: responseUser.departmentId,
+        department: responseUser.department,
+        role: responseUser.role,
+        active: responseUser.active,
+      },
+    });
+  }),
+);
+
+authRoutes.post(
+  "/logout",
+  asyncHandler(async (request, response) => {
+    await revokeRefreshToken(request, response);
+    response.status(204).send();
   }),
 );
 

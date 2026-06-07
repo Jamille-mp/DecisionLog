@@ -11,7 +11,7 @@ type TokenUser = {
 
 export function signAppToken(user: TokenUser) {
   const expiresIn = (process.env.JWT_EXPIRES_IN ||
-    "8h") as jwt.SignOptions["expiresIn"];
+    "15m") as jwt.SignOptions["expiresIn"];
 
   return jwt.sign(
     {

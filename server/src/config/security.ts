@@ -19,6 +19,7 @@ export const helmetMiddleware = helmet({
 });
 
 export const corsOptions: CorsOptions = {
+  credentials: true,
   origin(origin, callback) {
     const allowedOrigins =
       process.env.NODE_ENV === "production"

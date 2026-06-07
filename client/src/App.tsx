@@ -28,6 +28,8 @@ import {
   readApiError,
   readStoredToken,
   readStoredUser,
+  refreshSession,
+  requestLogout,
 } from './services/auth'
 import { authHeaders } from './services/http'
 import type {
@@ -110,6 +112,25 @@ function App() {
       .then((data: OidcConfig) => setOidcConfig(data))
       .catch(() => setOidcConfig({ enabled: false, providerName: 'Login institucional' }))
   }, [])
+
+  useEffect(() => {
+    if (token || user) return
+
+    let isCurrent = true
+
+    refreshSession()
+      .then((session) => {
+        if (!isCurrent) return
+        setToken(session.token)
+        setUser(session.user)
+        document.body.dataset.theme = session.user.preferredTheme || 'light'
+      })
+      .catch(() => undefined)
+
+    return () => {
+      isCurrent = false
+    }
+  }, [token, user])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
@@ -212,8 +233,17 @@ function App() {
           setUsers(loadedUsers)
         }
       } catch {
-        toast.error('Sessão expirada ou API indisponível.')
-        handleLogout()
+        try {
+          const session = await refreshSession()
+          if (isCurrent) {
+            setToken(session.token)
+            setUser(session.user)
+            toast.info('Sessão renovada com segurança.')
+          }
+        } catch {
+          toast.error('Sessão expirada ou API indisponível.')
+          handleLogout()
+        }
       } finally {
         if (isCurrent) {
           setIsLoading(false)
@@ -292,6 +322,7 @@ function App() {
         setAuthError(null)
         const response = await fetch(`${apiUrl}/auth/forgot-password`, {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
@@ -326,6 +357,7 @@ function App() {
         setAuthError(null)
         const response = await fetch(`${apiUrl}/auth/reset-password`, {
           method: 'POST',
+          credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
@@ -375,6 +407,7 @@ function App() {
 
       const response = await fetch(`${apiUrl}/auth/${endpoint}`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -410,6 +443,7 @@ function App() {
   }
 
   function handleLogout() {
+    void requestLogout()
     clearSession()
     setToken('')
     setUser(null)
