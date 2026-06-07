@@ -398,6 +398,16 @@
   line-height: 1.5;
 }
 
+.form-helper-text {
+  border-left: 3px solid #d4b062;
+  border-radius: 8px;
+  background: #fffbeb;
+  color: #6b7280;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  line-height: 1.45;
+}
+
 .radio-stack {
   display: grid;
   gap: 8px;

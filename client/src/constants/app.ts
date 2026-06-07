@@ -45,6 +45,6 @@ export const actionLabels: Record<string, string> = {
   DECISION_UPDATED: 'Decisão editada',
   DECISION_ARCHIVED: 'Decisão arquivada',
   DECISION_UNARCHIVED: 'Decisão desarquivada',
-  DECISION_DELETED: 'Decisão inativada',
+  DECISION_DELETED: 'Decisão removida da listagem',
   COMPANY_REGISTERED: 'Empresa cadastrada',
 }

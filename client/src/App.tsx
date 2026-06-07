@@ -10,6 +10,8 @@ import {
 import { Toaster, toast } from 'sonner'
 import logo from './assets/decisionlog-logo.png'
 import { CompanyBadge } from './components/shared/CompanyBadge'
+import { ConfirmDialog } from './components/shared/ConfirmDialog'
+import type { ConfirmDialogState } from './components/shared/ConfirmDialog'
 import { ViewDecisionModal } from './components/decisions/ViewDecisionModal'
 import { LegalModal } from './components/legal/LegalModal'
 import { AppFooter } from './components/layout/AppFooter'
@@ -86,6 +88,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null)
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false)
   const profileMenuRef = useRef<HTMLDivElement | null>(null)
@@ -244,7 +247,19 @@ function App() {
           }
         } catch {
           toast.error('Sessão expirada ou API indisponível.')
-          handleLogout()
+          void requestLogout()
+          clearSession()
+          setToken('')
+          setUser(null)
+          setIsProfileMenuOpen(false)
+          setIsSidebarOpen(false)
+          setCurrentPage('dashboard')
+          setPageHistory([])
+          setDecisions([])
+          setDepartments([])
+          setUsers([])
+          setAuditLogs([])
+          setDecisionAuditLogs([])
         }
       } finally {
         if (isCurrent) {
@@ -460,6 +475,20 @@ function App() {
     setDecisionAuditLogs([])
   }
 
+  function requestLogoutConfirmation() {
+    setIsProfileMenuOpen(false)
+    setConfirmDialog({
+      title: 'Sair da plataforma?',
+      description: 'Sua sessão será encerrada neste dispositivo.',
+      details: 'Você poderá entrar novamente usando e-mail e senha, Google ou convite da empresa.',
+      confirmLabel: 'Sair',
+      tone: 'warning',
+      onConfirm: () => {
+        handleLogout()
+      },
+    })
+  }
+
   function handleOidcLogin() {
     setAuthError(null)
     const params = new URLSearchParams()
@@ -474,7 +503,15 @@ function App() {
     setIsSubmitting(true)
 
     try {
-      const payload = toPayload(formData)
+      const basePayload = toPayload(formData)
+      const payload = editingDecision
+        ? {
+            ...basePayload,
+            context: editingDecision.source.context,
+            decision: editingDecision.source.decision,
+            reason: formData.descricao,
+          }
+        : basePayload
       const response = await fetch(
         editingDecision ? `${apiUrl}/decisions/${editingDecision.id}` : `${apiUrl}/decisions`,
         {
@@ -510,25 +547,33 @@ function App() {
   }
 
   async function handleDeleteDecision(id: string) {
-    const confirmed = window.confirm('Deseja realmente inativar esta decisão?')
-    if (!confirmed) return
+    const decision = decisionViews.find((item) => item.id === id)
 
-    try {
-      const response = await fetch(`${apiUrl}/decisions/${id}`, {
-        method: 'DELETE',
-        headers: authHeaders(token),
-      })
+    setConfirmDialog({
+      title: 'Excluir decisão?',
+      description: `A decisão${decision ? ` "${decision.titulo}"` : ''} será removida da listagem principal.`,
+      details: 'O registro não será apagado fisicamente do banco: ele ficará preservado para auditoria e rastreabilidade.',
+      confirmLabel: 'Excluir decisão',
+      tone: 'danger',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`${apiUrl}/decisions/${id}`, {
+            method: 'DELETE',
+            headers: authHeaders(token),
+          })
 
-      if (!response.ok) {
-        throw new Error('Não foi possível inativar a decisão.')
-      }
+          if (!response.ok) {
+            throw new Error('Não foi possível excluir a decisão.')
+          }
 
-      setDecisions((current) => current.filter((decision) => decision.id !== id))
-      toast.success('Decisão inativada.')
-      void refreshAuditLogs()
-    } catch {
-      toast.error('Erro ao inativar decisão.')
-    }
+          setDecisions((current) => current.filter((item) => item.id !== id))
+          toast.success('Decisão excluída da listagem.')
+          void refreshAuditLogs()
+        } catch {
+          toast.error('Erro ao excluir decisão.')
+        }
+      },
+    })
   }
 
   async function handleArchiveDecision(decision: DecisionView) {
@@ -564,23 +609,31 @@ function App() {
   }
 
   async function handleDeleteUser(userId: string) {
-    const confirmed = window.confirm('Deseja realmente excluir este usuário? A conta será desativada e descaracterizada.')
-    if (!confirmed) return
+    const targetUser = users.find((item) => item.id === userId)
 
-    const response = await fetch(`${apiUrl}/users/${userId}`, {
-      method: 'DELETE',
-      headers: authHeaders(token),
+    setConfirmDialog({
+      title: 'Excluir usuário?',
+      description: `A conta${targetUser ? ` de ${targetUser.name}` : ''} será removida do acesso ativo da empresa.`,
+      details: 'Para preservar auditoria, registros anteriores continuarão vinculados ao histórico corporativo.',
+      confirmLabel: 'Excluir usuário',
+      tone: 'danger',
+      onConfirm: async () => {
+        const response = await fetch(`${apiUrl}/users/${userId}`, {
+          method: 'DELETE',
+          headers: authHeaders(token),
+        })
+
+        if (!response.ok) {
+          toast.error('Não foi possível excluir o usuário.')
+          return
+        }
+
+        setUsers((current) => current.filter((item) => item.id !== userId))
+        toast.success('Usuário excluído.')
+        void refreshUsers()
+        void refreshAuditLogs()
+      },
     })
-
-    if (!response.ok) {
-      toast.error('Não foi possível excluir o usuário.')
-      return
-    }
-
-    setUsers((current) => current.filter((item) => item.id !== userId))
-    toast.success('Usuário excluído.')
-    void refreshUsers()
-    void refreshAuditLogs()
   }
 
   async function handleUpdateUser(userId: string, data: Partial<Pick<User, 'role' | 'active' | 'departmentId'>>) {
@@ -664,22 +717,28 @@ function App() {
   }
 
   async function handleDeleteDepartment(department: Department) {
-    const confirmed = window.confirm('Deseja realmente excluir este departamento? Ele será removido da gestão ativa.')
-    if (!confirmed) return
+    setConfirmDialog({
+      title: 'Excluir departamento?',
+      description: `O departamento "${department.name}" será removido da gestão ativa.`,
+      details: 'Antes de excluir, confira se não há usuários ou decisões que ainda dependem dele.',
+      confirmLabel: 'Excluir departamento',
+      tone: 'danger',
+      onConfirm: async () => {
+        const response = await fetch(`${apiUrl}/departments/${department.id}`, {
+          method: 'DELETE',
+          headers: authHeaders(token),
+        })
 
-    const response = await fetch(`${apiUrl}/departments/${department.id}`, {
-      method: 'DELETE',
-      headers: authHeaders(token),
+        if (!response.ok) {
+          toast.error('Não foi possível excluir o departamento.')
+          return
+        }
+
+        toast.success('Departamento excluído.')
+        void refreshDepartments()
+        void refreshAuditLogs()
+      },
     })
-
-    if (!response.ok) {
-      toast.error('Não foi possível excluir o departamento.')
-      return
-    }
-
-    toast.success('Departamento excluído.')
-    void refreshDepartments()
-    void refreshAuditLogs()
   }
 
   async function handleUpdateProfile(data: ProfileFormData) {
@@ -924,7 +983,7 @@ function App() {
                 <FileText />
                 Ajuda e sobre o sistema
               </button>
-              <button type="button" onClick={handleLogout}>
+              <button type="button" onClick={requestLogoutConfirmation}>
                 <LogOut />
                 Sair
               </button>
@@ -960,6 +1019,7 @@ function App() {
         onClose={() => setSelectedDecision(null)}
         onLoadAudit={loadDecisionAudit}
       />
+      <ConfirmDialog state={confirmDialog} onClose={() => setConfirmDialog(null)} />
     </div>
   )
 }

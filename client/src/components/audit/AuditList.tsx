@@ -100,7 +100,7 @@ function buildChangeList(event: AuditLog): ChangeItem[] {
   }
 
   if (event.action === 'DECISION_DELETED') {
-    return [{ field: 'Situação', from: 'Ativa', to: 'Inativa' }]
+    return [{ field: 'Situação', from: 'Disponível', to: 'Removida da listagem' }]
   }
 
   return []
@@ -117,7 +117,7 @@ function getActionSummary(event: AuditLog) {
     case 'DECISION_UNARCHIVED':
       return 'Desarquivou a decisão'
     case 'DECISION_DELETED':
-      return 'Inativou a decisão'
+      return 'Removeu a decisão da listagem'
     default:
       return actionLabels[event.action] || event.action
   }

@@ -298,7 +298,7 @@ export function DecisionHistory({
                           </button>
                         )}
                         {canManageDecision(decision) && (
-                          <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Inativar">
+                          <button className="danger" type="button" onClick={() => onDelete(decision.id)} title="Excluir decisão">
                             <Trash2 />
                           </button>
                         )}

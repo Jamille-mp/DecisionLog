@@ -431,6 +431,39 @@ body[data-theme='dark'] .action-row .gold {
   color: #facc15;
 }
 
+body[data-theme='dark'] .confirm-dialog {
+  background: #111827;
+  color: #e5e7eb;
+}
+
+body[data-theme='dark'] .confirm-dialog-body h2 {
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .confirm-dialog-body p {
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] .confirm-dialog-body small {
+  background: rgba(148, 163, 184, 0.12);
+  color: #cbd5e1;
+}
+
+body[data-theme='dark'] .confirm-dialog-actions {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+body[data-theme='dark'] .confirm-dialog-actions .secondary-action,
+body[data-theme='dark'] .confirm-dialog-header button:hover {
+  background: rgba(148, 163, 184, 0.16);
+  color: #f8fafc;
+}
+
+body[data-theme='dark'] .form-helper-text {
+  background: rgba(212, 176, 98, 0.12);
+  color: #d1d5db;
+}
+
 body[data-theme='dark'] .modal-header {
   border-color: rgba(255, 255, 255, 0.1);
   background: #172033;
@@ -872,6 +905,15 @@ body[data-theme='dark'] option {
     width: 100%;
     max-height: 92vh;
     border-radius: 8px 8px 0 0;
+  }
+
+  .confirm-dialog-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .confirm-dialog-actions button {
+    width: 100%;
   }
 
   .detail-grid {

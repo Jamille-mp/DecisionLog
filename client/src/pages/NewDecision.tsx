@@ -30,7 +30,7 @@ export function NewDecision({
           departamento: editingDecision.departamento,
           impacto: editingDecision.impacto,
           status: editingDecision.status === 'Concluída' ? 'Concluída' : 'Pendente',
-          descricao: editingDecision.descricao,
+          descricao: editingDecision.source.reason || editingDecision.descricao,
         }
       : emptyDecisionForm,
   )
@@ -146,6 +146,11 @@ export function NewDecision({
                 <h2>Contexto e justificativa</h2>
                 <p>Descreva motivo, impacto esperado e ações relacionadas à decisão.</p>
               </div>
+              {editingDecision && (
+                <p className="form-helper-text">
+                  Em registros antigos, contexto e decisão podem existir como campos técnicos separados. Nesta tela, edite somente a descrição visível da decisão.
+                </p>
+              )}
               <label htmlFor="descricao">Descrição Detalhada</label>
               <textarea
                 id="descricao"
