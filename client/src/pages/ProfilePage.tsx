@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Building2, Copy, Eye, EyeOff, Link, Moon, ShieldCheck, Sun } from 'lucide-react'
+import { Building2, Copy, Eye, EyeOff, Moon, Share2, ShieldCheck, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { CompanyBadge } from '../components/shared/CompanyBadge'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -74,6 +74,26 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
     return `${window.location.origin}${window.location.pathname}?convite=${encodeURIComponent(accessCode)}`
   }
 
+  async function shareInvite(accessCode: string) {
+    const inviteLink = buildInviteLink(accessCode)
+    const shareData = {
+      title: 'Convite DecisionLog',
+      text: `Use este convite para criar seu acesso no ambiente ${user.company?.name || 'da empresa'} no DecisionLog.`,
+      url: inviteLink,
+    }
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData)
+        return
+      }
+
+      await copyToClipboard(inviteLink, 'Link de convite copiado.')
+    } catch {
+      toast.error('Não foi possível compartilhar o convite.')
+    }
+  }
+
   return (
     <section className="page-section">
       <PageHeader
@@ -101,7 +121,10 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
             <div className="company-access-code">
               <span>Código de convite da empresa</span>
               <strong>{user.company.accessCode}</strong>
-              <small>Compartilhe este código apenas com funcionários autorizados no primeiro acesso.</small>
+              <small>
+                Compartilhe apenas com funcionários autorizados. O link abre a tela de cadastro com o
+                convite preenchido e orienta o usuário no primeiro acesso.
+              </small>
               <div className="company-access-actions">
                 <button
                   type="button"
@@ -113,13 +136,14 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
                   Copiar código
                 </button>
                 <button
+                  className="company-access-share"
                   type="button"
                   onClick={() => {
-                    void copyToClipboard(buildInviteLink(user.company?.accessCode || ''), 'Link de convite copiado.')
+                    void shareInvite(user.company?.accessCode || '')
                   }}
                 >
-                  <Link />
-                  Copiar link
+                  <Share2 />
+                  Compartilhar link
                 </button>
               </div>
             </div>

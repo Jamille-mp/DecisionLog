@@ -8,10 +8,21 @@ export function buildDemoDecisionAuditEvents(): AuditLog[] {
       id: 'demo-audit-1',
       action: 'DECISION_UPDATED',
       userId: 'gestor.demo',
+      userName: 'Mariana Costa',
+      userEmail: 'mariana.costa@empresa.com',
       details: {
         title: 'Revisão do fluxo de aprovação',
-        previousStatus: 'Pendente',
-        nextStatus: 'Concluída',
+        updatedFields: ['status', 'impact'],
+        estadoAnterior: {
+          status: 'pending',
+          impact: 'medium',
+          title: 'Revisão do fluxo de aprovação',
+        },
+        estadoNovo: {
+          status: 'approved',
+          impact: 'high',
+          title: 'Revisão do fluxo de aprovação',
+        },
       },
       timestamp: new Date(now - 1000 * 60 * 18).toISOString(),
     },
@@ -19,6 +30,8 @@ export function buildDemoDecisionAuditEvents(): AuditLog[] {
       id: 'demo-audit-2',
       action: 'DECISION_ARCHIVED',
       userId: 'admin.demo',
+      userName: 'Renato Alves',
+      userEmail: 'renato.alves@empresa.com',
       details: {
         title: 'Política de acesso aos relatórios',
       },
@@ -28,6 +41,8 @@ export function buildDemoDecisionAuditEvents(): AuditLog[] {
       id: 'demo-audit-3',
       action: 'DECISION_CREATED',
       userId: 'analista.demo',
+      userName: 'Camila Rocha',
+      userEmail: 'camila.rocha@empresa.com',
       details: {
         title: 'Priorização de indicadores executivos',
       },

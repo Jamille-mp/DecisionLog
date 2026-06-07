@@ -123,6 +123,12 @@
   height: 15px;
 }
 
+.company-access-actions .company-access-share {
+  border-color: rgba(212, 176, 98, 0.42);
+  background: #183354;
+  color: #ffffff;
+}
+
 .profile-settings-stack {
   display: grid;
   gap: 16px;

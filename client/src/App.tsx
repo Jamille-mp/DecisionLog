@@ -820,6 +820,7 @@ function App() {
           authForm={authForm}
           authError={authError}
           authMode={authMode}
+          inviteCode={initialInviteCode || undefined}
           isSubmitting={isSubmitting}
           onChange={setAuthForm}
           onOpenLegal={setLegalModal}

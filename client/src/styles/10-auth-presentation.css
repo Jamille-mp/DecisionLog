@@ -800,6 +800,40 @@
   white-space: nowrap;
 }
 
+.invite-recognized-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #183354;
+  margin-bottom: 18px;
+  padding: 14px;
+}
+
+.invite-recognized-card strong {
+  color: #065f46;
+  font-size: 14px;
+}
+
+.invite-recognized-card p {
+  margin: 0;
+  color: #374151;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.invite-recognized-card span {
+  width: fit-content;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #047857;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 9px;
+}
+
 .login-form label,
 .decision-form label {
   display: block;

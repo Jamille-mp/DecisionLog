@@ -42,16 +42,21 @@ export type User = {
 }
 
 export type Health = {
+  checkedAt?: string
   status: string
   service?: string
   checks: {
+    api?: string
     mysql: string
     mongodb: string
+    mongodbError?: string | null
     events: {
+      configured?: boolean
       mode?: string
       state: string
-      failureCount: number
-      publishedEvents: number
+      failureCount?: number
+      lastFailureAt?: string | null
+      publishedEvents?: number
     }
   }
 }
@@ -88,7 +93,10 @@ export type DecisionView = {
 export type AuditLog = {
   id: string
   action: string
+  companyId?: string
   userId?: string
+  userName?: string
+  userEmail?: string
   details?: Record<string, unknown>
   timestamp: string
 }

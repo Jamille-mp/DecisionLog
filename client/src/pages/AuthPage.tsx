@@ -12,6 +12,7 @@ type AuthPageProps = {
   authForm: AuthForm
   authError?: string | null
   authMode: AuthMode
+  inviteCode?: string
   isSubmitting: boolean
   onChange: (form: AuthForm) => void
   onClearAuthError: () => void
@@ -26,6 +27,7 @@ export function AuthPage({
   authForm,
   authError,
   authMode,
+  inviteCode,
   isSubmitting,
   onChange,
   onClearAuthError,
@@ -167,6 +169,16 @@ export function AuthPage({
                 onModeChange('register')
               }}
             />
+          )}
+          {authMode === 'register' && inviteCode && (
+            <div className="invite-recognized-card">
+              <strong>Convite reconhecido</strong>
+              <p>
+                Você abriu um link de acesso da empresa. O código já foi preenchido; complete seus
+                dados, aceite os termos e crie sua senha para solicitar o primeiro acesso.
+              </p>
+              <span>Código aplicado: {inviteCode}</span>
+            </div>
           )}
           <form onSubmit={onSubmit} className="login-form">
             {authMode === 'company-register' && (

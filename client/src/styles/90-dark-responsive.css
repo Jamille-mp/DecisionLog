@@ -37,6 +37,7 @@ body[data-theme='dark'] .preview-kpis article,
 body[data-theme='dark'] .presentation-process article,
 body[data-theme='dark'] .presentation-benefits div,
 body[data-theme='dark'] .access-denied-card,
+body[data-theme='dark'] .invite-recognized-card,
 body[data-theme='dark'] .preview-note,
 body[data-theme='dark'] .back-button,
 body[data-theme='dark'] .date-filter,
@@ -85,6 +86,7 @@ body[data-theme='dark'] td,
 body[data-theme='dark'] .modal-content strong,
 body[data-theme='dark'] .timeline-header span,
 body[data-theme='dark'] .timeline-action span,
+body[data-theme='dark'] .timeline-content p strong,
 body[data-theme='dark'] .primary {
   color: #f8fafc;
 }
@@ -94,6 +96,7 @@ body[data-theme='dark'] .login-card-header p,
 body[data-theme='dark'] .kpi-card p,
 body[data-theme='dark'] .modal-content p,
 body[data-theme='dark'] .timeline-content p,
+body[data-theme='dark'] .timeline-meta,
 body[data-theme='dark'] .loading-panel,
 body[data-theme='dark'] .profile-overview p,
 body[data-theme='dark'] .profile-panel-header p,
@@ -139,8 +142,13 @@ body[data-theme='dark'] .access-denied-card strong {
   color: #fecaca;
 }
 
+body[data-theme='dark'] .invite-recognized-card strong {
+  color: #86efac;
+}
+
 body[data-theme='dark'] .access-denied-card p,
-body[data-theme='dark'] .access-denied-card ul {
+body[data-theme='dark'] .access-denied-card ul,
+body[data-theme='dark'] .invite-recognized-card p {
   color: #e2e8f0;
 }
 
@@ -148,6 +156,11 @@ body[data-theme='dark'] .access-denied-card button {
   border-color: rgba(248, 113, 113, 0.28);
   background: #172033;
   color: #fecaca;
+}
+
+body[data-theme='dark'] .invite-recognized-card span {
+  background: #0f172a;
+  color: #86efac;
 }
 
 body[data-theme='dark'] .presentation-process strong {
@@ -444,6 +457,12 @@ body[data-theme='dark'] .company-access-actions svg {
 
 body[data-theme='dark'] .company-profile-status {
   color: #facc15;
+}
+
+body[data-theme='dark'] .company-access-actions .company-access-share {
+  border-color: rgba(212, 176, 98, 0.42);
+  background: rgba(212, 176, 98, 0.18);
+  color: #f8fafc;
 }
 
 body[data-theme='dark'] .decision-form input::placeholder,
