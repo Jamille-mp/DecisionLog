@@ -27,6 +27,7 @@
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "@sentry/node": "^10.56.0",
     "amqplib": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",

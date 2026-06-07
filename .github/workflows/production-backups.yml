@@ -1,0 +1,75 @@
+name: Production Backups
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: Backup MySQL e MongoDB
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verificar secrets obrigatórias
+        run: |
+          test -n "$PROD_DATABASE_URL"
+          test -n "$PROD_MONGODB_URL"
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+          PROD_MONGODB_URL: ${{ secrets.PROD_MONGODB_URL }}
+
+      - name: Preparar pasta
+        run: mkdir -p backups
+
+      - name: Extrair credenciais MySQL da DATABASE_URL
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import unquote, urlparse
+
+          url = urlparse(os.environ["PROD_DATABASE_URL"])
+          values = {
+              "MYSQL_HOST": url.hostname or "",
+              "MYSQL_PORT": str(url.port or 3306),
+              "MYSQL_USER": unquote(url.username or ""),
+              "MYSQL_PASSWORD": unquote(url.password or ""),
+              "MYSQL_DATABASE": url.path.lstrip("/"),
+          }
+
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              for key, value in values.items():
+                  env.write(f"{key}={value}\n")
+          PY
+        env:
+          PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Backup MySQL
+        run: |
+          docker run --rm mysql:8 \
+            sh -c 'mysqldump -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" --single-transaction --set-gtid-purged=OFF | gzip -9' \
+            > backups/mysql-$(date +%Y%m%d-%H%M%S).sql.gz
+        env:
+          MYSQL_HOST: ${{ env.MYSQL_HOST }}
+          MYSQL_PORT: ${{ env.MYSQL_PORT }}
+          MYSQL_USER: ${{ env.MYSQL_USER }}
+          MYSQL_PASSWORD: ${{ env.MYSQL_PASSWORD }}
+          MYSQL_DATABASE: ${{ env.MYSQL_DATABASE }}
+
+      - name: Backup MongoDB
+        run: |
+          docker run --rm mongo:7 \
+            mongodump --uri="$PROD_MONGODB_URL" --archive --gzip \
+            > backups/mongodb-$(date +%Y%m%d-%H%M%S).archive.gz
+        env:
+          PROD_MONGODB_URL: ${{ secrets.PROD_MONGODB_URL }}
+
+      - name: Publicar artefatos de backup
+        uses: actions/upload-artifact@v4
+        with:
+          name: decisionlog-production-backups
+          path: backups/
+          retention-days: 14

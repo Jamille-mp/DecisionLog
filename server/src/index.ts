@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import { initObservability } from "./config/observability";
 import {
   apiRateLimiter,
   authRateLimiter,
@@ -16,6 +17,7 @@ import { healthRoutes } from "./modules/health/routes";
 import { userRoutes } from "./modules/users/routes";
 
 dotenv.config();
+initObservability();
 
 const app = express();
 const port = Number(process.env.PORT) || 3333;
