@@ -150,6 +150,159 @@ userRoutes.patch(
 );
 
 userRoutes.delete(
+  "/me",
+  asyncHandler(async (request, response) => {
+    const currentUser = await prisma.user.findUnique({
+      where: {
+        id: request.user?.id,
+      },
+    });
+
+    if (!currentUser || !currentUser.active) {
+      throw new AppError("Usuário não encontrado.", 404);
+    }
+
+    const deletedUser = await prisma.user.update({
+      where: {
+        id: currentUser.id,
+      },
+      data: {
+        active: false,
+        name: `Usuário excluído ${currentUser.id.slice(0, 8)}`,
+        email: `deleted-${currentUser.id}@decisionlog.local`,
+        phone: null,
+        avatarUrl: null,
+        departmentId: null,
+        passwordResetTokenHash: null,
+        passwordResetExpiresAt: null,
+      },
+      select: {
+        id: true,
+        companyId: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        createdAt: true,
+      },
+    });
+
+    await prisma.refreshToken.updateMany({
+      where: {
+        userId: currentUser.id,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+
+    void logActivity(
+      "PROFILE_DELETED",
+      {
+        userId: currentUser.id,
+        companyId: currentUser.companyId,
+        estadoAnterior: {
+          id: currentUser.id,
+          name: currentUser.name,
+          email: currentUser.email,
+          role: currentUser.role,
+          active: currentUser.active,
+        },
+        estadoNovo: deletedUser,
+      },
+      request.user?.id,
+      request.user?.companyId,
+    );
+
+    response.json(deletedUser);
+  }),
+);
+
+userRoutes.delete(
+  "/company",
+  requireRole(["admin"]),
+  asyncHandler(async (request, response) => {
+    const currentUser = await prisma.user.findUnique({
+      where: {
+        id: request.user?.id,
+      },
+      include: {
+        company: true,
+      },
+    });
+
+    if (!currentUser || !currentUser.active || !currentUser.company.active) {
+      throw new AppError("Empresa não encontrada ou já encerrada.", 404);
+    }
+
+    const companyId = currentUser.companyId;
+    const closedAt = new Date();
+
+    const company = await prisma.company.update({
+      where: {
+        id: companyId,
+      },
+      data: {
+        active: false,
+      },
+    });
+
+    await prisma.companyDomain.updateMany({
+      where: {
+        companyId,
+      },
+      data: {
+        active: false,
+      },
+    });
+
+    await prisma.user.updateMany({
+      where: {
+        companyId,
+      },
+      data: {
+        active: false,
+        passwordResetTokenHash: null,
+        passwordResetExpiresAt: null,
+      },
+    });
+
+    await prisma.refreshToken.updateMany({
+      where: {
+        user: {
+          companyId,
+        },
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: closedAt,
+      },
+    });
+
+    void logActivity(
+      "COMPANY_DELETED",
+      {
+        companyId,
+        companyName: currentUser.company.name,
+        closedByUserId: currentUser.id,
+        closedAt,
+      },
+      request.user?.id,
+      request.user?.companyId,
+    );
+
+    response.json({
+      id: company.id,
+      name: company.name,
+      active: company.active,
+      closedAt,
+      message: "Empresa encerrada com segurança.",
+    });
+  }),
+);
+
+userRoutes.delete(
   "/:id",
   requireRole(["admin"]),
   asyncHandler(async (request, response) => {

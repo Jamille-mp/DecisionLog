@@ -67,7 +67,8 @@ export async function rotateRefreshToken(request: Request, response: Response) {
     !storedToken ||
     storedToken.revokedAt ||
     storedToken.expiresAt <= new Date() ||
-    !storedToken.user.active
+    !storedToken.user.active ||
+    !storedToken.user.company?.active
   ) {
     clearRefreshCookie(response);
     return null;

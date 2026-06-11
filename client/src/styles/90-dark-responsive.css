@@ -262,6 +262,24 @@ body[data-theme='dark'] .company-profile-card {
   color: #f8fafc;
 }
 
+body[data-theme='dark'] .danger-zone-panel {
+  border-color: rgba(248, 113, 113, 0.22);
+  background: #1f1518;
+}
+
+body[data-theme='dark'] .danger-zone-actions article {
+  border-color: rgba(248, 113, 113, 0.18);
+  background: #111827;
+}
+
+body[data-theme='dark'] .danger-zone-actions strong {
+  color: #fecaca;
+}
+
+body[data-theme='dark'] .danger-zone-actions span {
+  color: #cbd5e1;
+}
+
 body[data-theme='dark'] .profile-company-badge .company-mark {
   background: rgba(212, 176, 98, 0.18);
   color: #f8fafc;
@@ -822,6 +840,14 @@ body[data-theme='dark'] option {
   .profile-save-panel {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .danger-zone-actions article {
+    grid-template-columns: 1fr;
+  }
+
+  .danger-zone-actions button {
+    width: 100%;
   }
 
   .toolbar-actions button,

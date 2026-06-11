@@ -786,6 +786,56 @@ function App() {
     }
   }
 
+  function requestDeleteOwnProfile() {
+    setConfirmDialog({
+      title: 'Excluir seu perfil?',
+      description: 'Seu acesso será encerrado e suas sessões ativas serão revogadas.',
+      details: 'Para preservar auditoria corporativa, decisões e históricos anteriores continuam registrados com dados pessoais minimizados.',
+      confirmLabel: 'Excluir meu perfil',
+      tone: 'danger',
+      onConfirm: async () => {
+        const response = await fetch(`${apiUrl}/users/me`, {
+          method: 'DELETE',
+          headers: authHeaders(token),
+        })
+
+        if (!response.ok) {
+          toast.error('Não foi possível excluir seu perfil.')
+          return
+        }
+
+        toast.success('Perfil excluído com segurança.')
+        handleLogout()
+      },
+    })
+  }
+
+  function requestDeleteCompany() {
+    if (!isAdmin) return
+
+    setConfirmDialog({
+      title: 'Excluir empresa?',
+      description: `O ambiente ${user?.company?.name || 'da empresa'} será encerrado para todos os usuários.`,
+      details: 'Domínios, convites, sessões e acessos vinculados serão desativados. As decisões e auditorias permanecem preservadas para rastreabilidade.',
+      confirmLabel: 'Excluir empresa',
+      tone: 'danger',
+      onConfirm: async () => {
+        const response = await fetch(`${apiUrl}/users/company`, {
+          method: 'DELETE',
+          headers: authHeaders(token),
+        })
+
+        if (!response.ok) {
+          toast.error('Não foi possível excluir a empresa.')
+          return
+        }
+
+        toast.success('Empresa encerrada com segurança.')
+        handleLogout()
+      },
+    })
+  }
+
   function navigateTo(page: Page) {
     if (page === 'new-decision' && user?.role === 'auditor') {
       toast.error('Auditores podem consultar, mas não registrar decisões.')
@@ -898,7 +948,13 @@ function App() {
         )
       case 'profile':
         return user ? (
-          <ProfilePage isSubmitting={isSubmitting} onSave={handleUpdateProfile} user={user} />
+          <ProfilePage
+            isSubmitting={isSubmitting}
+            onDeleteAccount={requestDeleteOwnProfile}
+            onDeleteCompany={requestDeleteCompany}
+            onSave={handleUpdateProfile}
+            user={user}
+          />
         ) : null
       case 'help':
         return <HelpPage userRole={userProfile.role} companyName={userProfile.company} />

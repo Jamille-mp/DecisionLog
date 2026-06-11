@@ -335,7 +335,7 @@ authRoutes.post(
       },
     });
 
-    if (!user || !user.active) {
+    if (!user || !user.active || !user.company?.active) {
       throw new AppError("Credenciais inválidas.", 401);
     }
 

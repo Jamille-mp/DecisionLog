@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Building2, Copy, Eye, EyeOff, Moon, Share2, ShieldCheck, Sun } from 'lucide-react'
+import { Building2, Copy, Eye, EyeOff, Moon, Share2, ShieldCheck, Sun, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { CompanyBadge } from '../components/shared/CompanyBadge'
 import { PageHeader } from '../components/shared/PageHeader'
@@ -11,11 +11,13 @@ import { formatPhone } from '../utils/format'
 
 type ProfilePageProps = {
   isSubmitting: boolean
+  onDeleteAccount: () => void
+  onDeleteCompany: () => void
   onSave: (data: ProfileFormData) => Promise<void>
   user: User
 }
 
-export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
+export function ProfilePage({ isSubmitting, onDeleteAccount, onDeleteCompany, onSave, user }: ProfilePageProps) {
   const [formData, setFormData] = useState<ProfileFormData>({
     companyName: user.company?.name || '',
     name: user.name,
@@ -336,6 +338,46 @@ export function ProfilePage({ isSubmitting, onSave, user }: ProfilePageProps) {
             <div className="profile-summary">
               <span>Termos aceitos no cadastro</span>
               <span>Política de privacidade aceita no cadastro</span>
+            </div>
+          </section>
+
+          <section className="profile-panel danger-zone-panel">
+            <div className="profile-panel-header">
+              <h2>Zona de segurança</h2>
+              <p>
+                Estas ações encerram acessos e preservam os registros necessários para auditoria, LGPD e
+                rastreabilidade corporativa.
+              </p>
+            </div>
+            <div className="danger-zone-actions">
+              <article>
+                <div>
+                  <strong>Excluir meu perfil</strong>
+                  <span>
+                    Remove seu acesso, revoga sessões ativas e minimiza seus dados pessoais. Decisões e
+                    auditorias anteriores continuam preservadas.
+                  </span>
+                </div>
+                <button type="button" onClick={onDeleteAccount}>
+                  <Trash2 />
+                  Excluir perfil
+                </button>
+              </article>
+              {user.role === 'admin' && (
+                <article>
+                  <div>
+                    <strong>Excluir empresa</strong>
+                    <span>
+                      Encerra o ambiente da empresa, bloqueia o domínio corporativo e desativa todos os
+                      usuários vinculados.
+                    </span>
+                  </div>
+                  <button type="button" onClick={onDeleteCompany}>
+                    <Trash2 />
+                    Excluir empresa
+                  </button>
+                </article>
+              )}
             </div>
           </section>
 
