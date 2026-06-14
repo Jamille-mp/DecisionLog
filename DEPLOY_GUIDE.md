@@ -1,6 +1,6 @@
 # Guia de Deploy do DecisionLog
 
-Este guia prepara uma publicação de homologação com frontend, backend, MySQL, MongoDB e, se desejado, RabbitMQ/OAuth2.
+Este guia prepara uma publicação de homologação com frontend, backend, MySQL, MongoDB, RabbitMQ e OAuth2/OpenID Connect.
 
 ## 1. Antes de Publicar
 
@@ -30,7 +30,7 @@ Opção mais simples para apresentação:
 - Backend: Render
 - MySQL: Railway, Aiven, PlanetScale ou Clever Cloud
 - MongoDB: MongoDB Atlas
-- RabbitMQ: CloudAMQP ou modo `memory` para demonstração
+- RabbitMQ: CloudAMQP, usando `EVENT_BROKER_MODE="rabbitmq"`
 
 Para a disciplina, o essencial é ter um ambiente acessível por URL pública e HTTPS.
 
@@ -96,7 +96,10 @@ DATABASE_USER="..."
 DATABASE_PASSWORD="..."
 DATABASE_NAME="..."
 MONGODB_URL="mongodb+srv://..."
-EVENT_BROKER_MODE="memory"
+EVENT_BROKER_MODE="rabbitmq"
+RABBITMQ_URL="amqps://USUARIO:SENHA@HOST/VHOST"
+RABBITMQ_EXCHANGE="decisionlog.events"
+RABBITMQ_QUEUE="decisionlog.audit.events"
 ```
 
 Na homologação atual do DecisionLog:
@@ -105,12 +108,13 @@ Na homologação atual do DecisionLog:
 CLIENT_URL="https://decision-log-rouge.vercel.app"
 ```
 
-Use `EVENT_BROKER_MODE="memory"` se ainda não tiver RabbitMQ externo. Para usar RabbitMQ real:
+Para a entrega completa, mantenha RabbitMQ real via CloudAMQP:
 
 ```env
 EVENT_BROKER_MODE="rabbitmq"
 RABBITMQ_URL="amqps://USUARIO:SENHA@HOST/VHOST"
 RABBITMQ_EXCHANGE="decisionlog.events"
+RABBITMQ_QUEUE="decisionlog.audit.events"
 ```
 
 Após publicar, teste:

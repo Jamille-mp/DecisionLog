@@ -20,7 +20,7 @@ let rabbitConnection: ChannelModel | null = null;
 let rabbitChannel: Channel | null = null;
 
 function getBrokerMode(): BrokerMode {
-  const mode = process.env.EVENT_BROKER_MODE;
+  const mode = process.env.EVENT_BROKER_MODE || process.env.EVENTS_MODE;
 
   if (mode === "rabbitmq" || mode === "fail") {
     return mode;
@@ -63,10 +63,13 @@ async function getRabbitChannel() {
 
   const url = process.env.RABBITMQ_URL || "amqp://localhost:5672";
   const exchange = process.env.RABBITMQ_EXCHANGE || "decisionlog.events";
+  const queue = process.env.RABBITMQ_QUEUE || "decisionlog.audit.events";
 
   rabbitConnection = await amqp.connect(url);
   rabbitChannel = await rabbitConnection.createChannel();
   await rabbitChannel.assertExchange(exchange, "topic", { durable: true });
+  await rabbitChannel.assertQueue(queue, { durable: true });
+  await rabbitChannel.bindQueue(queue, exchange, "#");
 
   return rabbitChannel;
 }
@@ -131,6 +134,10 @@ export function getEventBusHealth() {
   return {
     mode,
     configured: mode === "rabbitmq" ? Boolean(process.env.RABBITMQ_URL) : true,
+    queue:
+      mode === "rabbitmq"
+        ? process.env.RABBITMQ_QUEUE || "decisionlog.audit.events"
+        : null,
     state: circuitState,
     failureCount,
     lastFailureAt,

@@ -525,7 +525,7 @@ function App() {
       )
 
       if (!response.ok) {
-        throw new Error('Não foi possível salvar a decisão.')
+        throw new Error(await readApiError(response, 'Não foi possível salvar a decisão.'))
       }
 
       const savedDecision = (await response.json()) as ApiDecision
@@ -539,8 +539,15 @@ function App() {
       setCurrentPage('history')
       toast.success(editingDecision ? 'Decisão atualizada.' : 'Decisão registrada com sucesso.')
       void refreshAuditLogs()
-    } catch {
-      toast.error('Erro ao salvar decisão. Verifique se a API está rodando.')
+    } catch (error) {
+      const message =
+        error instanceof TypeError
+          ? 'Não foi possível conectar à API. Verifique se o backend está rodando.'
+          : error instanceof Error
+            ? error.message
+            : 'Erro ao salvar decisão.'
+
+      toast.error(message)
     } finally {
       setIsSubmitting(false)
     }

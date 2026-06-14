@@ -53,6 +53,7 @@ export type Health = {
     events: {
       configured?: boolean
       mode?: string
+      queue?: string | null
       state: string
       failureCount?: number
       lastFailureAt?: string | null
