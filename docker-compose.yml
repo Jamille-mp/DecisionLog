@@ -7,7 +7,7 @@ services:
       MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:-decisionlog_dev_password}"
       MYSQL_DATABASE: "${MYSQL_DATABASE:-decisionlog}"
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - decisionlog_mysql_data:/var/lib/mysql
     healthcheck:

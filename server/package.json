@@ -16,6 +16,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed": "ts-node-dev --transpile-only --exit-child prisma/seed.ts",
+    "events:consume": "ts-node-dev --transpile-only src/workers/eventConsumer.ts",
     "backup:mysql": "powershell -ExecutionPolicy Bypass -File scripts/backup-mysql.ps1",
     "backup:mongodb": "powershell -ExecutionPolicy Bypass -File scripts/backup-mongodb.ps1",
     "backup:all": "npm run backup:mysql && npm run backup:mongodb"

@@ -13,3 +13,10 @@ npm-debug.log*
 backups/
 client/test-results/
 client/playwright-report/
+
+# Artefatos locais de relatório/entrega gerados durante a orientação.
+docs/wireframes/
+docs/mockups/
+docs/ENTREGA_04_EVIDENCIAS.md
+tools/generate-wireframes.mjs
+tools/generate-mockups.mjs
